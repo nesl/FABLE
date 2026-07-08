@@ -1,0 +1,51 @@
+.header-actions { display: flex; gap: 0.75rem; align-items: center; }
+.button-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.55rem 0.75rem;
+  border-radius: 999px;
+  background: #475569;
+  color: white;
+  text-decoration: none;
+  font-weight: 800;
+}
+.device-main {
+  grid-template-columns: minmax(280px, 360px) 1.3fr 0.9fr;
+  align-items: start;
+}
+.device-controls { grid-column: 1; }
+.status-panel { grid-column: 1 / -1; }
+.yolo-view { grid-column: 2; }
+.audio-view { grid-column: 3; }
+.device-log-panel { grid-column: 1 / -1; }
+.section-title-row { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; }
+.status-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.75rem; }
+.status-card { background: #f8fafc; border: 1px solid #dbe3ef; border-radius: 12px; padding: 0.85rem; display: grid; gap: 0.25rem; }
+.status-card strong { font-size: 1rem; color: #0f172a; }
+.status-card small { color: #64748b; line-height: 1.35; }
+.status-explainer { margin-top: 0.8rem; }
+.image-frame {
+  position: relative;
+  min-height: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0f172a;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.image-frame img { max-width: 100%; width: 100%; display: none; }
+#imagePlaceholder { color: #cbd5e1; text-align: center; padding: 2rem; max-width: 680px; }
+.audio-meter-wrap { display: grid; grid-template-columns: 1fr auto; gap: 0.8rem; align-items: center; margin: 1rem 0; }
+.audio-meter-track { height: 22px; background: #e2e8f0; border-radius: 999px; overflow: hidden; }
+.audio-meter-fill { height: 100%; width: 0%; background: #2563eb; transition: width 150ms linear; }
+.audio-db { font-size: 1.35rem; font-weight: 850; min-width: 86px; text-align: right; }
+.audio-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; margin-bottom: 1rem; }
+.audio-grid > div { background: #f8fafc; border: 1px solid #dbe3ef; border-radius: 10px; padding: 0.75rem; display: grid; gap: 0.15rem; }
+.label-small { color: #64748b; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; font-weight: 800; }
+@media (max-width: 1180px) {
+  .device-main { grid-template-columns: 1fr; }
+  .device-controls, .status-panel, .yolo-view, .audio-view, .device-log-panel { grid-column: auto; }
+  .status-grid { grid-template-columns: 1fr; }
+}

@@ -18,7 +18,7 @@ from abc import ABC, abstractmethod
 from typing import Type, Any, Union, Optional, Callable, Dict, Literal, final
 import types
 
-print("Using iob_max_service.py v0.4")
+print("Using iob_max_service.py v0.5-replay-retry")
 
 class state(Enum):
     """

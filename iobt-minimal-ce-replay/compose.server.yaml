@@ -16,8 +16,13 @@ services:
     environment:
       - MQTT_HOST=mqtt
       - MQTT_PORT=1883
-      - "IOBT_DATA_ROOTS=/media/brianw/Extreme SSD/West Point Experimentation:/media/brianw/Extreme SSD/GQ Data"
+      - IOBT_DATA_ROOTS=/data_roots/west_point:/data_roots/gq
+      - SCENARIO_CATALOG_DIR=/generated
     ports:
       - "8080:8080"
+    volumes:
+      - ./generated:/generated
+      - "/media/brianw/Extreme SSD/West Point Experimentation:/data_roots/west_point:ro"
+      - "/media/brianw/Extreme SSD/GQ Data:/data_roots/gq:ro"
     depends_on:
       - mqtt

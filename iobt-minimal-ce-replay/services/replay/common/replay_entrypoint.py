@@ -245,8 +245,33 @@ class ReplaySupervisor:
         self.error(f"unknown service: {self.service}")
         return False
 
+    def _format_child_offset(self, value: float) -> str:
+        """Format replay offsets for the original child apps.
+
+        The persistent supervisor accepts float-valued /replay/config payloads
+        because the web UI uses numeric fields. The original ZED and GPS replay
+        apps, however, define --start/--end as int argparse fields, so passing
+        "0.0" crashes before replay begins. ReSpeaker accepts floats, so keep
+        fractional values there.
+        """
+        if self.service in {"zed", "gps"}:
+            if value == -1 or value < 0:
+                return "-1"
+            return str(int(value))
+        return f"{value:g}"
+
     def child_command(self, scenario: str, start: float, end: float) -> list[str]:
-        cmd = [sys.executable, "-u", self.args.child_app, "--scenario", scenario, "--start", str(start), "--end", str(end)]
+        cmd = [
+            sys.executable,
+            "-u",
+            self.args.child_app,
+            "--scenario",
+            scenario,
+            "--start",
+            self._format_child_offset(start),
+            "--end",
+            self._format_child_offset(end),
+        ]
         if self.service == "zed":
             if not self.args.debug_raw_mqtt:
                 cmd.extend(["--no_rgb_mqtt", "--no_depth_mqtt"])

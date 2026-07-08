@@ -20,6 +20,8 @@ from pathlib import Path
 from threading import Lock
 from typing import Any, Deque, Dict, Iterable, List
 
+from lib.scenario_catalog import build_and_write_catalog, parse_roots, scan_scenarios
+
 import paho.mqtt.client as mqtt
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -40,11 +42,20 @@ DEFAULT_DATA_ROOTS = [
 ]
 
 DATA_ROOTS = [p for p in os.environ.get("IOBT_DATA_ROOTS", "").split(os.pathsep) if p] or DEFAULT_DATA_ROOTS
+SCENARIO_CATALOG_DIR = Path(os.environ.get("SCENARIO_CATALOG_DIR", "/generated"))
+_scenario_catalog_cache: Dict[str, Any] | None = None
 
 SUBSCRIPTIONS = [
     "/replay/#",
     "/+/analytics/yolo/bbox",
+    "/+/analytics/yolo/status",              # legacy status topic
+    "/debug/+/analytics/yolo/status",        # explicit synthetic debug topic
+    "/+/analytics/yolo/annotated/compressed",
+    "/debug/+/analytics/yolo/annotated/compressed",
+    "/debug/+/analytics/yolo/frame",           # explicit synthetic frame-input probe
     "/+/audio_detector/detections",
+    "/+/audio_detector/status",             # legacy status topic
+    "/debug/+/audio_detector/status",       # explicit synthetic debug topic
     "/complex_events/#",
     "/trackers/#",
     "/geospatialdetections/#",
@@ -59,11 +70,21 @@ app.add_middleware(
 )
 app.mount("/static", StaticFiles(directory=str(STATIC)), name="static")
 
-_messages: Deque[Dict[str, Any]] = deque(maxlen=1000)
+_messages: Deque[Dict[str, Any]] = deque(maxlen=300)
 _lock = Lock()
 _next_id = 1
 _mqtt_client: mqtt.Client | None = None
 _connected = False
+_last_replay_config: Dict[str, Any] | None = None
+_last_replay_sync: Dict[str, Any] | None = None
+
+
+def _remember_replay_message(topic: str, payload: Any) -> None:
+    global _last_replay_config, _last_replay_sync
+    if topic == "/replay/config":
+        _last_replay_config = payload if isinstance(payload, dict) else {"raw": payload}
+    elif topic == "/replay/sync":
+        _last_replay_sync = payload if isinstance(payload, dict) else {"raw": payload}
 
 
 class ReplayStartRequest(BaseModel):
@@ -105,6 +126,7 @@ def _record_message(topic: str, payload: Any, direction: str = "in") -> Dict[str
         }
         _next_id += 1
         _messages.append(item)
+        _remember_replay_message(topic, payload)
         return item
 
 
@@ -162,8 +184,19 @@ def _connect_mqtt() -> mqtt.Client:
 
 @app.on_event("startup")
 def startup() -> None:
-    global _mqtt_client
+    global _mqtt_client, _scenario_catalog_cache
     _mqtt_client = _connect_mqtt()
+    try:
+        roots = [Path(p) for p in DATA_ROOTS]
+        _scenario_catalog_cache = build_and_write_catalog(roots, SCENARIO_CATALOG_DIR)
+        _record_message("$web_ui/scenario_catalog", {
+            "count": _scenario_catalog_cache["metadata"]["count"],
+            "json": _scenario_catalog_cache["paths"]["json"],
+            "csv": _scenario_catalog_cache["paths"]["csv"],
+        }, direction="status")
+    except Exception as exc:
+        _scenario_catalog_cache = {"metadata": {"roots": DATA_ROOTS, "count": 0, "error": str(exc)}, "scenarios": [], "paths": {}}
+        _record_message("$web_ui/scenario_catalog", {"error": str(exc)}, direction="status")
 
 
 @app.on_event("shutdown")
@@ -180,6 +213,16 @@ def index() -> FileResponse:
     return FileResponse(STATIC / "index.html")
 
 
+@app.get("/device")
+def device_view() -> FileResponse:
+    return FileResponse(STATIC / "device_view.html")
+
+
+@app.get("/scenarios")
+def scenarios_view() -> FileResponse:
+    return FileResponse(STATIC / "scenarios.html")
+
+
 @app.get("/api/state")
 def state() -> Dict[str, Any]:
     return {
@@ -187,6 +230,7 @@ def state() -> Dict[str, Any]:
         "subscriptions": SUBSCRIPTIONS,
         "data_roots": DATA_ROOTS,
         "recent": _recent_messages(limit=50),
+        "replay": {"config": _last_replay_config, "sync": _last_replay_sync},
     }
 
 
@@ -205,6 +249,51 @@ def data_roots() -> Dict[str, Any]:
 @app.get("/api/messages")
 def messages(after_id: int = 0, limit: int = 200) -> Dict[str, Any]:
     return {"messages": _recent_messages(after_id=after_id, limit=limit)}
+
+
+@app.get("/api/scenarios")
+def scenarios() -> Dict[str, Any]:
+    global _scenario_catalog_cache
+    if _scenario_catalog_cache is None:
+        _scenario_catalog_cache = build_and_write_catalog([Path(p) for p in DATA_ROOTS], SCENARIO_CATALOG_DIR)
+    return {
+        "metadata": _scenario_catalog_cache.get("metadata", {}),
+        "paths": _scenario_catalog_cache.get("paths", {}),
+        "scenarios": _scenario_catalog_cache.get("scenarios", []),
+    }
+
+
+@app.post("/api/scenarios/refresh")
+def refresh_scenarios() -> Dict[str, Any]:
+    global _scenario_catalog_cache
+    _scenario_catalog_cache = build_and_write_catalog([Path(p) for p in DATA_ROOTS], SCENARIO_CATALOG_DIR)
+    _record_message("$web_ui/scenario_catalog", {
+        "count": _scenario_catalog_cache["metadata"]["count"],
+        "json": _scenario_catalog_cache["paths"].get("json"),
+        "csv": _scenario_catalog_cache["paths"].get("csv"),
+    }, direction="status")
+    return {
+        "ok": True,
+        "metadata": _scenario_catalog_cache.get("metadata", {}),
+        "paths": _scenario_catalog_cache.get("paths", {}),
+        "scenarios": _scenario_catalog_cache.get("scenarios", []),
+    }
+
+
+@app.get("/api/scenarios/catalog.json")
+def scenario_catalog_json() -> FileResponse:
+    path = SCENARIO_CATALOG_DIR / "scenario_catalog.json"
+    if not path.exists():
+        build_and_write_catalog([Path(p) for p in DATA_ROOTS], SCENARIO_CATALOG_DIR)
+    return FileResponse(path, media_type="application/json", filename="scenario_catalog.json")
+
+
+@app.get("/api/scenarios/catalog.csv")
+def scenario_catalog_csv() -> FileResponse:
+    path = SCENARIO_CATALOG_DIR / "scenario_catalog.csv"
+    if not path.exists():
+        build_and_write_catalog([Path(p) for p in DATA_ROOTS], SCENARIO_CATALOG_DIR)
+    return FileResponse(path, media_type="text/csv", filename="scenario_catalog.csv")
 
 
 @app.post("/api/replay/start")

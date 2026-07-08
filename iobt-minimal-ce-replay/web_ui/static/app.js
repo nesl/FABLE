@@ -15,8 +15,8 @@ function asPretty(value) {
 
 function topicKind(topic) {
   if (topic.startsWith("/replay/")) return "replay";
-  if (topic.includes("/analytics/yolo/bbox")) return "yolo";
-  if (topic.includes("/audio_detector/detections")) return "audio";
+  if (topic.includes("/analytics/yolo/bbox") || topic.includes("/analytics/yolo/annotated/compressed")) return "yolo";
+  if (topic.includes("/audio_detector/detections") || topic.includes("/audio_detector/status")) return "audio";
   if (topic.startsWith("/complex_events/")) return "ce";
   return "other";
 }
@@ -101,6 +101,16 @@ async function postJson(url, body) {
   return payload;
 }
 
+
+function prefillScenarioFromUrlOrStorage() {
+  const params = new URLSearchParams(window.location.search);
+  const selected = params.get("scenario") || localStorage.getItem("iobt_selected_scenario") || "";
+  if (selected && $("scenario")) {
+    $("scenario").value = selected;
+    updateCandidateFolders();
+  }
+}
+
 async function loadInitialState() {
   const resp = await fetch("/api/state");
   const state = await resp.json();
@@ -181,6 +191,7 @@ $("clearBtn").addEventListener("click", () => {
   renderLog();
 });
 
+prefillScenarioFromUrlOrStorage();
 loadInitialState().then(connectEvents).catch((err) => {
   console.error(err);
   connectEvents();

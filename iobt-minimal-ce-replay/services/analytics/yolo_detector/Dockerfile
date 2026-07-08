@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
     && pip install --no-cache-dir pynng==0.8.1 paho-mqtt==2.1.0 h5py msgpack==1.1.0 \
-       numpy opencv-python-headless pandas ultralytics
+       numpy scipy opencv-python-headless pandas ultralytics
 
 COPY services/analytics/yolo_detector/app /app
 COPY lib /lib/iobtmax
