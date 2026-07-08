@@ -15,5 +15,6 @@ RUN pip3 install --no-cache-dir --upgrade pip setuptools \
 
 COPY services/replay/zed/app /app
 COPY lib /lib/iobtmax
+COPY services/replay/common/replay_entrypoint.py /app/replay_entrypoint.py
 WORKDIR /app
 CMD ["python3", "-u", "/app/app.py"]

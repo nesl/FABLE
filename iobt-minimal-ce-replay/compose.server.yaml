@@ -6,4 +6,18 @@ services:
       - "1883:1883"
     volumes:
       - ./server/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
-    restart: unless-stopped
+
+  web-ui:
+    build:
+      context: .
+      dockerfile: web_ui/Dockerfile
+      network: host
+    container_name: iobt-minimal-web-ui
+    environment:
+      - MQTT_HOST=mqtt
+      - MQTT_PORT=1883
+      - "IOBT_DATA_ROOTS=/media/brianw/Extreme SSD/West Point Experimentation:/media/brianw/Extreme SSD/GQ Data"
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mqtt

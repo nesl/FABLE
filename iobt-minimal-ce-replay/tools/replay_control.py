@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 """Send replay config/sync messages to the local MQTT broker.
 
+This tool does not choose the data folder. The generated Docker compose file
+mounts the chosen <data-root>/<YYYYMMDD>/... date directory into the replay
+containers. This only tells those already-running containers which scenario/file
+prefix to replay.
+
 Usage:
-  python3 tools/replay_control.py --scenario 20260414_134838 --start 0 --end -1 --sync-delay 5
+  python3 tools/replay_control.py --scenario 20260414_134838 --start 0 --end -1 --sync-delay 10
 """
 
 import argparse
@@ -19,7 +24,7 @@ def main():
     ap.add_argument("--scenario", required=True)
     ap.add_argument("--start", type=float, default=0.0)
     ap.add_argument("--end", type=float, default=-1.0)
-    ap.add_argument("--sync-delay", type=float, default=5.0, help="Seconds in the future for synchronized start")
+    ap.add_argument("--sync-delay", type=float, default=10.0, help="Seconds in the future for synchronized start")
     ap.add_argument("--send-control", action="store_true", help="Also publish collection-start on the global control topic")
     args = ap.parse_args()
 

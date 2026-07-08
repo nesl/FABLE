@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>IoBT Minimal Replay UI</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <header>
+    <div>
+      <h1>IoBT Minimal Replay UI</h1>
+      <p>Control synchronized replay and watch detector / complex-event MQTT streams.</p>
+    </div>
+    <div id="mqttBadge" class="badge">MQTT: connecting</div>
+  </header>
+
+  <main>
+    <section class="panel control-panel">
+      <h2>Replay Control</h2>
+      <form id="replayForm">
+        <label>
+          Scenario ID / file prefix
+          <input id="scenario" name="scenario" required placeholder="20260414_134838" />
+        </label>
+        <p class="hint">Use the full scenario prefix from the filenames, not just the date. The date portion is used by the persistent replay supervisors to find the right date folder under the mounted data roots.</p>
+        <label>
+          Start offset seconds
+          <input id="start" name="start" type="number" step="0.1" value="0" />
+        </label>
+        <label>
+          End offset seconds
+          <input id="end" name="end" type="number" step="0.1" value="-1" />
+        </label>
+        <label>
+          Sync delay seconds
+          <input id="syncDelay" name="syncDelay" type="number" step="0.1" min="0" value="10" />
+        </label>
+        <label class="checkbox-row">
+          <input id="sendControl" name="sendControl" type="checkbox" />
+          Also publish <code>collection-start</code>
+        </label>
+        <div class="button-row">
+          <button type="submit">Start replay</button>
+          <button type="button" id="stopBtn" class="secondary">Stop collection</button>
+          <button type="button" id="shutdownBtn" class="danger">Shutdown</button>
+        </div>
+      </form>
+      <p id="lastAction" class="muted">No replay command sent yet.</p>
+      <div class="data-note">
+        <h3>Data source</h3>
+        <p>The web page publishes MQTT replay commands. With <code>compose.replay.yaml</code>, the persistent replay supervisors stay running and resolve the requested scenario dynamically.</p>
+        <p>For the current Scenario ID, replay supervisors will search these candidate date folders inside the mounted SSD roots:</p>
+        <pre id="candidateFolders">Enter a scenario ID to preview candidate folders.</pre>
+        <p class="muted">You only regenerate <code>compose.replay.yaml</code> when you add/remove device folders or change the parent data roots, not for every scenario.</p>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Live Stream Summary</h2>
+      <div class="cards">
+        <div class="card"><span class="metric" id="replayCount">0</span><span>Replay messages</span></div>
+        <div class="card"><span class="metric" id="yoloCount">0</span><span>YOLO detections</span></div>
+        <div class="card"><span class="metric" id="audioCount">0</span><span>Audio detections</span></div>
+        <div class="card"><span class="metric" id="ceCount">0</span><span>Complex events</span></div>
+      </div>
+      <div class="latest-grid">
+        <div>
+          <h3>Latest replay status</h3>
+          <pre id="latestReplay">—</pre>
+        </div>
+        <div>
+          <h3>Latest complex event</h3>
+          <pre id="latestCE">—</pre>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel log-panel">
+      <div class="log-header">
+        <h2>MQTT Tail</h2>
+        <div class="filter-row">
+          <input id="filter" placeholder="Filter by topic text" />
+          <button id="clearBtn" class="secondary" type="button">Clear</button>
+        </div>
+      </div>
+      <div id="log" class="log"></div>
+    </section>
+
+    <section class="panel publish-panel">
+      <h2>Debug Publish</h2>
+      <p class="muted">Convenience endpoint for local experiments. Do not expose this UI on an untrusted network.</p>
+      <form id="publishForm">
+        <label>
+          Topic
+          <input id="pubTopic" placeholder="/complex_events/demo" />
+        </label>
+        <label>
+          Payload
+          <textarea id="pubPayload" rows="4" placeholder='{"type":"test_event"}'></textarea>
+        </label>
+        <button type="submit" class="secondary">Publish</button>
+      </form>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

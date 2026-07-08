@@ -395,20 +395,38 @@ class iobt_max_service(ABC):
             addr = f"ipc:///tmp/{topic}.ipc"
             print(f"Attempting to connect to local publisher {addr}")
 
-            try:
-                self.nng_subscribers[topic]  = pynng.Sub0(dial=addr,recv_timeout=1000)
-                self.nng_subscribers[topic].subscribe(b"")
-                self.nng_subscriber_callbacks[topic] = callback
+            # In replay mode, analytics containers often start before the replay
+            # child has created /tmp/<service>.ipc. The original implementation
+            # tried once and then permanently gave up. Retry in a lightweight
+            # background thread so persistent detector containers can stay up
+            # while scenarios are selected later from the web UI.
+            def _connect_local_with_retry():
+                last_error_time = 0
+                while self.state != state.quit:
+                    if topic in self.nng_subscribers:
+                        return
+                    try:
+                        sub = pynng.Sub0(dial=addr, recv_timeout=1000)
+                        sub.subscribe(b"")
+                        self.nng_subscribers[topic] = sub
+                        self.nng_subscriber_callbacks[topic] = callback
 
-                thread = Thread(target=self._nng_topic_listener, args=(topic,))
-                thread.start()
+                        listener = Thread(target=self._nng_topic_listener, args=(topic,))
+                        listener.daemon = True
+                        listener.start()
+                        self.nng_subscriber_threads[topic] = listener
+                        print(f"Subscribed to local topic: {topic}")
+                        return
+                    except Exception as e:
+                        now = time.time()
+                        if now - last_error_time > 5:
+                            print(f"Local publisher {addr} not ready yet; retrying. Last error: {e}")
+                            last_error_time = now
+                        time.sleep(1)
 
-                self.nng_subscriber_threads[topic] = thread
-                
-                print(f"Subscribed to local topic: {topic}")
-
-            except Exception as e:
-                print(f"An error occurred trying to subscribe: {e}")
+            connector = Thread(target=_connect_local_with_retry)
+            connector.daemon = True
+            connector.start()
 
 
     @final

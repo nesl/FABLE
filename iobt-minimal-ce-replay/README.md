@@ -1,221 +1,212 @@
-# Minimal IoBT replay + local detector + complex-event starter
+# IoBT Minimal CE Replay Starter
 
-This is a small working subset carved out of the larger IoBT-MAX replay/container repository.
-It keeps only the pieces needed for this architecture:
+This is a trimmed replay + analytics + complex-event testbed carved out of the larger IoBT-MAX repo.
 
-```text
-real/replayed sensor data → per-node IPC (*.ipc) → local primitive detector → MQTT → complex-event detector
-```
-
-Raw/high-bandwidth data stays local to a node emulation directory such as `/tmp/iobt-orin11`.
-Only compact detector outputs are published over MQTT.
-
-## What is included
+The current recommended workflow uses **persistent replay containers**:
 
 ```text
-compose.server.yaml                         # minimal Mosquitto broker
-server/mosquitto.conf                       # anonymous local MQTT config
-lib/iobt_max_service.py                     # shared IoBT-MAX service base class
-setup/generate_compose.py                   # scenario compose generator
-setup/zed_settings/                         # ZED calibration/settings files
-
-tools/replay_control.py                     # publishes /replay/config and /replay/sync
-tools/mqtt_tail.py                          # quick MQTT topic monitor
-
-services/replay/zed/                        # x86 ZED SVO replay container
-services/replay/respeaker/                  # x86 ReSpeaker FLAC replay container
-services/replay/gps/                        # x86 GPS replay container
-
-services/analytics/yolo_detector/           # local ZED IPC → MQTT YOLO detections
-services/analytics/audio_detector/          # local ReSpeaker IPC → MQTT audio events
-services/orchestration/complex_event_detector/ # starter MQTT complex-event detector
+compose.server.yaml    -> MQTT broker + lightweight web UI
+compose.replay.yaml    -> persistent replay supervisors + optional local detectors + CE detector
+web UI / MQTT          -> selects scenario dynamically with /replay/config and /replay/sync
 ```
+
+The web UI does **not** read files directly. It only sends MQTT commands. The replay containers mount your parent SSD folders and choose the matching `<YYYYMMDD>/<orinX>/...` files when a scenario is selected.
 
 ## Expected data layout
 
-The compose generator expects the current date-folder layout used by the original `local-containers/services/setup/setup.py` script:
+Your data roots are assumed to be:
 
 ```text
-<data-dir>/<YYYYMMDD>/
-  orin11/
-    <scenario>_dvpg_gq_orin_11_zed.svo2
-    <scenario>_dvpg_gq_orin_11_zed.csv
-    <scenario>_dvpg_gq_orin_11_respeaker.flac
-    <scenario>_dvpg_gq_orin_11_respeaker.csv
-  orin12/
-    ...
-  GPS/
-    <object>/
-      <scenario>_*_gps.csv
+/media/brianw/Extreme SSD/West Point Experimentation/
+/media/brianw/Extreme SSD/GQ Data/
 ```
 
-For example, scenario `20260414_134838` should live under:
+Under those roots, the expected layout is:
 
 ```text
-<data-dir>/20260414/
+<root>/20260413/orin11/<scenario>_*_zed.svo2
+<root>/20260413/orin11/<scenario>_*_zed.csv
+<root>/20260413/orin11/<scenario>_*_respeaker.flac
+<root>/20260413/orin11/<scenario>_*_respeaker.csv
+<root>/20260413/GPS/<object>/<scenario>_*gps.csv
 ```
 
-## Quick start
+Examples:
 
-From this directory:
+```text
+/media/brianw/Extreme SSD/West Point Experimentation/20260413/orin11/20260413_134838_..._zed.svo2
+/media/brianw/Extreme SSD/GQ Data/20250812/orin11/20250812_165739_..._respeaker.flac
+```
+
+## 1. Start MQTT + web UI
+
+```bash
+docker compose -f compose.server.yaml up -d --build
+```
+
+Open:
+
+```text
+http://localhost:8080
+```
+
+This starts only the broker and web UI. It does not replay sensor data by itself.
+
+## 2. Generate the persistent replay stack
+
+Generate `compose.replay.yaml` once from your available device folders:
+
+```bash
+python3 setup/generate_replay_compose.py --compose-out compose.replay.yaml
+```
+
+This scans your two default SSD parent roots, discovers node folders such as `orin11`, `orin12`, etc., and writes a scenario-agnostic compose file.
+
+To force specific nodes:
+
+```bash
+python3 setup/generate_replay_compose.py \
+  --nodes orin11 orin12 \
+  --compose-out compose.replay.yaml
+```
+
+To use custom parent data roots:
+
+```bash
+python3 setup/generate_replay_compose.py \
+  --data-dir "/media/brianw/Extreme SSD/West Point Experimentation" \
+  --data-dir "/media/brianw/Extreme SSD/GQ Data" \
+  --compose-out compose.replay.yaml
+```
+
+Or set:
+
+```bash
+export IOBT_HOST_DATA_ROOTS="/path/to/root1:/path/to/root2"
+```
+
+## 3. Start persistent replay containers
+
+Audio/GPS/CE-first smoke test:
+
+```bash
+python3 setup/generate_replay_compose.py \
+  --no-zed \
+  --compose-out compose.replay.yaml
+
+docker compose -f compose.replay.yaml up -d --build
+```
+
+Full replay supervisors, but without YOLO detector containers:
+
+```bash
+python3 setup/generate_replay_compose.py \
+  --compose-out compose.replay.yaml
+
+docker compose -f compose.replay.yaml up -d --build
+```
+
+Include local YOLO detector containers as well:
+
+```bash
+python3 setup/generate_replay_compose.py \
+  --include-yolo \
+  --load-yolo-model true \
+  --compose-out compose.replay.yaml
+
+docker compose -f compose.replay.yaml up -d --build
+```
+
+ZED replay requires NVIDIA Container Toolkit and the Stereolabs ZED runtime image. If that is not installed, start with `--no-zed`.
+
+## 4. Start replay from the web UI
+
+In the web UI, enter a full scenario prefix such as:
+
+```text
+20260413_134838
+```
+
+Then click **Start replay**.
+
+The UI publishes:
+
+```text
+/replay/config  {"scenario":"20260413_134838", "start_time":0, "end_time":-1}
+/replay/sync    {"scenario":"20260413_134838", "start_at": <future wall time>}
+```
+
+The persistent replay supervisors then search the mounted data roots for:
+
+```text
+/data_roots/west_point/20260413/orin11/...
+/data_roots/gq/20260413/orin11/...
+```
+
+and start/restart the underlying replay app for the selected files.
+
+You do **not** need a new compose file for every scenario. Regenerate `compose.replay.yaml` only when you change parent roots, add/remove device folders, or change which detector services you want active.
+
+## 5. Watch outputs
+
+The web UI tails these by default:
+
+```text
+/replay/#
+/+/analytics/yolo/bbox
+/+/audio_detector/detections
+/complex_events/#
+/trackers/#
+/geospatialdetections/#
+```
+
+From the terminal:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-```
 
-Start the MQTT broker:
-
-```bash
-docker compose -f compose.server.yaml up -d
-```
-
-Generate a scenario compose file:
-
-```bash
-python3 setup/generate_compose.py \
-  --scenario 20260414_134838 \
-  --data-dir /absolute/path/to/data \
-  --compose-out compose.generated.20260414_134838.yaml
-```
-
-Build the generated replay/detector containers:
-
-```bash
-docker compose -f compose.generated.20260414_134838.yaml build
-```
-
-Start the containers:
-
-```bash
-docker compose -f compose.generated.20260414_134838.yaml up --remove-orphans
-```
-
-In another terminal, trigger replay:
-
-```bash
-source .venv/bin/activate
-python3 tools/replay_control.py \
-  --scenario 20260414_134838 \
-  --start 0 \
-  --end -1 \
-  --sync-delay 5
-```
-
-Watch MQTT messages:
-
-```bash
-source .venv/bin/activate
 python3 tools/mqtt_tail.py --topic '#'
 ```
 
-Useful focused topic filters:
+Useful focused monitors:
 
 ```bash
-python3 tools/mqtt_tail.py --topic '/+/analytics/yolo/bbox'
-python3 tools/mqtt_tail.py --topic '/+/audio_detector/detections'
-python3 tools/mqtt_tail.py --topic '/complex_events/#'
 python3 tools/mqtt_tail.py --topic '/replay/#'
+python3 tools/mqtt_tail.py --topic '/+/audio_detector/detections'
+python3 tools/mqtt_tail.py --topic '/+/analytics/yolo/bbox'
+python3 tools/mqtt_tail.py --topic '/complex_events/#'
 ```
 
-## CPU-only / audio-only smoke test
+## Architecture
 
-If you do not have a CUDA-capable host or do not want to build the ZED container yet, generate only ReSpeaker/audio/CE services:
-
-```bash
-python3 setup/generate_compose.py \
-  --scenario 20260414_134838 \
-  --data-dir /absolute/path/to/data \
-  --no-zed \
-  --no-yolo \
-  --compose-out compose.audio_only.yaml
-
-docker compose -f compose.audio_only.yaml build
-docker compose -f compose.audio_only.yaml up --remove-orphans
-```
-
-Then send replay control:
-
-```bash
-python3 tools/replay_control.py --scenario 20260414_134838 --start 0 --end -1 --sync-delay 5
-```
-
-## ZED/GPU notes
-
-The ZED replay image uses `stereolabs/zed:5.4-runtime-cuda12.8-ubuntu22.04` and requires the NVIDIA Container Toolkit.
-The generated compose uses:
-
-```yaml
-gpus: all
-privileged: true
-```
-
-By default, ZED replay does **not** publish RGB/depth over MQTT. It publishes raw frames over IPC for colocated analytics. To allow RGB/depth MQTT debug streams, pass:
-
-```bash
-python3 setup/generate_compose.py ... --debug-raw-mqtt
-```
-
-## Plumbing test without YOLO inference
-
-To check ZED IPC → YOLO container → MQTT without loading YOLO, generate with:
-
-```bash
-python3 setup/generate_compose.py \
-  --scenario 20260414_134838 \
-  --data-dir /absolute/path/to/data \
-  --load-yolo-model false
-```
-
-The patched YOLO app will publish synthetic `class=test` detections when `LOAD_MODEL=false`.
-
-## Architecture details
-
-Each emulated node gets a private host tmp directory:
+High-bandwidth data stays node-local:
 
 ```text
-/tmp/iobt-orin11
-/tmp/iobt-orin12
+ZED replay       -> /tmp/iobt-orin11/zed.ipc       -> YOLO detector
+ReSpeaker replay -> /tmp/iobt-orin11/respeaker.ipc -> audio detector
 ```
 
-Inside the containers for that node, the directory is mounted as `/tmp`, so local IPC sockets line up:
-
-```text
-zed replay container:        /tmp/zed.ipc
-local yolo detector:         /tmp/zed.ipc
-
-respeaker replay container:  /tmp/respeaker.ipc
-local audio detector:        /tmp/respeaker.ipc
-```
-
-On the host, they are isolated by node:
-
-```text
-/tmp/iobt-orin11/zed.ipc
-/tmp/iobt-orin11/respeaker.ipc
-/tmp/iobt-orin12/zed.ipc
-/tmp/iobt-orin12/respeaker.ipc
-```
-
-Primitive detector MQTT topics:
+Compact detector/event streams go over MQTT:
 
 ```text
 /<node>/analytics/yolo/bbox
 /<node>/audio_detector/detections
 /<object>_replay/gps
-```
-
-Starter complex-event output:
-
-```text
 /complex_events/demo
 ```
 
-## Cleanup
+The replay supervisors are the small piece that make persistent containers possible. They listen for `/replay/config`, resolve the scenario into the right SSD/date/node files, create in-container symlinks, and start/restart the original replay app.
+
+## Legacy scenario-specific generator
+
+`setup/generate_compose.py` is still included because it is useful for debugging one scenario with an explicit date-folder mount:
 
 ```bash
-docker compose -f compose.generated.20260414_134838.yaml down --remove-orphans
-docker compose -f compose.server.yaml down
-sudo rm -rf /tmp/iobt-orin* /tmp/iobt-gps
+python3 setup/generate_compose.py \
+  --scenario 20260413_134838 \
+  --compose-out compose.generated.20260413_134838.yaml
 ```
+
+But for normal use, prefer `setup/generate_replay_compose.py` + `compose.replay.yaml`.
