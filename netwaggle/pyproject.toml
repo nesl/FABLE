@@ -1,0 +1,10 @@
+[project]
+name = "netwaggle"
+version = "0.1.0"
+description = "Mininet-backed network emulation integration for FABLE replay experiments"
+requires-python = ">=3.9"
+dependencies = ["pyyaml", "paho-mqtt"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["netwaggle*"]

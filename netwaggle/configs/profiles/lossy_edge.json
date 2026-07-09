@@ -1,0 +1,8 @@
+{
+  "name": "lossy_edge",
+  "links": [
+    {"from": "s_orin11", "to": "s_edge", "delay": "25ms", "bw": 30, "loss": 2},
+    {"from": "s_orin12", "to": "s_edge", "delay": "25ms", "bw": 30, "loss": 2},
+    {"from": "s_edge", "to": "s_cloud", "delay": "60ms", "bw": 100, "loss": 1}
+  ]
+}

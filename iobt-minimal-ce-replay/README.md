@@ -502,3 +502,10 @@ For normal use, prefer the persistent frontend workflow:
 ```text
 compose.server.yaml + compose.replay.yaml + web UI scenario selection
 ```
+
+## Optional NetWaggle network emulation
+
+This repository can be run with the sibling `../netwaggle` package to route
+network-scoped MQTT traffic through a Mininet/TC topology while leaving local
+replay-to-detector IPC streams on the same logical node. See `NETWAGGLE.md` and
+`../netwaggle/README.md` for the run sequence.

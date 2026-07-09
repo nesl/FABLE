@@ -1,0 +1,182 @@
+services:
+  zed-orin11:
+    build:
+      context: .
+      dockerfile: services/replay/zed/Dockerfile
+      network: host
+    image: iobt-minimal/zed-replay:latest
+    container_name: zed-replay-orin11
+    working_dir: /app
+    command: python3 -u /app/replay_entrypoint.py --service zed --node-folder orin11
+      --node-name dvpg_gq_orin_11 --downsample-for-mqtt 1.0
+    privileged: true
+    gpus: all
+    volumes:
+    - /etc/timezone:/etc/timezone:ro
+    - /media/brianw/Extreme SSD/West Point Experimentation:/data_roots/west_point:ro
+    - /media/brianw/Extreme SSD/GQ Data:/data_roots/gq:ro
+    - /home/brianw/Documents/FABLE/iobt-minimal-ce-replay/setup/zed_settings:/usr/local/zed/settings/:ro
+    - /tmp/iobt-orin11:/tmp
+    environment:
+    - TEST_CONTROL=False
+    - MCP_NODE_NAME=dvpg_gq_orin_11
+    - MQTT_HOST_IP=${MQTT_HOST_IP:-10.255.0.1}
+    - MQTT_PORT=${MQTT_PORT:-1883}
+    - MCP_CONTAINER_OUTPUT_DIR=/output
+    - SERIALIZER=msgpack
+    - IOBT_DATA_ROOTS=/data_roots/west_point:/data_roots/gq
+    - IOBT_NODE_FOLDER=orin11
+    network_mode: service:netwaggle-node-orin11
+    depends_on:
+    - netwaggle-node-orin11
+  yolo-orin11:
+    build:
+      context: .
+      dockerfile: services/analytics/yolo_detector/Dockerfile
+      network: host
+    image: iobt-minimal/yolo-detector:latest
+    container_name: yolo-detector-orin11
+    working_dir: /app
+    command: python3 -u /app/app.py
+    gpus: all
+    volumes:
+    - /tmp/iobt-orin11:/tmp
+    environment:
+    - TEST_CONTROL=False
+    - MCP_NODE_NAME=dvpg_gq_orin_11
+    - MQTT_HOST_IP=${MQTT_HOST_IP:-10.255.0.1}
+    - MQTT_PORT=${MQTT_PORT:-1883}
+    - MCP_CONTAINER_OUTPUT_DIR=/tmp
+    - SERIALIZER=msgpack
+    - SOURCE=local
+    - LOAD_MODEL=true
+    - YOLO_MODEL=/app/yolov8n.pt
+    - YOLO_DEVICE=${YOLO_DEVICE:-auto}
+    - YOLO_PUBLISH_ANNOTATED=true
+    - YOLO_ANNOTATED_FPS=1.0
+    - YOLO_PUBLISH_STATUS=true
+    - YOLO_PUBLISH_FRAME_STATUS=true
+    - YOLO_STATUS_FPS=1.0
+    - YOLO_FRAME_STATUS_FPS=1.0
+    - YOLO_ANNOTATED_WIDTH=960
+    - YOLO_ANNOTATED_JPEG_QUALITY=70
+    network_mode: service:netwaggle-node-orin11
+    depends_on:
+    - netwaggle-node-orin11
+  respeaker-orin11:
+    build:
+      context: .
+      dockerfile: services/replay/respeaker/Dockerfile
+      network: host
+    image: iobt-minimal/respeaker-replay:latest
+    container_name: respeaker-replay-orin11
+    working_dir: /app
+    command: python3 -u /app/replay_entrypoint.py --service respeaker --node-folder
+      orin11 --node-name dvpg_gq_orin_11
+    privileged: true
+    volumes:
+    - /etc/timezone:/etc/timezone:ro
+    - /media/brianw/Extreme SSD/West Point Experimentation:/data_roots/west_point:ro
+    - /media/brianw/Extreme SSD/GQ Data:/data_roots/gq:ro
+    - /tmp/iobt-orin11:/tmp
+    environment:
+    - TEST_CONTROL=False
+    - MCP_NODE_NAME=dvpg_gq_orin_11
+    - MQTT_HOST_IP=${MQTT_HOST_IP:-10.255.0.1}
+    - MQTT_PORT=${MQTT_PORT:-1883}
+    - MCP_CONTAINER_OUTPUT_DIR=/output
+    - SERIALIZER=msgpack
+    - IOBT_DATA_ROOTS=/data_roots/west_point:/data_roots/gq
+    - IOBT_NODE_FOLDER=orin11
+    network_mode: service:netwaggle-node-orin11
+    depends_on:
+    - netwaggle-node-orin11
+  audio-detector-orin11:
+    build:
+      context: .
+      dockerfile: services/analytics/audio_detector/Dockerfile
+      network: host
+    image: iobt-minimal/audio-detector:latest
+    container_name: audio-detector-orin11
+    working_dir: /app
+    command: python3 -u /app/app.py
+    volumes:
+    - /tmp/iobt-orin11:/tmp
+    environment:
+    - TEST_CONTROL=False
+    - MCP_NODE_NAME=dvpg_gq_orin_11
+    - MQTT_HOST_IP=${MQTT_HOST_IP:-10.255.0.1}
+    - MQTT_PORT=${MQTT_PORT:-1883}
+    - MCP_CONTAINER_OUTPUT_DIR=/tmp
+    - SERIALIZER=msgpack
+    - DETECTION_THRESHOLD=-30.0
+    - AUDIO_PUBLISH_STATUS=true
+    - AUDIO_STATUS_FPS=1.0
+    - AUDIO_PUBLISH_IDLE_STATUS=false
+    - AUDIO_PRINT_IDLE_STATUS=false
+    network_mode: service:netwaggle-node-orin11
+    depends_on:
+    - netwaggle-node-orin11
+  gps-replay:
+    build:
+      context: .
+      dockerfile: services/replay/gps/Dockerfile
+      network: host
+    image: iobt-minimal/gps-replay:latest
+    container_name: gps-replay
+    working_dir: /app
+    command: python3 -u /app/replay_entrypoint.py --service gps --node-name x86server
+    volumes:
+    - /media/brianw/Extreme SSD/West Point Experimentation:/data_roots/west_point:ro
+    - /media/brianw/Extreme SSD/GQ Data:/data_roots/gq:ro
+    - /tmp/iobt-gps:/tmp
+    environment:
+    - TEST_CONTROL=False
+    - MCP_NODE_NAME=x86server
+    - MQTT_HOST_IP=${MQTT_HOST_IP:-10.255.0.1}
+    - MQTT_PORT=${MQTT_PORT:-1883}
+    - MCP_CONTAINER_OUTPUT_DIR=/tmp
+    - SERIALIZER=msgpack
+    - IOBT_DATA_ROOTS=/data_roots/west_point:/data_roots/gq
+    network_mode: service:netwaggle-node-gps
+    depends_on:
+    - netwaggle-node-gps
+  complex-event-detector:
+    build:
+      context: .
+      dockerfile: services/orchestration/complex_event_detector/Dockerfile
+      network: host
+    image: iobt-minimal/complex-event-detector:latest
+    container_name: complex-event-detector
+    command: python3 -u /app/app.py
+    environment:
+    - MQTT_HOST_IP=${MQTT_HOST_IP:-10.255.0.1}
+    - MQTT_PORT=${MQTT_PORT:-1883}
+    - CE_WINDOW_SEC=${CE_WINDOW_SEC:-5.0}
+    - CE_OUTPUT_TOPIC=/complex_events/demo
+    network_mode: service:netwaggle-node-cloud1
+    depends_on:
+    - netwaggle-node-cloud1
+  netwaggle-node-orin11:
+    image: alpine:3.20
+    container_name: netwaggle-node-orin11
+    command: &id001
+    - sh
+    - -c
+    - 'trap : TERM INT; sleep infinity & wait'
+    network_mode: none
+  netwaggle-node-orin12:
+    image: alpine:3.20
+    container_name: netwaggle-node-orin12
+    command: *id001
+    network_mode: none
+  netwaggle-node-gps:
+    image: alpine:3.20
+    container_name: netwaggle-node-gps
+    command: *id001
+    network_mode: none
+  netwaggle-node-cloud1:
+    image: alpine:3.20
+    container_name: netwaggle-node-cloud1
+    command: *id001
+    network_mode: none

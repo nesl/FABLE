@@ -1,0 +1,25 @@
+(100.00Mbit 50ms delay 0.00000% loss) (100.00Mbit 50ms delay 0.00000% loss) (100.00Mbit 50ms delay 0.00000% loss) (100.00Mbit 50ms delay 0.00000% loss) (100.00Mbit 50ms delay 0.00000% loss) (100.00Mbit 50ms delay 0.00000% loss) *** Configuring hosts
+
+(100.00Mbit 50ms delay 0.00000% loss) (100.00Mbit 50ms delay 0.00000% loss) (100.00Mbit 50ms delay 0.00000% loss) (100.00Mbit 50ms delay 0.00000% loss) (100.00Mbit 50ms delay 0.00000% loss) (100.00Mbit 50ms delay 0.00000% loss) Cannot find device "nwg-host"
+Cannot find device "nwg-sw"
+Cannot find device "nworin11"
+Cannot find device "ctorin11"
+Cannot find device "netwaggle0"
+Loaded topology: fable-single-host-wired:smoke_fixed_latency
+Switches: s_orin11, s_orin12, s_edge, s_cloud
+Links: 3; logical node attachments: 4
+Attached netwaggle-node-orin11 as 10.255.11.2/16 on s_orin11 via netwaggle0
+Cannot find device "nworin12"
+Cannot find device "ctorin12"
+Cannot find device "netwaggle0"
+Attached netwaggle-node-orin12 as 10.255.12.2/16 on s_orin12 via netwaggle0
+Cannot find device "nwgps"
+Cannot find device "ctgps"
+Cannot find device "netwaggle0"
+Attached netwaggle-node-gps as 10.255.60.2/16 on s_cloud via netwaggle0
+Cannot find device "nwcloud1"
+Cannot find device "ctcloud1"
+Cannot find device "netwaggle0"
+Attached netwaggle-node-cloud1 as 10.255.50.2/16 on s_cloud via netwaggle0
+Host-side MQTT/gateway IP is 10.255.0.1
+NetWaggle is running. Press Ctrl-C to stop.

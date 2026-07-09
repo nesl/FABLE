@@ -1,0 +1,305 @@
+name: iobt-minimal-ce-replay
+services:
+  audio-detector-orin11:
+    build:
+      context: /home/brianw/Documents/FABLE/iobt-minimal-ce-replay
+      dockerfile: services/analytics/audio_detector/Dockerfile
+      network: host
+    command:
+      - python3
+      - -u
+      - /app/app.py
+    container_name: audio-detector-orin11
+    depends_on:
+      netwaggle-node-orin11:
+        condition: service_started
+        required: true
+    environment:
+      AUDIO_PRINT_IDLE_STATUS: "false"
+      AUDIO_PUBLISH_IDLE_STATUS: "false"
+      AUDIO_PUBLISH_STATUS: "true"
+      AUDIO_STATUS_FPS: "1.0"
+      DETECTION_THRESHOLD: "-30.0"
+      MCP_CONTAINER_OUTPUT_DIR: /tmp
+      MCP_NODE_NAME: dvpg_gq_orin_11
+      MQTT_HOST_IP: 10.255.0.1
+      MQTT_PORT: "1883"
+      SERIALIZER: msgpack
+      TEST_CONTROL: "False"
+    image: iobt-minimal/audio-detector:latest
+    network_mode: service:netwaggle-node-orin11
+    volumes:
+      - type: bind
+        source: /tmp/iobt-orin11
+        target: /tmp
+        bind:
+          create_host_path: true
+    working_dir: /app
+  complex-event-detector:
+    build:
+      context: /home/brianw/Documents/FABLE/iobt-minimal-ce-replay
+      dockerfile: services/orchestration/complex_event_detector/Dockerfile
+      network: host
+    command:
+      - python3
+      - -u
+      - /app/app.py
+    container_name: complex-event-detector
+    depends_on:
+      netwaggle-node-cloud1:
+        condition: service_started
+        required: true
+    environment:
+      CE_OUTPUT_TOPIC: /complex_events/demo
+      CE_WINDOW_SEC: "5.0"
+      MQTT_HOST_IP: 10.255.0.1
+      MQTT_PORT: "1883"
+    image: iobt-minimal/complex-event-detector:latest
+    network_mode: service:netwaggle-node-cloud1
+  gps-replay:
+    build:
+      context: /home/brianw/Documents/FABLE/iobt-minimal-ce-replay
+      dockerfile: services/replay/gps/Dockerfile
+      network: host
+    command:
+      - python3
+      - -u
+      - /app/replay_entrypoint.py
+      - --service
+      - gps
+      - --node-name
+      - x86server
+    container_name: gps-replay
+    depends_on:
+      netwaggle-node-gps:
+        condition: service_started
+        required: true
+    environment:
+      IOBT_DATA_ROOTS: /data_roots/west_point:/data_roots/gq
+      MCP_CONTAINER_OUTPUT_DIR: /tmp
+      MCP_NODE_NAME: x86server
+      MQTT_HOST_IP: 10.255.0.1
+      MQTT_PORT: "1883"
+      SERIALIZER: msgpack
+      TEST_CONTROL: "False"
+    image: iobt-minimal/gps-replay:latest
+    network_mode: service:netwaggle-node-gps
+    volumes:
+      - type: bind
+        source: /media/brianw/Extreme SSD/West Point Experimentation
+        target: /data_roots/west_point
+        read_only: true
+        bind:
+          create_host_path: true
+      - type: bind
+        source: /media/brianw/Extreme SSD/GQ Data
+        target: /data_roots/gq
+        read_only: true
+        bind:
+          create_host_path: true
+      - type: bind
+        source: /tmp/iobt-gps
+        target: /tmp
+        bind:
+          create_host_path: true
+    working_dir: /app
+  netwaggle-node-cloud1:
+    command:
+      - sh
+      - -c
+      - 'trap : TERM INT; sleep infinity & wait'
+    container_name: netwaggle-node-cloud1
+    image: alpine:3.20
+    network_mode: none
+  netwaggle-node-gps:
+    command:
+      - sh
+      - -c
+      - 'trap : TERM INT; sleep infinity & wait'
+    container_name: netwaggle-node-gps
+    image: alpine:3.20
+    network_mode: none
+  netwaggle-node-orin11:
+    command:
+      - sh
+      - -c
+      - 'trap : TERM INT; sleep infinity & wait'
+    container_name: netwaggle-node-orin11
+    image: alpine:3.20
+    network_mode: none
+  netwaggle-node-orin12:
+    command:
+      - sh
+      - -c
+      - 'trap : TERM INT; sleep infinity & wait'
+    container_name: netwaggle-node-orin12
+    image: alpine:3.20
+    network_mode: none
+  respeaker-orin11:
+    build:
+      context: /home/brianw/Documents/FABLE/iobt-minimal-ce-replay
+      dockerfile: services/replay/respeaker/Dockerfile
+      network: host
+    command:
+      - python3
+      - -u
+      - /app/replay_entrypoint.py
+      - --service
+      - respeaker
+      - --node-folder
+      - orin11
+      - --node-name
+      - dvpg_gq_orin_11
+    container_name: respeaker-replay-orin11
+    depends_on:
+      netwaggle-node-orin11:
+        condition: service_started
+        required: true
+    environment:
+      IOBT_DATA_ROOTS: /data_roots/west_point:/data_roots/gq
+      IOBT_NODE_FOLDER: orin11
+      MCP_CONTAINER_OUTPUT_DIR: /output
+      MCP_NODE_NAME: dvpg_gq_orin_11
+      MQTT_HOST_IP: 10.255.0.1
+      MQTT_PORT: "1883"
+      SERIALIZER: msgpack
+      TEST_CONTROL: "False"
+    image: iobt-minimal/respeaker-replay:latest
+    network_mode: service:netwaggle-node-orin11
+    privileged: true
+    volumes:
+      - type: bind
+        source: /etc/timezone
+        target: /etc/timezone
+        read_only: true
+        bind:
+          create_host_path: true
+      - type: bind
+        source: /media/brianw/Extreme SSD/West Point Experimentation
+        target: /data_roots/west_point
+        read_only: true
+        bind:
+          create_host_path: true
+      - type: bind
+        source: /media/brianw/Extreme SSD/GQ Data
+        target: /data_roots/gq
+        read_only: true
+        bind:
+          create_host_path: true
+      - type: bind
+        source: /tmp/iobt-orin11
+        target: /tmp
+        bind:
+          create_host_path: true
+    working_dir: /app
+  yolo-orin11:
+    build:
+      context: /home/brianw/Documents/FABLE/iobt-minimal-ce-replay
+      dockerfile: services/analytics/yolo_detector/Dockerfile
+      network: host
+    command:
+      - python3
+      - -u
+      - /app/app.py
+    container_name: yolo-detector-orin11
+    depends_on:
+      netwaggle-node-orin11:
+        condition: service_started
+        required: true
+    environment:
+      LOAD_MODEL: "true"
+      MCP_CONTAINER_OUTPUT_DIR: /tmp
+      MCP_NODE_NAME: dvpg_gq_orin_11
+      MQTT_HOST_IP: 10.255.0.1
+      MQTT_PORT: "1883"
+      SERIALIZER: msgpack
+      SOURCE: local
+      TEST_CONTROL: "False"
+      YOLO_ANNOTATED_FPS: "1.0"
+      YOLO_ANNOTATED_JPEG_QUALITY: "70"
+      YOLO_ANNOTATED_WIDTH: "960"
+      YOLO_DEVICE: auto
+      YOLO_FRAME_STATUS_FPS: "1.0"
+      YOLO_MODEL: /app/yolov8n.pt
+      YOLO_PUBLISH_ANNOTATED: "true"
+      YOLO_PUBLISH_FRAME_STATUS: "true"
+      YOLO_PUBLISH_STATUS: "true"
+      YOLO_STATUS_FPS: "1.0"
+    gpus:
+      - count: -1
+    image: iobt-minimal/yolo-detector:latest
+    network_mode: service:netwaggle-node-orin11
+    volumes:
+      - type: bind
+        source: /tmp/iobt-orin11
+        target: /tmp
+        bind:
+          create_host_path: true
+    working_dir: /app
+  zed-orin11:
+    build:
+      context: /home/brianw/Documents/FABLE/iobt-minimal-ce-replay
+      dockerfile: services/replay/zed/Dockerfile
+      network: host
+    command:
+      - python3
+      - -u
+      - /app/replay_entrypoint.py
+      - --service
+      - zed
+      - --node-folder
+      - orin11
+      - --node-name
+      - dvpg_gq_orin_11
+      - --downsample-for-mqtt
+      - "1.0"
+    container_name: zed-replay-orin11
+    depends_on:
+      netwaggle-node-orin11:
+        condition: service_started
+        required: true
+    environment:
+      IOBT_DATA_ROOTS: /data_roots/west_point:/data_roots/gq
+      IOBT_NODE_FOLDER: orin11
+      MCP_CONTAINER_OUTPUT_DIR: /output
+      MCP_NODE_NAME: dvpg_gq_orin_11
+      MQTT_HOST_IP: 10.255.0.1
+      MQTT_PORT: "1883"
+      SERIALIZER: msgpack
+      TEST_CONTROL: "False"
+    gpus:
+      - count: -1
+    image: iobt-minimal/zed-replay:latest
+    network_mode: service:netwaggle-node-orin11
+    privileged: true
+    volumes:
+      - type: bind
+        source: /etc/timezone
+        target: /etc/timezone
+        read_only: true
+        bind:
+          create_host_path: true
+      - type: bind
+        source: /media/brianw/Extreme SSD/West Point Experimentation
+        target: /data_roots/west_point
+        read_only: true
+        bind:
+          create_host_path: true
+      - type: bind
+        source: /media/brianw/Extreme SSD/GQ Data
+        target: /data_roots/gq
+        read_only: true
+        bind:
+          create_host_path: true
+      - type: bind
+        source: /home/brianw/Documents/FABLE/iobt-minimal-ce-replay/setup/zed_settings
+        target: /usr/local/zed/settings
+        read_only: true
+        bind:
+          create_host_path: true
+      - type: bind
+        source: /tmp/iobt-orin11
+        target: /tmp
+        bind:
+          create_host_path: true
+    working_dir: /app

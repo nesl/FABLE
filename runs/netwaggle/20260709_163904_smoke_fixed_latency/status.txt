@@ -1,0 +1,9 @@
+NetWaggle run: 20260709_163904_smoke_fixed_latency
+Profile: /home/brianw/Documents/FABLE/netwaggle/configs/profiles/smoke_fixed_latency.json
+Topology: /home/brianw/Documents/FABLE/netwaggle/configs/fable_single_host.json
+Replay dir: /home/brianw/Documents/FABLE/iobt-minimal-ce-replay
+NetWaggle dir: /home/brianw/Documents/FABLE/netwaggle
+Web UI: http://localhost:8080
+MQTT broker from host: localhost:1883
+MQTT broker from NetWaggle nodes: 10.255.0.1:1883
+Anchors only: 1
