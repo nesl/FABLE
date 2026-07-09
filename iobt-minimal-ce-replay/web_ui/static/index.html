@@ -38,25 +38,42 @@
         </label>
         <label>
           Sync delay seconds
-          <input id="syncDelay" name="syncDelay" type="number" step="0.1" min="0" value="10" />
+          <input id="syncDelay" name="syncDelay" type="number" step="0.1" min="0" value="1" />
         </label>
+        <div class="timing-grid">
+          <label>
+            Playback timing
+            <select id="playbackMode" name="playbackMode">
+              <option value="max" selected>Max speed while synchronized</option>
+              <option value="realtime">Real time (1.0×)</option>
+              <option value="scaled">Custom speed</option>
+            </select>
+          </label>
+          <label id="speedLabel" class="hidden">
+            Custom speed multiplier
+            <input id="speed" name="speed" type="number" step="0.1" min="0.01" value="1.0" disabled />
+          </label>
+        </div>
+        <p class="hint"><strong>Max</strong> removes intentional timing sleeps and does not use the custom multiplier. <strong>Real time</strong> targets the original 1.0× cadence. <strong>Custom</strong> shows a multiplier field for slower speeds such as 0.25× or faster bounded speeds such as 2×.</p>
         <label class="checkbox-row">
           <input id="sendControl" name="sendControl" type="checkbox" />
           Also publish <code>collection-start</code>
         </label>
         <div class="button-row">
           <button type="submit">Start replay</button>
+          <button type="button" id="resendSyncBtn" class="secondary">Resend sync</button>
+          <button type="button" id="clearReplayBtn" class="secondary">Clear replay command</button>
           <button type="button" id="stopBtn" class="secondary">Stop collection</button>
-          <button type="button" id="shutdownBtn" class="danger">Shutdown</button>
+          <button type="button" id="shutdownBtn" class="danger">Shutdown services</button>
         </div>
       </form>
-      <p id="lastAction" class="muted">No replay command sent yet.</p>
+      <p id="lastAction" class="muted">No replay command sent yet. Start replay now sends a short MQTT sync burst, so you should not normally need Resend sync.</p>
       <div class="data-note">
         <h3>Data source</h3>
         <p>The web page publishes MQTT replay commands. With <code>compose.replay.yaml</code>, the persistent replay supervisors stay running and resolve the requested scenario dynamically.</p>
         <p>For the current Scenario ID, replay supervisors will search these candidate date folders inside the mounted SSD roots:</p>
         <pre id="candidateFolders">Enter a scenario ID to preview candidate folders.</pre>
-        <p class="muted">You only regenerate <code>compose.replay.yaml</code> when you add/remove device folders or change the parent data roots, not for every scenario.</p>
+        <p class="muted">You only regenerate <code>compose.replay.yaml</code> when you add/remove device folders or change the parent data roots, not for every scenario. Use <strong>Shutdown services</strong> only when you intend to recreate containers; it can make detectors exit. Use <strong>Clear replay command</strong> to clear stale replay state.</p>
       </div>
     </section>
 
@@ -77,6 +94,40 @@
           <h3>Latest complex event</h3>
           <pre id="latestCE">—</pre>
         </div>
+      </div>
+    </section>
+
+    <section class="panel progress-panel">
+      <div class="progress-title-row">
+        <div>
+          <h2>Replay Progress</h2>
+          <p class="muted">Computed from <code>/replay/status/...</code> messages. Status usually appears about every 1 second after replay starts.</p>
+        </div>
+        <button id="resetProgressBtn" class="secondary" type="button">Reset progress view</button>
+      </div>
+      <div class="cards progress-cards">
+        <div class="card"><span class="metric small" id="progressSpeed">—</span><span>Effective replay speed</span></div>
+        <div class="card"><span class="metric small" id="progressEta">—</span><span>Estimated finish</span></div>
+        <div class="card"><span class="metric small" id="progressTime">—</span><span>Replay time</span></div>
+        <div class="card"><span class="metric small" id="progressSources">0</span><span>Active sources</span></div>
+        <div class="card"><span class="metric small" id="progressMode">—</span><span>Requested mode</span></div>
+      </div>
+      <div id="progressNote" class="progress-note muted">No replay status received yet. Start replay, then wait for a replay container to publish status.</div>
+      <div class="progress-table-wrap">
+        <table class="progress-table">
+          <thead>
+            <tr>
+              <th>Source</th>
+              <th>Progress</th>
+              <th>Speed</th>
+              <th>ETA</th>
+              <th>Last update</th>
+            </tr>
+          </thead>
+          <tbody id="replayProgressBody">
+            <tr><td colspan="5" class="muted">No replay progress yet.</td></tr>
+          </tbody>
+        </table>
       </div>
     </section>
 

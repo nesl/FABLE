@@ -14,6 +14,9 @@ from scipy.fftpack import fft
 import soundfile as sf
 import pandas as pd
 import argparse
+from pathlib import Path
+
+APP_VERSION = "respeaker-config-disabled-v20260709-4"
 
 
 class respeaker_replay(iobt_max_service):
@@ -22,6 +25,7 @@ class respeaker_replay(iobt_max_service):
         # Name the app and init the base class
         self.name = "respeaker"
         iobt_max_service.__init__(self, self.name)
+        print(f"[ReSpeaker] app version {APP_VERSION}", flush=True)
 
         # fps, rate, and sample_per_frame are derived from the actual recording
         # in service_initialize — set placeholders here so attributes exist.
@@ -47,11 +51,18 @@ class respeaker_replay(iobt_max_service):
         # Expected naming convention (produced by the live driver via get_file_name):
         #   <scenario>_<hostname>_respeaker.flac
         #   <scenario>_<hostname>_respeaker.csv
+        self.scenario       = args.scenario
         self.flac_file      = f"/output/{args.scenario}_{self.hostname}_respeaker.flac"
         self.timestamp_file = f"/output/{args.scenario}_{self.hostname}_respeaker.csv"
 
         self.playback_start_time = args.start   # seconds offset into recording
         self.playback_end_time   = args.end     # seconds offset, -1 = full file
+        self.playback_mode = getattr(args, "playback_mode", "max")
+        self.playback_speed = float(getattr(args, "speed", 1.0) or 1.0)
+        self._normalize_playback_mode()
+        self.status_interval = float(os.environ.get("REPLAY_STATUS_INTERVAL", "1.0"))
+        self._requested_playback_start_time = float(args.start)
+        self._requested_playback_end_time = float(args.end)
         self.loop_wall_start     = time.time()  # overwritten by sync message
         self.sync_start_at       = time.time()  # absolute wall time to begin frame 0
         self.sync_received       = False
@@ -65,6 +76,42 @@ class respeaker_replay(iobt_max_service):
         self._loaded_end_time    = None
         self._pending_start_time = None
         self._pending_end_time   = None
+        self._replay_control_subscribed = False
+        self._loaded_config_signature = None
+        self._pending_config_signature = None
+        self._last_sync_signature = None
+        self.sync_file = os.environ.get("REPLAY_SYNC_FILE", "/tmp/replay_sync.json")
+        self._last_sync_file_mtime = 0.0
+        self._initial_sync_json = os.environ.get("REPLAY_INITIAL_SYNC_JSON", "").strip()
+        self.replay_child_config_enabled = os.environ.get("REPLAY_CHILD_CONFIG_ENABLED", "true").strip().lower() in {"1", "true", "t", "yes", "y", "on"}
+        # service_initialize() can be called once by iobt_max_service before
+        # service_step() starts. Track whether the recording is already loaded
+        # so service_step() does not reload the same FLAC/CSV and accidentally
+        # discard a sync that arrived during the initial load.
+        self._data_loaded = False
+        self._pending_config_signature = self._make_config_signature(self.flac_file, self._requested_playback_start_time, self._requested_playback_end_time)
+
+
+    def _make_config_signature(self, data_file, start, end):
+        # Signature uses the requested playback window, not a clamped end time.
+        # This prevents retained /replay/config from reinitializing the same file
+        # after service_initialize clamps end=-1 or end>duration to the real duration.
+        try:
+            start_s = f"{float(start):.6f}"
+        except Exception:
+            start_s = str(start)
+        try:
+            end_s = f"{float(end):.6f}"
+        except Exception:
+            end_s = str(end)
+        return (str(data_file), start_s, end_s)
+
+    def _make_sync_signature(self, msg, start_at, mode, speed):
+        replay_id = msg.get("replay_id") or msg.get("command_id") or msg.get("session_id")
+        if replay_id:
+            return ("id", str(replay_id))
+        scenario = str(msg.get("scenario", ""))
+        return ("sync", scenario, f"{float(start_at):.3f}", str(mode), f"{float(speed):.6f}")
 
     # ------------------------------------------------------------------
     # iobt_max_service abstract method implementations
@@ -79,8 +126,26 @@ class respeaker_replay(iobt_max_service):
         self.net_power_topic = self.get_topic_name("power")
         self.sync_topic      = "/replay/sync"
         self.config_topic    = "/replay/config"
-        self.subscribe("net", self.sync_topic, self._on_sync)
-        self.subscribe("net", self.config_topic, self._on_config)
+        if not self._replay_control_subscribed:
+            self.subscribe("net", self.sync_topic, self._on_sync)
+            if self.replay_child_config_enabled:
+                self.subscribe("net", self.config_topic, self._on_config)
+            else:
+                print("[ReSpeaker] Child direct /replay/config subscription disabled; supervisor owns config.", flush=True)
+            self._replay_control_subscribed = True
+            self._replay_control_subscribed = True
+
+        current_signature = self._pending_config_signature or self._make_config_signature(
+            self.flac_file, self._requested_playback_start_time, self._requested_playback_end_time
+        )
+        if getattr(self, "_data_loaded", False) and self._loaded_config_signature == current_signature:
+            print(
+                f"[ReSpeaker] service_initialize skipped; data already loaded for {self.flac_file} "
+                f"window={self._requested_playback_start_time:g}->{self._requested_playback_end_time:g} "
+                f"sync_received={self.sync_received} event_set={self._sync_event.is_set()}",
+                flush=True,
+            )
+            return
 
         # Load the FLAC recording into memory as a NumPy array.
         # shape: (total_samples, RESPEAKER_CHANNELS)
@@ -166,75 +231,188 @@ class respeaker_replay(iobt_max_service):
         self._loaded_start_time  = self.playback_start_time
         self._loaded_end_time    = self.playback_end_time
         self._pending_flac_file  = self.flac_file
-        self._pending_start_time = self.playback_start_time
-        self._pending_end_time   = self.playback_end_time
+        self._pending_start_time = self._requested_playback_start_time
+        self._pending_end_time   = self._requested_playback_end_time
+        if self._pending_config_signature is None:
+            self._pending_config_signature = self._make_config_signature(self.flac_file, self._requested_playback_start_time, self._requested_playback_end_time)
+        self._loaded_config_signature = self._pending_config_signature
+        self._data_loaded = True
+
+    def _normalize_playback_mode(self):
+        mode = str(getattr(self, "playback_mode", "max") or "max").lower().strip()
+        if mode in {"fast", "asap", "unlimited"}:
+            mode = "max"
+        if mode not in {"max", "realtime", "scaled"}:
+            mode = "max"
+        speed = float(getattr(self, "playback_speed", 1.0) or 1.0)
+        if mode == "realtime":
+            speed = 1.0
+        elif mode == "scaled":
+            speed = max(speed, 1e-6)
+        self.playback_mode = mode
+        self.playback_speed = speed
+
+    def _set_playback_timing(self, mode=None, speed=None):
+        if mode is not None:
+            self.playback_mode = mode
+        if speed is not None:
+            try:
+                self.playback_speed = float(speed)
+            except Exception:
+                pass
+        self._normalize_playback_mode()
+
+    def _timing_speed(self):
+        self._normalize_playback_mode()
+        if self.playback_mode == "max":
+            return None
+        return self.playback_speed
+
+    def _virtual_elapsed(self, loop_duration, ts=None):
+        if ts is None:
+            ts = time.time()
+        speed = self._timing_speed()
+        if speed is None:
+            return 0.0
+        return (max(0.0, ts - self.sync_start_at) * speed) % max(loop_duration, 1e-6)
+
+    def _sleep_until_elapsed(self, elapsed):
+        speed = self._timing_speed()
+        if speed is None:
+            return True
+        target_wall = self.sync_start_at + max(0.0, float(elapsed)) / speed
+        while True:
+            if self.state == state.quit or self._config_event.is_set() or self._sync_event.is_set():
+                return False
+            remaining = target_wall - time.time()
+            if remaining <= 0:
+                return True
+            time.sleep(min(0.02, remaining))
+
+    def _sync_matches_current_scenario(self, msg):
+        scenario = str(msg.get("scenario") or "").strip() if isinstance(msg, dict) else ""
+        if not scenario:
+            return True
+        return scenario == str(getattr(self, "scenario", ""))
+
+    def _apply_sync_message(self, msg, source="mqtt"):
+        if not isinstance(msg, dict):
+            return False
+        if not self._sync_matches_current_scenario(msg):
+            print(f"[ReSpeaker] Ignoring {source} sync for scenario={msg.get('scenario')} while loaded scenario={getattr(self, 'scenario', '')}", flush=True)
+            return False
+        mode = msg.get('playback_mode', msg.get('mode', None))
+        speed = msg.get('speed', msg.get('playback_speed', None))
+        self._set_playback_timing(mode, speed)
+        start_at = float(msg.get('start_at', time.time()))
+        sync_signature = self._make_sync_signature(msg, start_at, self.playback_mode, self.playback_speed)
+        if sync_signature == self._last_sync_signature and self.sync_received:
+            return False
+        self._last_sync_signature = sync_signature
+        self.sync_start_at = start_at
+        self.loop_wall_start = self.sync_start_at
+        self.sync_received = True
+        self._sync_event.set()
+        print(f"[ReSpeaker] Sync received from {source} — start_at={self.sync_start_at:.3f} "
+              f"(in {self.sync_start_at - time.time():.2f}s) mode={self.playback_mode} speed={self.playback_speed:g}", flush=True)
+        return True
+
+    def _maybe_load_initial_sync(self):
+        raw = getattr(self, "_initial_sync_json", "")
+        if raw:
+            self._initial_sync_json = ""
+            try:
+                return self._apply_sync_message(json.loads(raw), source="env")
+            except Exception as exc:
+                print(f"[ReSpeaker] Failed to parse REPLAY_INITIAL_SYNC_JSON: {exc}", flush=True)
+        return False
+
+    def _maybe_load_sync_from_file(self):
+        # Disabled by default. The distributed-safe control plane is MQTT.
+        # Enable only for local debugging with REPLAY_ENABLE_SYNC_FILE=true.
+        if os.environ.get("REPLAY_ENABLE_SYNC_FILE", "false").strip().lower() not in {"1", "true", "yes", "on"}:
+            return False
+        try:
+            path = Path(self.sync_file)
+            if not path.exists():
+                return False
+            mtime = path.stat().st_mtime
+            if mtime <= self._last_sync_file_mtime and self.sync_received:
+                return False
+            raw = path.read_text().strip()
+            if not raw:
+                return False
+            msg = json.loads(raw)
+            applied = self._apply_sync_message(msg, source=f"file:{path}")
+            self._last_sync_file_mtime = mtime
+            return applied
+        except Exception as exc:
+            print(f"[ReSpeaker] Failed to read sync file {self.sync_file}: {exc}", flush=True)
+            return False
 
     def _on_config(self, topic, payload):
         """MQTT callback for scenario config messages.
-        Payload: {"scenario": "20250815_083306", "start_time": "0", "end_time": "-1"}
-        Updates file paths and playback window.
+
+        Retained /replay/config messages can be delivered again whenever this
+        child process subscribes. Treat same-file/same-window config messages as
+        idempotent so replay does not reinitialize while it is already playing.
         """
         try:
             msg = json.loads(payload)
-            scenario   = msg.get("scenario", None)
-            start_time = msg.get("start_time", None)
-            end_time   = msg.get("end_time",   None)
+            scenario = msg.get("scenario", None)
+            start_time = msg.get("start_time", msg.get("start", None))
+            end_time = msg.get("end_time", msg.get("end", None))
+            playback_mode = msg.get("playback_mode", msg.get("mode", None))
+            playback_speed = msg.get("speed", msg.get("playback_speed", None))
+            self._set_playback_timing(playback_mode, playback_speed)
 
             new_start = float(start_time) if start_time is not None else 0.0
-            new_end   = float(end_time)   if end_time   is not None else -1.0
+            new_end = float(end_time) if end_time is not None else -1.0
 
-            # If the scenario is blank or None, keep the currently loaded scenario files
             if not scenario:
                 print("[ReSpeaker] Config message has blank scenario — keeping current files.")
                 new_flac = self._loaded_flac_file if self._loaded_flac_file else self.flac_file
-                new_csv  = self.timestamp_file
+                new_csv = self.timestamp_file
             else:
                 new_flac = f"/output/{scenario}_{self.hostname}_respeaker.flac"
-                new_csv  = f"/output/{scenario}_{self.hostname}_respeaker.csv"
+                new_csv = f"/output/{scenario}_{self.hostname}_respeaker.csv"
 
-            self.flac_file           = new_flac
-            self.timestamp_file      = new_csv
+            new_signature = self._make_config_signature(new_flac, new_start, new_end)
+            if new_signature == self._loaded_config_signature or new_signature == self._pending_config_signature:
+                print(f"[ReSpeaker] Duplicate config ignored — scenario='{scenario}' start={new_start} end={new_end} mode={self.playback_mode} speed={self.playback_speed:g}")
+                return
+
+            if scenario:
+                self.scenario = scenario
+            self.flac_file = new_flac
+            self.timestamp_file = new_csv
             self.playback_start_time = new_start
-            self.playback_end_time   = new_end
+            self.playback_end_time = new_end
+            self._requested_playback_start_time = new_start
+            self._requested_playback_end_time = new_end
+            self._pending_config_signature = new_signature
+            self._data_loaded = False
+            # A real new config requires a matching new sync. Duplicate configs
+            # return above and do not disturb an already-received sync.
+            self.sync_received = False
+            self._sync_event.clear()
+            self._pending_flac_file = new_flac
+            self._pending_start_time = new_start
+            self._pending_end_time = new_end
 
-            print(f"[ReSpeaker] Config updated — scenario='{scenario}' start={new_start} end={new_end}")
-
-            # Trigger reload only if this config differs from what is already loaded OR pending.
-            loaded_match  = (new_flac == self._loaded_flac_file 
-                             and new_start == self._loaded_start_time 
-                             and new_end   == self._loaded_end_time)
-            pending_match = (new_flac == self._pending_flac_file 
-                             and new_start == self._pending_start_time 
-                             and new_end   == self._pending_end_time)
-
-            if not loaded_match and not pending_match:
-                self._pending_flac_file  = new_flac
-                self._pending_start_time = new_start
-                self._pending_end_time   = new_end
-                self._config_event.set()
-            else:
-                print(f"[ReSpeaker] Config is same as loaded/pending — ignoring duplicate.")
+            print(f"[ReSpeaker] Config updated — scenario='{scenario}' start={new_start} end={new_end} mode={self.playback_mode} speed={self.playback_speed:g}")
+            self._config_event.set()
 
         except Exception as e:
             print(f"[ReSpeaker] Config parse error: {e}")
 
 
     def _on_sync(self, topic, payload):
-        """MQTT callback for playback controller sync messages.
-        The sync message carries an absolute 'start_at' wall time at which all
-        nodes should begin playing frame 0. This eliminates drift caused by
-        different file-load times on different nodes.
-        """
+        """MQTT callback for playback controller sync messages."""
         try:
-            msg = json.loads(payload)
-            self.sync_start_at   = float(msg.get('start_at', time.time()))
-            self.loop_wall_start = self.sync_start_at
-            self.sync_received   = True
-            self._sync_event.set()
-            print(f"[ReSpeaker] Sync received — start_at={self.sync_start_at:.3f} "
-                  f"(in {self.sync_start_at - time.time():.2f}s)")
+            self._apply_sync_message(json.loads(payload), source="mqtt")
         except Exception as e:
-            print(f"[ReSpeaker] Sync parse error: {e}")
+            print(f"[ReSpeaker] Sync parse error: {e}", flush=True)
 
     def service_initialize_collect(self):
         print("Calling respeaker replay service collection init")
@@ -257,6 +435,9 @@ class respeaker_replay(iobt_max_service):
             if self._sync_event.is_set():
                 self._sync_event.clear()
                 return 'sync'
+            if self._maybe_load_initial_sync() or self._maybe_load_sync_from_file():
+                self._sync_event.clear()
+                return 'sync'
             if self._config_event.is_set():
                 return 'config'
             time.sleep(0.1)
@@ -273,8 +454,16 @@ class respeaker_replay(iobt_max_service):
         """
         service_step_start = time.time()
         step_frame_count   = 0
-        data_loaded        = False
-        sync_ready         = False  # True when we have a valid loop_wall_start
+        # iobt_max_service calls service_initialize() before service_step().
+        # If sync arrives during that initial load, starting service_step() must
+        # preserve it rather than reload the data and clear the event.
+        data_loaded        = bool(getattr(self, "_data_loaded", False))
+        sync_ready         = bool(self.sync_received or self._sync_event.is_set())
+        if data_loaded:
+            print(f"[ReSpeaker] Data already loaded before service_step; sync_ready={sync_ready}", flush=True)
+            if self._config_event.is_set() and self._loaded_config_signature == self._pending_config_signature:
+                print("[ReSpeaker] Clearing stale duplicate config event after initial load.", flush=True)
+                self._config_event.clear()
 
         while True:  # top-level state machine
             if self.state == state.quit:
@@ -282,19 +471,23 @@ class respeaker_replay(iobt_max_service):
 
             # ── LOAD DATA ────────────────────────────────────────────────────
             if self._config_event.is_set() or not data_loaded:
+                # Preserve a sync that arrived before/during loading. This is the
+                # common race for ReSpeaker: MQTT /replay/sync arrives while the
+                # FLAC is still being read, then service_step used to clear it.
+                had_sync = bool(self.sync_received or self._sync_event.is_set())
                 self._config_event.clear()
-                self._sync_event.clear()
-                self.sync_received = False
-                print("[ReSpeaker] Loading data...")
+                print(f"[ReSpeaker] Loading data... had_sync={had_sync}", flush=True)
                 try:
                     self.service_initialize()
                     data_loaded = True
+                    self._data_loaded = True
                 except FileNotFoundError as e:
                     print(f"[ReSpeaker] File not found: {e} — waiting for new config...")
                     data_loaded = False
-                    # Drain any queued config/sync events and wait for a new config
+                    # Drain queued config events and wait for a new config. Do
+                    # not clear sync here; if the config appears shortly after, a
+                    # matching sync can still be consumed.
                     self._config_event.clear()
-                    self._sync_event.clear()
                     while not self._config_event.is_set():
                         if self.state == state.quit:
                             return
@@ -304,7 +497,9 @@ class respeaker_replay(iobt_max_service):
                     print(f"[ReSpeaker] Init failed: {e}")
                     time.sleep(2)
                     continue
-                sync_ready = False  # new data loaded, need a fresh sync
+                sync_ready = bool(had_sync or self.sync_received or self._sync_event.is_set())
+                if sync_ready:
+                    print("[ReSpeaker] Preserved sync across data load — starting without waiting.", flush=True)
 
             # ── WAIT FOR SYNC ─────────────────────────────────────────────────
             # Skip if we already have a valid sync (e.g. interrupted mid-playback)
@@ -320,7 +515,13 @@ class respeaker_replay(iobt_max_service):
                     if result == 'config':
                         continue  # reload data at top of loop
                     # result == 'sync' — fall through to playback
-            sync_ready = False  # consume the sync; next iteration must wait again
+            # Consume the sync event that caused this playback pass.  Keep
+            # sync_received=True for diagnostics, but clear the threading event
+            # so the playback loop does not immediately interpret the same sync
+            # as a fresh restart command.
+            if self._sync_event.is_set():
+                self._sync_event.clear()
+            sync_ready = False  # next top-level iteration must wait for a new sync
 
             # ── PLAY ──────────────────────────────────────────────────────────
             self.frame_count = 0
@@ -358,12 +559,12 @@ class respeaker_replay(iobt_max_service):
             # Use modulo so that if start_at is in the past by more than
             # loop_duration (e.g. file load took longer than SYNC_LEAD_S),
             # we still land at the correct position within the window.
-            wall_elapsed   = max(0.0, time.time() - self.sync_start_at) % loop_duration
+            wall_elapsed   = self._virtual_elapsed(loop_duration)
             target_elapsed = self.df_timestamps["elapsed"].iloc[self.playback_start_frame] + wall_elapsed
             current_frame  = int(self.df_timestamps["elapsed"].searchsorted(target_elapsed))
             current_frame  = np.clip(current_frame, self.playback_start_frame, self.playback_end_frame - 1)
 
-            print(f"[ReSpeaker] Starting playback sync_start_at={self.sync_start_at:.3f}")
+            print(f"[ReSpeaker] Starting playback sync_start_at={self.sync_start_at:.3f} mode={self.playback_mode} speed={self.playback_speed:g}")
             print(f"Replay cycle elapsed : {wall_elapsed:.2f}/{loop_duration:.2f}s")
             print(f"Current frame        : {current_frame}/{self.playback_end_frame}")
 
@@ -384,6 +585,18 @@ class respeaker_replay(iobt_max_service):
                 if self._config_event.is_set():
                     interrupted_by_config = True
                     print("[ReSpeaker] Config received during playback — reinitializing.")
+                    break
+
+                frame_elapsed_original = (
+                    float(self.df_timestamps["elapsed"].iloc[frame_idx])
+                    - float(self.df_timestamps["elapsed"].iloc[self.playback_start_frame])
+                )
+                if not self._sleep_until_elapsed(frame_elapsed_original):
+                    if self._sync_event.is_set():
+                        self._sync_event.clear()
+                        interrupted_by_sync = True
+                    elif self._config_event.is_set():
+                        interrupted_by_config = True
                     break
 
                 relative_frame = frame_idx - self.playback_start_frame
@@ -415,10 +628,10 @@ class respeaker_replay(iobt_max_service):
                 self.frame_count  += 1
 
                 wall_now = time.time()
-                if wall_now - service_step_start >= 5:
+                if wall_now - service_step_start >= self.status_interval:
                     t = datetime.now().strftime("%Y/%m/%d %H:%M:%S.%f")
                     print(f"[{t}] State: {self.state}  Frame rate: {step_frame_count/(wall_now-service_step_start):.2f}/s")
-                    current_elapsed = max(0.0, wall_now - self.sync_start_at) % max(loop_duration, 1e-6)
+                    current_elapsed = max(0.0, frame_elapsed_original)
                     pct = 100.0 * current_elapsed / max(loop_duration, 1e-6)
                     status_msg = json.dumps({
                         "service":    "respeaker_replay",
@@ -428,16 +641,16 @@ class respeaker_replay(iobt_max_service):
                         "current":    round(current_elapsed, 2),
                         "duration":   round(loop_duration, 2),
                         "pct":        round(pct, 1),
+                        "playback_mode": self.playback_mode,
+                        "requested_speed_x": None if self.playback_mode == "max" else self.playback_speed,
                         "t":          self.ts_to_string(wall_now)
                     })
                     self.publish("net", f"/replay/status/respeaker/{self.hostname}", status_msg)
                     service_step_start = time.time()
                     step_frame_count   = 0
 
-                frame_elapsed = time.perf_counter() - frame_start
-                sleep_time = self.rate - frame_elapsed
-                if sleep_time > 0:
-                    time.sleep(sleep_time)
+                # Timing is handled by _sleep_until_elapsed() before publication.
+                # In max mode this intentionally does not sleep.
 
             # ── END OF PLAYBACK WINDOW ────────────────────────────────────────
             if interrupted_by_config:
@@ -447,6 +660,27 @@ class respeaker_replay(iobt_max_service):
                 sync_ready = True  # sync already captured in loop_wall_start
                 continue  # skip WAIT SYNC, go straight to PLAY
             else:
+                # Natural end — publish a final progress update even if max-speed replay
+                # completed before the periodic status interval elapsed.
+                try:
+                    ts = time.time()
+                    status_msg = json.dumps({
+                        "service":    "respeaker_replay",
+                        "node":       self.hostname,
+                        "event":      "complete",
+                        "start_time": self.playback_start_time,
+                        "end_time":   self.playback_end_time,
+                        "current":    round(loop_duration, 2),
+                        "duration":   round(loop_duration, 2),
+                        "pct":        100.0,
+                        "playback_mode": self.playback_mode,
+                        "requested_speed_x": None if self.playback_mode == "max" else self.playback_speed,
+                        "speed_x": round(loop_duration / max(ts - self.sync_start_at, 1e-6), 3),
+                        "t":          self.ts_to_string(ts)
+                    })
+                    self.publish("net", f"/replay/status/respeaker/{self.hostname}", status_msg)
+                except Exception as e:
+                    print(f"[ReSpeaker] Failed to publish final replay status: {e}")
                 # Natural end — wait for next sync from playback controller
                 print("[ReSpeaker] End of playback window — waiting for sync to loop...")
                 self.sync_received = False
@@ -526,6 +760,16 @@ def main():
     parser.add_argument(
         '--end', type=float, default=-1.0,
         help='End offset in seconds within the recording (-1 = full file, default: -1)'
+    )
+    parser.add_argument(
+        '--playback-mode', choices=['max', 'realtime', 'scaled'],
+        default=os.environ.get('REPLAY_PLAYBACK_MODE', 'max'),
+        help='Playback timing mode. max = as fast as possible after sync; realtime = 1.0x; scaled = use --speed.'
+    )
+    parser.add_argument(
+        '--speed', type=float,
+        default=float(os.environ.get('REPLAY_PLAYBACK_SPEED', '1.0')),
+        help='Speed multiplier for scaled mode; realtime forces 1.0.'
     )
     args = parser.parse_args()
 

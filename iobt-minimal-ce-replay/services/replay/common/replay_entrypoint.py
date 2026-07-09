@@ -9,10 +9,12 @@ alive across scenarios:
   2. Resolve the requested scenario against mounted data roots.
   3. Create /output or /data symlinks for the selected node/date files.
   4. Start/restart the original replay app as a child process.
-  5. Re-broadcast /replay/sync once after child startup so the child does not
-     miss sync messages published immediately after config.
+  5. Keep the control plane MQTT-only: the supervisor receives /replay/config
+     and /replay/sync, then starts the child replay app and rebroadcasts the
+     sync command shortly after child startup so late child subscribers catch it.
 
-It intentionally leaves the original replay app mostly unchanged.
+This keeps the replay command path usable across physical devices while avoiding
+local sync-file fallbacks.
 """
 
 from __future__ import annotations
@@ -34,6 +36,8 @@ import paho.mqtt.client as mqtt
 
 CONFIG_TOPIC = "/replay/config"
 SYNC_TOPIC = "/replay/sync"
+
+APP_VERSION = "replay-supervisor-config-owner-v20260709-4"
 
 DEFAULT_ROOTS = [
     "/data_roots/west_point",
@@ -61,9 +65,9 @@ def env_roots() -> list[Path]:
     return roots
 
 
-def publish_json(client: mqtt.Client, topic: str, payload: dict[str, Any]) -> None:
+def publish_json(client: mqtt.Client, topic: str, payload: dict[str, Any], retain: bool = False) -> None:
     try:
-        client.publish(topic, json.dumps(payload), qos=1)
+        client.publish(topic, json.dumps(payload), qos=1, retain=retain)
     except Exception as exc:
         print(f"[supervisor] MQTT publish failed topic={topic}: {exc}", flush=True)
 
@@ -94,6 +98,7 @@ def find_first(patterns: list[str]) -> Path | None:
 
 class ReplaySupervisor:
     def __init__(self, args: argparse.Namespace):
+        print(f"[supervisor] app version {APP_VERSION}", flush=True)
         self.args = args
         self.service = args.service
         self.node_folder = args.node_folder
@@ -132,6 +137,15 @@ class ReplaySupervisor:
         print(f"[supervisor:{self.service}:{self.node_name}] ERROR: {message}", flush=True)
         publish_json(self.client, self.error_topic, payload)
 
+    def _payload_scenario(self, payload: dict[str, Any] | None) -> str:
+        if not isinstance(payload, dict):
+            return ""
+        return str(payload.get("scenario") or "").strip()
+
+    def _sync_matches_scenario(self, scenario: str, payload: dict[str, Any] | None) -> bool:
+        payload_scenario = self._payload_scenario(payload)
+        return bool(payload) and (not payload_scenario or payload_scenario == scenario)
+
     def on_connect(self, client: mqtt.Client, _userdata: Any, _flags: Any, rc: int, *_extra: Any) -> None:
         print(f"[supervisor:{self.service}:{self.node_name}] MQTT connected rc={rc}", flush=True)
         client.subscribe(CONFIG_TOPIC, qos=1)
@@ -152,9 +166,18 @@ class ReplaySupervisor:
             # we can create an infinite rebroadcast loop.
             if isinstance(payload, dict) and payload.get("_supervisor_rebroadcast"):
                 return
+            scenario = payload.get("scenario") if isinstance(payload, dict) else None
+            start_at = payload.get("start_at") if isinstance(payload, dict) else None
+            print(f"[supervisor:{self.service}:{self.node_name}] received MQTT /replay/sync scenario={scenario} start_at={start_at}", flush=True)
             with self.lock:
                 self.last_sync_payload = payload
-            self.rebroadcast_sync_after_child_ready(delay=1.0)
+            if self.args.sync_rebroadcast_delay >= 0:
+                # If a child is already waiting, rebroadcast immediately. Also
+                # keep the configured short delayed send for child subscription
+                # jitter right after startup.
+                self.rebroadcast_sync_after_child_ready(delay=0.0)
+                if self.args.sync_rebroadcast_delay > 0:
+                    self.rebroadcast_sync_after_child_ready(delay=max(0.0, self.args.sync_rebroadcast_delay))
 
     def stop_child(self) -> None:
         with self.lock:
@@ -260,7 +283,28 @@ class ReplaySupervisor:
             return str(int(value))
         return f"{value:g}"
 
-    def child_command(self, scenario: str, start: float, end: float) -> list[str]:
+    def _normalize_playback_timing(self, payload: dict[str, Any]) -> tuple[str, float]:
+        mode = str(payload.get("playback_mode", payload.get("mode", "max")) or "max").lower().strip()
+        if mode in {"fast", "asap", "unlimited"}:
+            mode = "max"
+        if mode not in {"max", "realtime", "scaled"}:
+            mode = "max"
+        try:
+            speed = float(payload.get("speed", payload.get("playback_speed", 1.0)) or 1.0)
+        except Exception:
+            speed = 1.0
+        if mode == "realtime":
+            speed = 1.0
+        elif mode == "scaled":
+            speed = max(speed, 1e-6)
+        return mode, speed
+
+    def child_command(self, scenario: str, start: float, end: float, playback_mode: str, speed: float) -> list[str]:
+        # Keep the child CLI backward-compatible with older replay apps.
+        # Playback timing is sent over /replay/config and /replay/sync; passing
+        # --playback-mode/--speed here breaks older child apps such as the
+        # original ReSpeaker replay parser. The child still receives scenario,
+        # start, and end as CLI arguments so it can locate the selected files.
         cmd = [
             sys.executable,
             "-u",
@@ -278,17 +322,32 @@ class ReplaySupervisor:
             cmd.extend(["--downsample_for_mqtt", str(self.args.downsample_for_mqtt)])
         return cmd
 
-    def start_child(self, scenario: str, start: float, end: float) -> None:
-        cmd = self.child_command(scenario, start, end)
+    def start_child(self, scenario: str, start: float, end: float, playback_mode: str, speed: float) -> None:
+        cmd = self.child_command(scenario, start, end, playback_mode, speed)
         env = os.environ.copy()
         env["MCP_NODE_NAME"] = self.node_name
         env.setdefault("MCP_CONTAINER_OUTPUT_DIR", "/output")
-        print(f"[supervisor:{self.service}:{self.node_name}] starting child: {' '.join(cmd)}", flush=True)
+        env["REPLAY_PLAYBACK_MODE"] = playback_mode
+        env["REPLAY_PLAYBACK_SPEED"] = f"{speed:g}"
+        env["REPLAY_CONTROL_PLANE"] = "mqtt"
+        # In persistent mode the supervisor owns /replay/config.  Child replay
+        # apps receive scenario/start/end through argv and only need /replay/sync.
+        # This prevents retained or duplicated /replay/config messages from
+        # reinitializing the child repeatedly while playback is active.
+        env["REPLAY_CHILD_CONFIG_ENABLED"] = "false"
+        with self.lock:
+            sync_payload = dict(self.last_sync_payload) if isinstance(self.last_sync_payload, dict) else None
+        if self._sync_matches_scenario(scenario, sync_payload):
+            # Seed copied from the MQTT sync command already received by the supervisor.
+            # The authoritative control plane remains MQTT.
+            env["REPLAY_INITIAL_SYNC_JSON"] = json.dumps(sync_payload)
+        print(f"[supervisor:{self.service}:{self.node_name}] starting child: {' '.join(cmd)} mode={playback_mode} speed={speed:g}", flush=True)
         child = subprocess.Popen(cmd, env=env, text=True)
         with self.lock:
             self.child = child
-        self.status(state="running", scenario=scenario, pid=child.pid, command=cmd)
-        self.rebroadcast_sync_after_child_ready(delay=self.args.sync_rebroadcast_delay)
+        self.status(state="running", scenario=scenario, pid=child.pid, command=cmd, playback_mode=playback_mode, speed=speed)
+        if self.args.sync_rebroadcast_delay >= 0:
+            self.rebroadcast_sync_after_child_ready(delay=self.args.sync_rebroadcast_delay)
 
         def watcher() -> None:
             rc = child.wait()
@@ -306,7 +365,7 @@ class ReplaySupervisor:
         if not has_child or not sync_payload:
             return
 
-        def send() -> None:
+        def send_once(n: int) -> None:
             with self.lock:
                 child_ok = self.child is not None and self.child.poll() is None
                 payload = dict(self.last_sync_payload) if isinstance(self.last_sync_payload, dict) else None
@@ -314,10 +373,16 @@ class ReplaySupervisor:
                 return
             payload["_supervisor_rebroadcast"] = True
             payload["_rebroadcast_for"] = f"{self.service}:{self.node_name}"
-            print(f"[supervisor:{self.service}:{self.node_name}] rebroadcasting sync for child", flush=True)
-            publish_json(self.client, SYNC_TOPIC, payload)
+            payload["_rebroadcast_index"] = n
+            print(f"[supervisor:{self.service}:{self.node_name}] rebroadcasting sync for child #{n}", flush=True)
+            # Do not retain supervisor rebroadcasts; the web UI/CLI retained sync
+            # is the canonical command, and retaining a per-child rebroadcast
+            # would overwrite it with a debug-marked payload.
+            publish_json(self.client, SYNC_TOPIC, payload, retain=False)
 
-        threading.Timer(delay, send).start()
+        # Send once. Repeated rebroadcasts can look like repeated sync commands
+        # to children that intentionally restart on a new sync.
+        threading.Timer(max(0.0, delay), lambda: send_once(1)).start()
 
     def handle_config(self, payload: dict[str, Any]) -> None:
         scenario = str(payload.get("scenario") or "").strip()
@@ -331,15 +396,20 @@ class ReplaySupervisor:
             self.error(f"invalid start/end in config: {exc}", payload=payload)
             return
 
+        playback_mode, speed = self._normalize_playback_timing(payload)
+
         with self.lock:
             self.last_config_payload = payload
 
-        self.status(state="config_received", scenario=scenario, start=start, end=end)
+        self.status(state="config_received", scenario=scenario, start=start, end=end, playback_mode=playback_mode, speed=speed)
+        with self.lock:
+            sync_payload = dict(self.last_sync_payload) if isinstance(self.last_sync_payload, dict) else None
+        # Do not write a local sync file. Synchronization remains MQTT-based.
         self.stop_child()
         if not self.prepare_symlinks(scenario):
             self.status(state="idle_no_data", scenario=scenario)
             return
-        self.start_child(scenario, start, end)
+        self.start_child(scenario, start, end, playback_mode, speed)
 
     def run(self) -> None:
         host = os.environ.get("MQTT_HOST_IP", "host.docker.internal")
@@ -375,7 +445,8 @@ def main() -> None:
     ap.add_argument("--child-app", default="/app/app.py")
     ap.add_argument("--debug-raw-mqtt", action="store_true", help="For ZED, allow RGB/depth MQTT debug streams")
     ap.add_argument("--downsample-for-mqtt", type=float, default=1.0)
-    ap.add_argument("--sync-rebroadcast-delay", type=float, default=1.5)
+    ap.add_argument("--sync-rebroadcast-delay", type=float, default=0.5,
+                    help="Seconds after child startup to rebroadcast /replay/sync over MQTT so child apps that subscribe after launch catch the sync. Set negative to disable.")
     args = ap.parse_args()
 
     if args.service != "gps" and not args.node_folder:

@@ -118,6 +118,8 @@ pre {
   max-height: 240px;
 }
 .muted { color: #64748b; }
+.hidden { display: none !important; }
+
 .log-header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
 .filter-row { display: flex; gap: 0.5rem; min-width: min(560px, 100%); }
 .log {
@@ -148,4 +150,85 @@ pre {
   .cards { grid-template-columns: repeat(2, 1fr); }
   .latest-grid { grid-template-columns: 1fr; }
   .log-header { align-items: stretch; flex-direction: column; }
+}
+
+.progress-panel { grid-column: 2 / 3; }
+.progress-title-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+.progress-title-row h2 { margin-bottom: 0.25rem; }
+.progress-cards { margin-top: 0.75rem; }
+.metric.small { font-size: 1.25rem; }
+.progress-note {
+  margin: 0.9rem 0 0.75rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid #dbe3ef;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+.progress-table-wrap { overflow-x: auto; }
+.progress-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+.progress-table th,
+.progress-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 0.65rem 0.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+.progress-table th {
+  color: #475569;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.progress-table tr.stale { opacity: 0.58; }
+.bar {
+  margin-top: 0.4rem;
+  height: 8px;
+  width: 100%;
+  border-radius: 999px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+.bar > div {
+  height: 100%;
+  background: #2563eb;
+  border-radius: 999px;
+}
+.warn { color: #b45309; font-weight: 800; }
+
+@media (max-width: 900px) {
+  .progress-panel { grid-column: auto; }
+  .progress-title-row { flex-direction: column; }
+}
+
+.timing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin: 12px 0;
+}
+
+select {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border, #d0d7de);
+  background: var(--panel, #fff);
+  color: inherit;
+}
+
+.dimmed {
+  opacity: 0.65;
+}
+
+.dimmed input {
+  cursor: not-allowed;
 }

@@ -15,10 +15,11 @@ from __future__ import annotations
 import json
 import os
 import time
+import uuid
 from collections import deque
 from pathlib import Path
-from threading import Lock
-from typing import Any, Deque, Dict, Iterable, List
+from threading import Lock, Timer
+from typing import Any, Deque, Dict, Iterable, List, Optional
 
 from lib.scenario_catalog import build_and_write_catalog, parse_roots, scan_scenarios
 
@@ -45,6 +46,14 @@ DATA_ROOTS = [p for p in os.environ.get("IOBT_DATA_ROOTS", "").split(os.pathsep)
 SCENARIO_CATALOG_DIR = Path(os.environ.get("SCENARIO_CATALOG_DIR", "/generated"))
 _scenario_catalog_cache: Dict[str, Any] | None = None
 
+def env_bool(name: str, default: bool) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "t", "yes", "y", "on"}
+
+CLEAR_REPLAY_RETAINED_ON_STARTUP = env_bool("CLEAR_REPLAY_RETAINED_ON_STARTUP", True)
+
 SUBSCRIPTIONS = [
     "/replay/#",
     "/+/analytics/yolo/bbox",
@@ -70,13 +79,14 @@ app.add_middleware(
 )
 app.mount("/static", StaticFiles(directory=str(STATIC)), name="static")
 
-_messages: Deque[Dict[str, Any]] = deque(maxlen=300)
+_messages: Deque[Dict[str, Any]] = deque(maxlen=50)
 _lock = Lock()
 _next_id = 1
 _mqtt_client: mqtt.Client | None = None
 _connected = False
 _last_replay_config: Dict[str, Any] | None = None
 _last_replay_sync: Dict[str, Any] | None = None
+_startup_retained_clear_done = False
 
 
 def _remember_replay_message(topic: str, payload: Any) -> None:
@@ -91,7 +101,9 @@ class ReplayStartRequest(BaseModel):
     scenario: str = Field(..., min_length=1)
     start: float = 0.0
     end: float = -1.0
-    sync_delay: float = Field(10.0, ge=0.0, le=120.0)
+    sync_delay: float = Field(1.0, ge=0.0, le=120.0)
+    playback_mode: str = Field("max", description="max, realtime, or scaled")
+    speed: Optional[float] = Field(None, description="Speed multiplier used only when playback_mode=scaled")
     send_control: bool = False
 
 
@@ -130,7 +142,7 @@ def _record_message(topic: str, payload: Any, direction: str = "in") -> Dict[str
         return item
 
 
-def _recent_messages(after_id: int = 0, limit: int = 200) -> List[Dict[str, Any]]:
+def _recent_messages(after_id: int = 0, limit: int = 50) -> List[Dict[str, Any]]:
     with _lock:
         items = [m for m in _messages if int(m["id"]) > after_id]
     return items[-limit:]
@@ -149,12 +161,88 @@ def _publish(topic: str, payload: Any, qos: int = 1, retain: bool = False) -> No
     _record_message(topic, payload, direction="out")
 
 
+def _clear_retained(topic: str) -> None:
+    """Clear one retained MQTT topic on the broker."""
+    if _mqtt_client is None:
+        raise HTTPException(status_code=503, detail="MQTT client is not initialized")
+    result = _mqtt_client.publish(topic, payload=None, qos=1, retain=True)
+    if result.rc != mqtt.MQTT_ERR_SUCCESS:
+        raise HTTPException(status_code=502, detail=f"MQTT retain-clear failed with rc={result.rc}")
+    _record_message(topic, {"cleared_retained": True}, direction="out")
+
+
+def _clear_retained_with_client(client: mqtt.Client, topic: str, reason: str) -> None:
+    result = client.publish(topic, payload=None, qos=1, retain=True)
+    if result.rc == mqtt.MQTT_ERR_SUCCESS:
+        _record_message(topic, {"cleared_retained": True, "reason": reason}, direction="out")
+    else:
+        _record_message(topic, {"cleared_retained": False, "reason": reason, "rc": result.rc}, direction="status")
+
+
+
+
+def _publish_sync_once(sync: Dict[str, Any], *, delay_sec: float = 0.0, burst_index: int = 0, note: str = "") -> None:
+    """Publish one /replay/sync message, optionally after a small delay.
+
+    This is intentionally MQTT-only. The goal is to avoid the common race where
+    /replay/config starts/restarts a replay child, but the child subscribes to
+    /replay/sync just after the first sync message was published. All messages
+    in a burst carry the same replay_id and start_at so replay apps can ignore
+    duplicates if they already started.
+    """
+    def _send() -> None:
+        payload = dict(sync)
+        payload["burst_index"] = int(burst_index)
+        if note:
+            payload["note"] = note
+        try:
+            _publish("/replay/sync", payload, qos=1, retain=False)
+        except Exception as exc:  # avoid Timer thread crashing silently
+            _record_message("$web_ui/replay_sync_burst_error", {
+                "error": str(exc),
+                "burst_index": burst_index,
+                "sync": payload,
+            }, direction="status")
+
+    if delay_sec <= 0:
+        _send()
+    else:
+        timer = Timer(delay_sec, _send)
+        timer.daemon = True
+        timer.start()
+
+
+def _publish_sync_burst(sync: Dict[str, Any], *, initial_delay: float, reason: str) -> Dict[str, Any]:
+    """Publish a short sync burst to handle late replay-child startup.
+
+    The first message is sent immediately, then again near/after the requested
+    start time. If a child catches the first sync, later duplicates should be
+    ignored by replay_id/start_at. If it starts late, one of the later MQTT
+    sync messages should reach it without requiring the user to click Resend.
+    """
+    base = max(float(initial_delay), 0.0)
+    delays = [0.0]
+    for d in (max(base * 0.5, 0.25), base + 0.25, base + 1.0, base + 2.0):
+        if d not in delays:
+            delays.append(d)
+    for i, d in enumerate(delays):
+        _publish_sync_once(sync, delay_sec=d, burst_index=i, note=reason)
+    return {"count": len(delays), "delays_sec": delays}
+
+
 def _on_connect(client: mqtt.Client, _userdata: Any, _flags: Any, reason_code: Any, _properties: Any = None) -> None:
-    global _connected
+    global _connected, _startup_retained_clear_done, _last_replay_config, _last_replay_sync
     _connected = True
     for topic in SUBSCRIPTIONS:
         client.subscribe(topic, qos=0)
     _record_message("$web_ui/status", {"connected": True, "host": MQTT_HOST, "port": MQTT_PORT}, direction="status")
+    if CLEAR_REPLAY_RETAINED_ON_STARTUP and not _startup_retained_clear_done:
+        _clear_retained_with_client(client, "/replay/config", "web_ui_startup")
+        _clear_retained_with_client(client, "/replay/sync", "web_ui_startup")
+        _last_replay_config = None
+        _last_replay_sync = None
+        _startup_retained_clear_done = True
+        _record_message("$web_ui/status", {"cleared_replay_retained_on_startup": True}, direction="status")
 
 
 def _on_disconnect(_client: mqtt.Client, _userdata: Any, *args: Any) -> None:
@@ -247,7 +335,8 @@ def data_roots() -> Dict[str, Any]:
 
 
 @app.get("/api/messages")
-def messages(after_id: int = 0, limit: int = 200) -> Dict[str, Any]:
+def messages(after_id: int = 0, limit: int = 50) -> Dict[str, Any]:
+    limit = min(max(int(limit), 1), 50)
     return {"messages": _recent_messages(after_id=after_id, limit=limit)}
 
 
@@ -296,30 +385,108 @@ def scenario_catalog_csv() -> FileResponse:
     return FileResponse(path, media_type="text/csv", filename="scenario_catalog.csv")
 
 
+def _normalize_playback_timing(mode: str, speed: Optional[float]) -> tuple[str, float]:
+    normalized = str(mode or "max").lower().strip()
+    if normalized in {"fast", "asap", "unlimited"}:
+        normalized = "max"
+    if normalized not in {"max", "realtime", "scaled"}:
+        raise HTTPException(status_code=400, detail="playback_mode must be max, realtime, or scaled")
+
+    # Max-speed and realtime modes ignore the custom multiplier.
+    # This lets the web UI omit speed entirely unless Custom speed is selected.
+    if normalized == "max":
+        return normalized, 1.0
+    if normalized == "realtime":
+        return normalized, 1.0
+
+    scaled_speed = 1.0 if speed is None else float(speed)
+    if scaled_speed <= 0:
+        raise HTTPException(status_code=400, detail="speed must be > 0 for scaled mode")
+    return normalized, scaled_speed
+
+
 @app.post("/api/replay/start")
 def start_replay(req: ReplayStartRequest) -> Dict[str, Any]:
+    playback_mode, speed = _normalize_playback_timing(req.playback_mode, req.speed)
+    replay_id = f"{req.scenario}-{int(time.time() * 1000)}-{uuid.uuid4().hex[:8]}"
     config = {
         "scenario": req.scenario,
         "start_time": req.start,
         "end_time": req.end,
+        "playback_mode": playback_mode,
+        "speed": speed,
+        "replay_id": replay_id,
     }
     start_at = time.time() + req.sync_delay
-    sync = {"scenario": req.scenario, "start_at": start_at}
+    sync = {
+        "scenario": req.scenario,
+        "start_at": start_at,
+        "playback_mode": playback_mode,
+        "speed": speed,
+        "replay_id": replay_id,
+    }
 
-    _publish("/replay/config", config, qos=1)
+    # Keep /replay/config retained so supervisors that start later know the
+    # selected scenario. /replay/sync is deliberately non-retained; supervisors
+    # that already received it seed/rebroadcast it to their child replay process.
+    _publish("/replay/config", config, qos=1, retain=True)
     if req.send_control:
         _publish("control", "collection-start", qos=1)
-    _publish("/replay/sync", sync, qos=1)
+
+    burst = _publish_sync_burst(sync, initial_delay=req.sync_delay, reason="start_replay")
 
     return {
         "ok": True,
         "config": config,
         "sync": sync,
+        "sync_burst": burst,
         "message": (
-            f"Replay sync published; containers should start in about {req.sync_delay:.1f}s. "
+            f"Replay sync burst published in {playback_mode} mode "
+            f"({burst['count']} MQTT sync messages over ~{max(burst['delays_sec']):.1f}s). "
             "The persistent replay supervisors resolve the scenario against the mounted SSD data roots."
         ),
     }
+
+
+@app.post("/api/replay/resend-sync")
+def resend_sync(delay: float = 0.5) -> Dict[str, Any]:
+    if not _last_replay_config or not isinstance(_last_replay_config, dict):
+        raise HTTPException(status_code=400, detail="No replay config has been published yet")
+    scenario = str(_last_replay_config.get("scenario") or "").strip()
+    if not scenario:
+        raise HTTPException(status_code=400, detail="Last replay config has no scenario")
+    playback_mode, speed = _normalize_playback_timing(
+        str(_last_replay_config.get("playback_mode", "max")),
+        float(_last_replay_config.get("speed", 1.0)),
+    )
+    delay = max(float(delay), 0.0)
+    replay_id = str(_last_replay_config.get("replay_id") or f"{scenario}-{int(time.time() * 1000)}-{uuid.uuid4().hex[:8]}")
+    # Keep config and sync on the same replay_id. Resend sync is meant to start
+    # an already configured replay child, not create an unrelated replay session.
+    _last_replay_config["replay_id"] = replay_id
+    _last_replay_config["playback_mode"] = playback_mode
+    _last_replay_config["speed"] = speed
+    sync = {
+        "scenario": scenario,
+        "start_at": time.time() + delay,
+        "playback_mode": playback_mode,
+        "speed": speed,
+        "replay_id": replay_id,
+        "resent": True,
+    }
+    _publish("/replay/config", _last_replay_config, qos=1, retain=True)
+    burst = _publish_sync_burst(sync, initial_delay=delay, reason="resend_sync")
+    return {"ok": True, "sync": sync, "sync_burst": burst, "message": f"Resent /replay/sync burst for {scenario}"}
+
+
+@app.post("/api/replay/clear")
+def clear_replay_command() -> Dict[str, Any]:
+    global _last_replay_config, _last_replay_sync
+    _clear_retained("/replay/config")
+    _clear_retained("/replay/sync")
+    _last_replay_config = None
+    _last_replay_sync = None
+    return {"ok": True, "message": "Cleared retained replay config/sync from MQTT broker"}
 
 
 @app.post("/api/control")
@@ -328,7 +495,15 @@ def send_control(req: ControlRequest) -> Dict[str, Any]:
     if req.action not in allowed:
         raise HTTPException(status_code=400, detail=f"action must be one of {sorted(allowed)}")
     _publish("control", req.action, qos=1)
-    return {"ok": True, "topic": "control", "payload": req.action}
+    return {
+        "ok": True,
+        "topic": "control",
+        "payload": req.action,
+        "note": (
+            "Replay config/sync were not cleared. Use Clear replay command for that. "
+            "collection-shutdown may cause replay/detector services to quit until Docker Compose recreates them."
+        ),
+    }
 
 
 @app.post("/api/publish")
@@ -341,7 +516,7 @@ def publish(req: PublishRequest) -> Dict[str, Any]:
 def _sse_event_stream() -> Iterable[str]:
     last_id = 0
     while True:
-        new_items = _recent_messages(after_id=last_id, limit=200)
+        new_items = _recent_messages(after_id=last_id, limit=50)
         if new_items:
             for item in new_items:
                 last_id = max(last_id, int(item["id"]))

@@ -65,3 +65,96 @@ services:
       - YOLO_FRAME_STATUS_FPS=1.0
       - YOLO_ANNOTATED_WIDTH=960
       - YOLO_ANNOTATED_JPEG_QUALITY=70
+
+  respeaker-orin11:
+    build:
+      context: .
+      dockerfile: services/replay/respeaker/Dockerfile
+      network: host
+    image: iobt-minimal/respeaker-replay:latest
+    container_name: respeaker-replay-orin11
+    working_dir: /app
+    command: "python3 -u /app/replay_entrypoint.py --service respeaker --node-folder orin11 --node-name dvpg_gq_orin_11"
+    privileged: true
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - /etc/timezone:/etc/timezone:ro
+      - "/media/brianw/Extreme SSD/West Point Experimentation:/data_roots/west_point:ro"
+      - "/media/brianw/Extreme SSD/GQ Data:/data_roots/gq:ro"
+      - "/tmp/iobt-orin11:/tmp"
+    environment:
+      - TEST_CONTROL=False
+      - MCP_NODE_NAME=dvpg_gq_orin_11
+      - MQTT_HOST_IP=${MQTT_HOST_IP:-host.docker.internal}
+      - MQTT_PORT=${MQTT_PORT:-1883}
+      - MCP_CONTAINER_OUTPUT_DIR=/output
+      - SERIALIZER=msgpack
+      - IOBT_DATA_ROOTS=/data_roots/west_point:/data_roots/gq
+      - IOBT_NODE_FOLDER=orin11
+
+  audio-detector-orin11:
+    build:
+      context: .
+      dockerfile: services/analytics/audio_detector/Dockerfile
+      network: host
+    image: iobt-minimal/audio-detector:latest
+    container_name: audio-detector-orin11
+    working_dir: /app
+    command: python3 -u /app/app.py
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - "/tmp/iobt-orin11:/tmp"
+    environment:
+      - TEST_CONTROL=False
+      - MCP_NODE_NAME=dvpg_gq_orin_11
+      - MQTT_HOST_IP=${MQTT_HOST_IP:-host.docker.internal}
+      - MQTT_PORT=${MQTT_PORT:-1883}
+      - MCP_CONTAINER_OUTPUT_DIR=/tmp
+      - SERIALIZER=msgpack
+      - DETECTION_THRESHOLD=-30.0
+      - AUDIO_PUBLISH_STATUS=true
+      - AUDIO_STATUS_FPS=1.0
+      - AUDIO_PUBLISH_IDLE_STATUS=false
+      - AUDIO_PRINT_IDLE_STATUS=false
+
+  gps-replay:
+    build:
+      context: .
+      dockerfile: services/replay/gps/Dockerfile
+      network: host
+    image: iobt-minimal/gps-replay:latest
+    container_name: gps-replay
+    working_dir: /app
+    command: "python3 -u /app/replay_entrypoint.py --service gps --node-name x86server"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - "/media/brianw/Extreme SSD/West Point Experimentation:/data_roots/west_point:ro"
+      - "/media/brianw/Extreme SSD/GQ Data:/data_roots/gq:ro"
+      - /tmp/iobt-gps:/tmp
+    environment:
+      - TEST_CONTROL=False
+      - MCP_NODE_NAME=x86server
+      - MQTT_HOST_IP=${MQTT_HOST_IP:-host.docker.internal}
+      - MQTT_PORT=${MQTT_PORT:-1883}
+      - MCP_CONTAINER_OUTPUT_DIR=/tmp
+      - SERIALIZER=msgpack
+      - IOBT_DATA_ROOTS=/data_roots/west_point:/data_roots/gq
+
+  complex-event-detector:
+    build:
+      context: .
+      dockerfile: services/orchestration/complex_event_detector/Dockerfile
+      network: host
+    image: iobt-minimal/complex-event-detector:latest
+    container_name: complex-event-detector
+    command: python3 -u /app/app.py
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - MQTT_HOST_IP=${MQTT_HOST_IP:-host.docker.internal}
+      - MQTT_PORT=${MQTT_PORT:-1883}
+      - CE_WINDOW_SEC=${CE_WINDOW_SEC:-5.0}
+      - CE_OUTPUT_TOPIC=/complex_events/demo

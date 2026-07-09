@@ -20,12 +20,23 @@ import argparse
 import json
 import threading
 
+APP_VERSION = "zed-replay-config-disabled-v20260709-4"
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "t", "yes", "y", "on"}
+
+
 class zed_custom(iobt_max_service):
 
     def __init__(self,args):
         #Name the app and init the base class 
         self.name = "zed"
         iobt_max_service.__init__(self,self.name)
+        print(f"[ZED] app version {APP_VERSION}", flush=True)
 
         self.data           = []
         self.fps            = 1
@@ -49,6 +60,9 @@ class zed_custom(iobt_max_service):
         self._loaded_end_time    = None
         self._pending_start_time = None
         self._pending_end_time   = None
+        self._replay_control_subscribed = False
+        self.replay_child_config_enabled = _env_bool("REPLAY_CHILD_CONFIG_ENABLED", True)
+        self._initial_sync_json = os.environ.get("REPLAY_INITIAL_SYNC_JSON", "").strip()
 
         self.cam            = sl.Camera()
         self.framescale     = 0.25
@@ -64,6 +78,10 @@ class zed_custom(iobt_max_service):
 
         self.playback_start_time = args.start
         self.playback_end_time = args.end
+        self.playback_mode = getattr(args, "playback_mode", "max")
+        self.playback_speed = float(getattr(args, "speed", 1.0) or 1.0)
+        self._normalize_playback_mode()
+        self.status_interval = float(os.environ.get("REPLAY_STATUS_INTERVAL", "1.0"))
 
         self.send_rgb_mqtt   = not args.no_rgb_mqtt
         self.send_depth_mqtt = not args.no_depth_mqtt
@@ -83,7 +101,9 @@ class zed_custom(iobt_max_service):
         self.init.coordinate_units  = sl.UNIT.METER
         self.init.camera_fps        = 15
         self.init.depth_maximum_distance = 40.0
-        self.init.svo_real_time_mode = True
+        # We do replay timing ourselves so we can support max-speed, real-time,
+        # and scaled slower/faster playback with the same synchronization message.
+        self.init.svo_real_time_mode = False
 
         self.runtime_parameters              = sl.RuntimeParameters()
         #self.runtime_parameters.sensing_mode = sl.SENSING_MODE.STANDARD
@@ -104,8 +124,13 @@ class zed_custom(iobt_max_service):
         self.local_data_topic = self.get_topic_name("data")
         self.sync_topic      = "/replay/sync"
         self.config_topic    = "/replay/config"
-        self.subscribe("net", self.sync_topic, self._on_sync)
-        self.subscribe("net", self.config_topic, self._on_config)
+        if not self._replay_control_subscribed:
+            self.subscribe("net", self.sync_topic, self._on_sync)
+            if self.replay_child_config_enabled:
+                self.subscribe("net", self.config_topic, self._on_config)
+            else:
+                print("[ZED] Child direct /replay/config subscription disabled; supervisor owns config.", flush=True)
+            self._replay_control_subscribed = True
         
         self.img   = sl.Mat(self.lo_res.width, self.lo_res.height, sl.MAT_TYPE.U8_C4, sl.MEM.CPU)
         self.depth = sl.Mat(self.lo_res.width, self.lo_res.height, sl.MAT_TYPE.F32_C1, sl.MEM.CPU)
@@ -134,6 +159,56 @@ class zed_custom(iobt_max_service):
         self._pending_video_file = self.video_file
         self._pending_start_time = self.playback_start_time
         self._pending_end_time   = self.playback_end_time
+
+    def _normalize_playback_mode(self):
+        mode = str(getattr(self, "playback_mode", "max") or "max").lower().strip()
+        if mode in {"fast", "asap", "unlimited"}:
+            mode = "max"
+        if mode not in {"max", "realtime", "scaled"}:
+            mode = "max"
+        speed = float(getattr(self, "playback_speed", 1.0) or 1.0)
+        if mode == "realtime":
+            speed = 1.0
+        elif mode == "scaled":
+            speed = max(speed, 1e-6)
+        self.playback_mode = mode
+        self.playback_speed = speed
+
+    def _set_playback_timing(self, mode=None, speed=None):
+        if mode is not None:
+            self.playback_mode = mode
+        if speed is not None:
+            try:
+                self.playback_speed = float(speed)
+            except Exception:
+                pass
+        self._normalize_playback_mode()
+
+    def _timing_speed(self):
+        """Return None for max/as-fast-as-possible mode, else a positive speed multiplier."""
+        self._normalize_playback_mode()
+        if self.playback_mode == "max":
+            return None
+        return self.playback_speed
+
+    def _sleep_until_playback_time(self, playback_time):
+        """Sleep until the shared virtual replay clock reaches playback_time.
+
+        Returns False if interrupted by config/sync/quit; True otherwise.
+        In max mode there is intentionally no sleep.
+        """
+        speed = self._timing_speed()
+        if speed is None:
+            return True
+        target_elapsed = max(0.0, float(playback_time) - float(self.playback_start_time))
+        target_wall = self.sync_start_at + target_elapsed / speed
+        while True:
+            if self.state == state.quit or self._config_event.is_set() or self._sync_event.is_set():
+                return False
+            remaining = target_wall - time.time()
+            if remaining <= 0:
+                return True
+            time.sleep(min(0.02, remaining))
 
     def service_initialize_collect(self):
         print("Calling zed replay service collection init")
@@ -176,6 +251,9 @@ class zed_custom(iobt_max_service):
             scenario   = msg.get("scenario", None)
             start_time = msg.get("start_time", None)
             end_time   = msg.get("end_time",   None)
+            playback_mode = msg.get("playback_mode", msg.get("mode", None))
+            playback_speed = msg.get("speed", msg.get("playback_speed", None))
+            self._set_playback_timing(playback_mode, playback_speed)
 
             new_start = float(start_time) if start_time is not None else 0.0
             new_end   = float(end_time)   if end_time   is not None else -1.0
@@ -194,7 +272,7 @@ class zed_custom(iobt_max_service):
             self.playback_start_time = new_start
             self.playback_end_time   = new_end
 
-            print(f"[ZED] Config updated — scenario='{scenario}' start={new_start} end={new_end}")
+            print(f"[ZED] Config updated — scenario='{scenario}' start={new_start} end={new_end} mode={self.playback_mode} speed={self.playback_speed:g}")
 
             loaded_match  = (new_video_file == self._loaded_video_file 
                              and new_start == self._loaded_start_time 
@@ -222,23 +300,43 @@ class zed_custom(iobt_max_service):
         """
         try:
             msg = json.loads(payload)
+            self._set_playback_timing(msg.get('playback_mode', msg.get('mode', None)), msg.get('speed', msg.get('playback_speed', None)))
             self.sync_start_at   = float(msg.get('start_at', time.time()))
             self.loop_wall_start = self.sync_start_at
             self.sync_received   = True
             self._sync_event.set()
             print(f"[ZED] Sync received — start_at={self.sync_start_at:.3f} "
-                  f"(in {self.sync_start_at - time.time():.2f}s)")
+                  f"(in {self.sync_start_at - time.time():.2f}s) mode={self.playback_mode} speed={self.playback_speed:g}")
         except Exception as e:
             print(f"[ZED] Sync parse error: {e}")
 
     def get_playback_time(self, ts=None):
         if ts is None:
             ts = time.time()
-        elapsed = max(0.0, ts - self.sync_start_at) % max(self.total_playback_duration, 1e-6)
+        speed = self._timing_speed()
+        if speed is None:
+            elapsed = 0.0
+        else:
+            elapsed = (max(0.0, ts - self.sync_start_at) * speed) % max(self.total_playback_duration, 1e-6)
         return self.playback_start_time + elapsed
     
     def get_playback_index(self,playback_time):
         return self.df_timestamps.index.searchsorted(playback_time)
+
+    def _maybe_load_initial_sync(self):
+        raw = getattr(self, "_initial_sync_json", "")
+        if not raw:
+            return False
+        # Consume once.  This seed was copied from the MQTT sync already seen by
+        # the supervisor before the child subscribed.
+        self._initial_sync_json = ""
+        os.environ["REPLAY_INITIAL_SYNC_JSON"] = ""
+        try:
+            self._on_sync(self.sync_topic, raw)
+            return True
+        except Exception as exc:
+            print(f"[ZED] Failed to apply initial sync from env: {exc}", flush=True)
+            return False
 
     def _wait_for_sync_or_config(self):
         """Block until sync or config arrives. Returns 'sync', 'config', or 'quit'."""
@@ -246,6 +344,9 @@ class zed_custom(iobt_max_service):
             if self.state == state.quit:
                 return 'quit'
             if self._sync_event.is_set():
+                self._sync_event.clear()
+                return 'sync'
+            if self._maybe_load_initial_sync():
                 self._sync_event.clear()
                 return 'sync'
             if self._config_event.is_set():
@@ -269,10 +370,9 @@ class zed_custom(iobt_max_service):
 
             # ── LOAD DATA ────────────────────────────────────────────────────
             if self._config_event.is_set() or not data_loaded:
+                had_sync = bool(self.sync_received or self._sync_event.is_set())
                 self._config_event.clear()
-                self._sync_event.clear()
-                self.sync_received = False
-                print("[ZED] Loading data...")
+                print(f"[ZED] Loading data... had_sync={had_sync}", flush=True)
                 try:
                     self.cam.close()
                 except Exception:
@@ -301,7 +401,9 @@ class zed_custom(iobt_max_service):
                     # _on_config suppresses duplicates via _pending_video_file,
                     # so if _config_event is still set it's a genuinely new config
                     continue
-                sync_ready = False  # new data loaded, need a fresh sync
+                sync_ready = bool(had_sync or self.sync_received or self._sync_event.is_set())
+                if sync_ready:
+                    print("[ZED] Preserved sync across data load — starting without waiting.", flush=True)
 
             # ── WAIT FOR SYNC ─────────────────────────────────────────────────
             # Skip if we already have a valid sync (e.g. interrupted mid-playback)
@@ -341,7 +443,7 @@ class zed_custom(iobt_max_service):
                     self._sync_event.clear()
                     continue
 
-            print(f"[ZED] Starting playback sync_start_at={self.sync_start_at:.3f}")
+            print(f"[ZED] Starting playback sync_start_at={self.sync_start_at:.3f} mode={self.playback_mode} speed={self.playback_speed:g}")
 
             current_playback_time  = self.get_playback_time()
             current_playback_index = self.get_playback_index(current_playback_time)
@@ -369,6 +471,15 @@ class zed_custom(iobt_max_service):
                     print("[ZED] Sync received during playback — restarting.")
                     break
 
+                target_playback_time = self.df_timestamps.index[current_playback_index] if current_playback_index < len(self.df_timestamps) else self.playback_end_time
+                if not self._sleep_until_playback_time(target_playback_time):
+                    if self._config_event.is_set():
+                        interrupted_by_config = True
+                    elif self._sync_event.is_set():
+                        self._sync_event.clear()
+                        interrupted_by_sync = True
+                    break
+
                 grab_status = self.cam.grab()
                 if grab_status == sl.ERROR_CODE.SUCCESS:
                     timestamp = time.time()
@@ -383,12 +494,15 @@ class zed_custom(iobt_max_service):
                 else:
                     print(f"[ZED] Frame grab failed: {grab_status}")
 
-                if time.time() - service_step_start_time >= 5:
+                if time.time() - service_step_start_time >= self.status_interval:
                     ts    = time.time()
                     t     = datetime.fromtimestamp(ts).strftime("%Y/%m/%d %H:%M:%S.%f")
                     delta = ts - service_step_start_time
                     print(f"[{t}] Replay State: {self.state} Frame rate: {frame_count/delta:.3f}/s")
-                    elapsed = max(0.0, time.time() - self.sync_start_at) % max(self.total_playback_duration, 1e-6)
+                    if current_playback_index < len(self.df_timestamps):
+                        elapsed = max(0.0, float(self.df_timestamps.index[current_playback_index]) - float(self.playback_start_time))
+                    else:
+                        elapsed = self.total_playback_duration
                     pct     = 100.0 * elapsed / max(self.total_playback_duration, 1e-6)
                     status_msg = json.dumps({
                         "service":    "zed_replay",
@@ -398,6 +512,8 @@ class zed_custom(iobt_max_service):
                         "current":    round(elapsed, 2),
                         "duration":   round(self.total_playback_duration, 2),
                         "pct":        round(pct, 1),
+                        "playback_mode": self.playback_mode,
+                        "requested_speed_x": None if self.playback_mode == "max" else self.playback_speed,
                         "t":          self.ts_to_string(ts)
                     })
                     self.publish("net", f"/replay/status/zed/{self.hostname}", status_msg)
@@ -416,6 +532,27 @@ class zed_custom(iobt_max_service):
                 sync_ready = True  # sync already captured in loop_wall_start
                 continue  # skip WAIT SYNC, go straight to PLAY
             else:
+                # Natural end — publish a final progress update even if max-speed replay
+                # completed before the periodic status interval elapsed.
+                try:
+                    ts = time.time()
+                    status_msg = json.dumps({
+                        "service":    "zed_replay",
+                        "node":       self.hostname,
+                        "event":      "complete",
+                        "start_time": self.playback_start_time,
+                        "end_time":   self.playback_end_time,
+                        "current":    round(self.total_playback_duration, 2),
+                        "duration":   round(self.total_playback_duration, 2),
+                        "pct":        100.0,
+                        "playback_mode": self.playback_mode,
+                        "requested_speed_x": None if self.playback_mode == "max" else self.playback_speed,
+                        "speed_x": round(self.total_playback_duration / max(ts - self.sync_start_at, 1e-6), 3),
+                        "t":          self.ts_to_string(ts)
+                    })
+                    self.publish("net", f"/replay/status/zed/{self.hostname}", status_msg)
+                except Exception as e:
+                    print(f"[ZED] Failed to publish final replay status: {e}")
                 # Natural end — wait for next sync from playback controller
                 print("[ZED] End of playback window — waiting for sync to loop...")
                 self.sync_received = False
@@ -466,6 +603,9 @@ def main():
     parser.add_argument('--no_rgb_mqtt', action='store_true', help='Send RGB mqtt messages?')
     parser.add_argument('--no_depth_mqtt', action='store_true', help='Send depth mqtt messages?')
     parser.add_argument('--downsample_for_mqtt', type=float, default=1, help='MQTT image downsampling factor')
+    parser.add_argument('--playback-mode', choices=['max', 'realtime', 'scaled'], default='max',
+                        help='Replay timing mode: max/as-fast-as-possible, realtime, or scaled speed.')
+    parser.add_argument('--speed', type=float, default=1.0, help='Speed multiplier for scaled mode; realtime forces 1.0.')
 
     args = parser.parse_args()
 
