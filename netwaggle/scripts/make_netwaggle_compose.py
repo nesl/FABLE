@@ -106,6 +106,17 @@ def transform_compose(compose: dict[str, Any], node_map: dict[str, Any]) -> dict
                 env["MQTT_HOST_IP"] = f"${{MQTT_HOST_IP:-{mqtt_host_ip}}}"
             if "MQTT_HOST" in env:
                 env["MQTT_HOST"] = f"${{MQTT_HOST:-{mqtt_host_ip}}}"
+
+            # Evaluation-mode visibility: make Docker logs show which MQTT/local
+            # messages are being emitted while replay runs through NetWaggle.
+            # Operators can override these at compose runtime, e.g.
+            #   IOBT_LOG_NET_PUBLISH=false docker compose ...
+            env.setdefault("IOBT_LOG_NET_PUBLISH", "${IOBT_LOG_NET_PUBLISH:-true}")
+            env.setdefault("IOBT_LOG_LOCAL_PUBLISH", "${IOBT_LOG_LOCAL_PUBLISH:-true}")
+            env.setdefault("IOBT_LOG_NET_PUBLISH_EVERY_N", "${IOBT_LOG_NET_PUBLISH_EVERY_N:-1}")
+            env.setdefault("IOBT_LOG_LOCAL_PUBLISH_EVERY_N", "${IOBT_LOG_LOCAL_PUBLISH_EVERY_N:-30}")
+            env.setdefault("IOBT_PUBLISH_READINESS", "${IOBT_PUBLISH_READINESS:-true}")
+            env.setdefault("IOBT_READINESS_RETAIN", "${IOBT_READINESS_RETAIN:-true}")
             if env:
                 target["environment"] = env_map_to_list(env)
 

@@ -1,6 +1,7 @@
 
 import os
 import time
+import json
 from datetime import datetime, timedelta
 import socket
 import os, sys
@@ -18,7 +19,7 @@ from abc import ABC, abstractmethod
 from typing import Type, Any, Union, Optional, Callable, Dict, Literal, final
 import types
 
-print("Using iob_max_service.py v0.5-replay-retry")
+print("Using iob_max_service.py v0.6-readiness")
 
 class state(Enum):
     """
@@ -43,7 +44,16 @@ env={
     "MQTT_PORT":{"val":1883,"cast":int},
     "FLASK_HOST_IP":{"val":"localhost","cast":str},
     "FLASK_PORT":{"val":5001,"cast":int},
-    "MCP_NODE_NAME":{"val":socket.gethostname(), "cast":str}
+    "MCP_NODE_NAME":{"val":socket.gethostname(), "cast":str},
+    # Optional evaluation/debug logging. This is useful when replay services are
+    # running behind NetWaggle because Docker logs otherwise only show service
+    # health, not every MQTT/local publish. Kept opt-in so normal runs are quiet.
+    "IOBT_LOG_NET_PUBLISH":{"val":False,"cast": str_to_bool},
+    "IOBT_LOG_LOCAL_PUBLISH":{"val":False,"cast": str_to_bool},
+    "IOBT_LOG_NET_PUBLISH_EVERY_N":{"val":1,"cast": int},
+    "IOBT_LOG_LOCAL_PUBLISH_EVERY_N":{"val":30,"cast": int},
+    "IOBT_PUBLISH_READINESS":{"val":True,"cast": str_to_bool},
+    "IOBT_READINESS_RETAIN":{"val":True,"cast": str_to_bool},
 }
 
 for var, data in env.items():
@@ -120,6 +130,14 @@ class iobt_max_service(ABC):
         self.mqtt_subscriber_callbacks ={}
         self.last_net_pub_time=0
         self.service_control_topic = self.get_topic_name("control")
+
+        self.log_net_publish = env["IOBT_LOG_NET_PUBLISH"]["val"]
+        self.log_local_publish = env["IOBT_LOG_LOCAL_PUBLISH"]["val"]
+        self.log_net_publish_every_n = max(1, int(env["IOBT_LOG_NET_PUBLISH_EVERY_N"]["val"]))
+        self.log_local_publish_every_n = max(1, int(env["IOBT_LOG_LOCAL_PUBLISH_EVERY_N"]["val"]))
+        self._publish_log_counts = {}
+        self.publish_readiness_enabled = env["IOBT_PUBLISH_READINESS"]["val"]
+        self.readiness_retain = env["IOBT_READINESS_RETAIN"]["val"]
 
         #Initialize pynng for on-node inter-container coms
         self.nng_subscribers = {}
@@ -250,6 +268,68 @@ class iobt_max_service(ABC):
         print("MQTT disconnected. Result code: "+str(rc))
 
     @final
+    def _payload_size_bytes(self, payload:Any)->int:
+        try:
+            if payload is None:
+                return 0
+            if isinstance(payload, bytes):
+                return len(payload)
+            if isinstance(payload, bytearray):
+                return len(payload)
+            if isinstance(payload, str):
+                return len(payload.encode("utf-8", errors="replace"))
+            return len(str(payload).encode("utf-8", errors="replace"))
+        except Exception:
+            return -1
+
+    @final
+    def _log_publish(self, scope:str, topic:str, payload:Any, every_n:int)->None:
+        key = (scope, topic)
+        count = self._publish_log_counts.get(key, 0) + 1
+        self._publish_log_counts[key] = count
+        if count == 1 or count % every_n == 0:
+            size = self._payload_size_bytes(payload)
+            print(
+                f"[publish:{scope}] service={self.servicename} host={self.hostname} "
+                f"topic={topic} count={count} bytes={size}",
+                flush=True,
+            )
+
+
+    @final
+    def publish_readiness(self, service_name:str=None, ready:bool=False, reason:str="", **extra:Any)->None:
+        """Publish a retained readiness message for replay orchestration.
+
+        Readiness messages are intentionally separate from debug/status streams so
+        the web UI and replay_control.py can decide whether it is safe to publish
+        /replay/sync.  The canonical topic is /readiness/<node>/<service>.
+        """
+        if not getattr(self, "publish_readiness_enabled", True):
+            return
+        service = str(service_name or self.servicename)
+        payload = {
+            "kind": "readiness",
+            "node": self.hostname,
+            "service": service,
+            "ready": bool(ready),
+            "reason": str(reason or ""),
+            "state": getattr(getattr(self, "state", None), "value", str(getattr(self, "state", ""))),
+            "pid": os.getpid(),
+            "t": time.time(),
+        }
+        payload.update(extra)
+        topic = f"/readiness/{self.hostname}/{service}"
+        try:
+            wire = json.dumps(payload, default=str)
+            result = self.mqtt_client.publish(topic, wire, qos=1, retain=self.readiness_retain)
+            if result.rc != mqtt.MQTT_ERR_SUCCESS:
+                print(f"[readiness] publish failed topic={topic} rc={result.rc}", flush=True)
+            elif self.log_net_publish:
+                self._log_publish("net", topic, wire, 1)
+        except Exception as exc:
+            print(f"[readiness] publish failed topic={topic}: {exc}", flush=True)
+
+    @final
     def publish(self, scope:Literal["net","local"], topic:str, payload:Union[str,Dict[str, Any]])->None:
         """
         This function publishes a message with the given payload to the specified 
@@ -279,10 +359,12 @@ class iobt_max_service(ABC):
         if(scope=="net"):
             if(self.mqtt_client.is_connected()):
                 self.mqtt_client.publish(topic,payload)
+                if self.log_net_publish:
+                    self._log_publish("net", topic, payload, self.log_net_publish_every_n)
                 if (topic!=self.collect_status_topic):
                     self.last_net_pub_time=time.time()
             else:
-                print("The mqtt client is not connected")
+                print(f"The mqtt client is not connected; cannot publish topic={topic}", flush=True)
         elif(scope=="local"):
             try:
                 if self.serializer=="pickle":
@@ -294,6 +376,8 @@ class iobt_max_service(ABC):
                     raise ValueError(f"Serializer {self.serializer} is not known")
 
                 self.nng_pub.send(data)
+                if self.log_local_publish:
+                    self._log_publish("local", topic, data, self.log_local_publish_every_n)
             except pynng.exceptions.Closed:
                 print("The nng publisher is already closed")
         else:
@@ -415,7 +499,13 @@ class iobt_max_service(ABC):
                         listener.daemon = True
                         listener.start()
                         self.nng_subscriber_threads[topic] = listener
-                        print(f"Subscribed to local topic: {topic}")
+                        print(f"Subscribed to local topic: {topic}", flush=True)
+                        hook = getattr(self, "on_local_subscription_ready", None)
+                        if callable(hook):
+                            try:
+                                hook(topic, addr)
+                            except Exception as exc:
+                                print(f"Local subscription readiness hook failed for {topic}: {exc}", flush=True)
                         return
                     except Exception as e:
                         now = time.time()

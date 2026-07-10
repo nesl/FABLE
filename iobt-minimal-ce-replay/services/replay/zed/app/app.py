@@ -19,8 +19,9 @@ import bisect
 import argparse
 import json
 import threading
+from pathlib import Path
 
-APP_VERSION = "zed-replay-config-disabled-v20260709-4"
+APP_VERSION = "zed-replay-readiness-sync-v20260710-1"
 
 
 def _env_bool(name: str, default: bool) -> bool:
@@ -63,6 +64,7 @@ class zed_custom(iobt_max_service):
         self._replay_control_subscribed = False
         self.replay_child_config_enabled = _env_bool("REPLAY_CHILD_CONFIG_ENABLED", True)
         self._initial_sync_json = os.environ.get("REPLAY_INITIAL_SYNC_JSON", "").strip()
+        self._last_sync_signature = None
 
         self.cam            = sl.Camera()
         self.framescale     = 0.25
@@ -159,6 +161,44 @@ class zed_custom(iobt_max_service):
         self._pending_video_file = self.video_file
         self._pending_start_time = self.playback_start_time
         self._pending_end_time   = self.playback_end_time
+        self.publish_replay_ready("data_loaded_waiting_for_sync")
+
+    def _make_sync_signature(self, msg, start_at, mode, speed):
+        replay_id = msg.get("replay_id") or msg.get("command_id") or msg.get("session_id")
+        if replay_id:
+            return ("id", str(replay_id))
+        scenario = str(msg.get("scenario", ""))
+        return ("sync", scenario, f"{float(start_at):.3f}", str(mode), f"{float(speed):.6f}")
+
+    def _sync_matches_current_scenario(self, msg):
+        scenario = str(msg.get("scenario") or "").strip() if isinstance(msg, dict) else ""
+        if not scenario:
+            return True
+        loaded = ""
+        try:
+            loaded = Path(self.video_file).name.split(f"_{self.hostname}_zed")[0]
+        except Exception:
+            loaded = ""
+        return not loaded or scenario == loaded
+
+    def publish_replay_ready(self, reason, ready=True, **extra):
+        try:
+            scenario = Path(self.video_file).name.split(f"_{self.hostname}_zed")[0]
+        except Exception:
+            scenario = ""
+        self.publish_readiness(
+            "zed",
+            ready=ready,
+            reason=reason,
+            scenario=scenario,
+            video_file=self.video_file,
+            timestamp_file=self.timestamp_file,
+            start_time=self.playback_start_time,
+            end_time=self.playback_end_time,
+            local_ipc="/tmp/zed.ipc",
+            total_playback_duration=getattr(self, "total_playback_duration", None),
+            **extra,
+        )
 
     def _normalize_playback_mode(self):
         mode = str(getattr(self, "playback_mode", "max") or "max").lower().strip()
@@ -300,13 +340,22 @@ class zed_custom(iobt_max_service):
         """
         try:
             msg = json.loads(payload)
+            if not self._sync_matches_current_scenario(msg):
+                print(f"[ZED] Ignoring sync for scenario={msg.get('scenario')} while loaded file={self.video_file}", flush=True)
+                return
             self._set_playback_timing(msg.get('playback_mode', msg.get('mode', None)), msg.get('speed', msg.get('playback_speed', None)))
-            self.sync_start_at   = float(msg.get('start_at', time.time()))
+            start_at = float(msg.get('start_at', time.time()))
+            signature = self._make_sync_signature(msg, start_at, self.playback_mode, self.playback_speed)
+            if signature == self._last_sync_signature and self.sync_received:
+                print(f"[ZED] Duplicate sync ignored signature={signature}", flush=True)
+                return
+            self._last_sync_signature = signature
+            self.sync_start_at   = start_at
             self.loop_wall_start = self.sync_start_at
             self.sync_received   = True
             self._sync_event.set()
             print(f"[ZED] Sync received — start_at={self.sync_start_at:.3f} "
-                  f"(in {self.sync_start_at - time.time():.2f}s) mode={self.playback_mode} speed={self.playback_speed:g}")
+                  f"(in {self.sync_start_at - time.time():.2f}s) mode={self.playback_mode} speed={self.playback_speed:g} signature={signature}", flush=True)
         except Exception as e:
             print(f"[ZED] Sync parse error: {e}")
 
@@ -468,7 +517,7 @@ class zed_custom(iobt_max_service):
                 if self._sync_event.is_set():
                     self._sync_event.clear()
                     interrupted_by_sync = True
-                    print("[ZED] Sync received during playback — restarting.")
+                    print("[ZED] New sync received during playback — restarting.")
                     break
 
                 target_playback_time = self.df_timestamps.index[current_playback_index] if current_playback_index < len(self.df_timestamps) else self.playback_end_time

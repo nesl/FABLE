@@ -15,6 +15,8 @@ import argparse
 import json
 import time
 import uuid
+from threading import Lock
+from typing import Any
 
 import paho.mqtt.client as mqtt
 
@@ -33,6 +35,116 @@ def normalize_timing(mode: str, speed: float | None) -> tuple[str, float]:
     return mode, value
 
 
+def add_boolean_optional_argument(parser: argparse.ArgumentParser, name: str, *, default: bool, help: str) -> None:
+    """Add a --foo/--no-foo boolean flag on Python 3.8+.
+
+    argparse.BooleanOptionalAction was added in Python 3.9, but the replay
+    desktop is currently using Python 3.8. Keep the same CLI surface without
+    requiring a Python upgrade.
+    """
+    action = getattr(argparse, "BooleanOptionalAction", None)
+    if action is not None:
+        parser.add_argument(name, action=action, default=default, help=help)
+        return
+
+    parser.add_argument(name, dest=name.lstrip("-").replace("-", "_"), action="store_true", default=default, help=help)
+    parser.add_argument(f"--no-{name.lstrip('-')}", dest=name.lstrip("-").replace("-", "_"), action="store_false", help=argparse.SUPPRESS)
+
+
+def make_mqtt_client() -> mqtt.Client:
+    """Create a paho-mqtt client across paho 1.x and 2.x."""
+    try:
+        return mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+    except AttributeError:
+        return mqtt.Client()
+
+
+
+def readiness_key(topic: str, payload: Any) -> tuple[str, str] | None:
+    if isinstance(payload, str):
+        try:
+            payload = json.loads(payload)
+        except Exception:
+            return None
+    if not isinstance(payload, dict):
+        return None
+    node = str(payload.get("node") or "").strip()
+    service = str(payload.get("service") or "").strip()
+    if topic.startswith("/readiness/"):
+        parts = topic.strip("/").split("/")
+        if len(parts) >= 3:
+            node = node or parts[1]
+            service = service or parts[2]
+    if not node or not service:
+        return None
+    return node, service
+
+
+def readiness_matches(row: dict[str, Any], service: str, scenario: str, replay_id: str) -> bool:
+    if row.get("service") != service or not row.get("ready"):
+        return False
+    payload = row.get("payload") if isinstance(row.get("payload"), dict) else {}
+    if service in {"zed", "respeaker", "gps"}:
+        p_scenario = str(payload.get("scenario") or "").strip()
+        if p_scenario and p_scenario != scenario:
+            return False
+    p_replay_id = str(payload.get("replay_id") or "").strip()
+    if p_replay_id and p_replay_id != replay_id:
+        return False
+    return True
+
+
+def wait_for_readiness(client: mqtt.Client, *, scenario: str, replay_id: str, required: list[str], timeout: float) -> dict[str, Any]:
+    lock = Lock()
+    rows: dict[str, dict[str, Any]] = {}
+
+    def on_message(_client, _userdata, msg):
+        raw = msg.payload.decode("utf-8", errors="replace")
+        try:
+            payload = json.loads(raw)
+        except Exception:
+            payload = raw
+        key = readiness_key(msg.topic, payload)
+        if not key:
+            return
+        node, service = key
+        with lock:
+            rows[f"{node}:{service}"] = {
+                "node": node,
+                "service": service,
+                "ready": bool(payload.get("ready")) if isinstance(payload, dict) else False,
+                "payload": payload,
+                "topic": msg.topic,
+                "ts": time.time(),
+            }
+
+    old_on_message = getattr(client, "on_message", None)
+    client.on_message = on_message
+    client.subscribe("/readiness/#", qos=0)
+    deadline = time.time() + max(float(timeout), 0.0)
+    last_missing = list(required)
+    try:
+        while time.time() < deadline:
+            with lock:
+                current = list(rows.values())
+            missing = []
+            for service in required:
+                if not any(readiness_matches(r, service, scenario, replay_id) for r in current):
+                    missing.append(service)
+            last_missing = missing
+            if not missing:
+                return {"ok": True, "missing": [], "services": current}
+            time.sleep(0.25)
+        with lock:
+            current = list(rows.values())
+        return {"ok": False, "missing": last_missing, "services": current, "timeout_sec": timeout}
+    finally:
+        try:
+            client.unsubscribe("/readiness/#")
+        except Exception:
+            pass
+        client.on_message = old_on_message
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--mqtt-host", default="localhost")
@@ -45,16 +157,28 @@ def main() -> None:
                     help="max = no intentional timing sleeps; realtime = 1.0x; scaled = use --speed")
     ap.add_argument("--speed", type=float, default=None, help="Multiplier for --playback-mode scaled, e.g. 0.25, 1, 2")
     ap.add_argument("--send-control", action="store_true", help="Also publish collection-start on the global control topic")
-    ap.add_argument("--retain-config", action=argparse.BooleanOptionalAction, default=True,
-                    help="Retain /replay/config so later-starting supervisors know the selected scenario")
-    ap.add_argument("--retain-sync", action=argparse.BooleanOptionalAction, default=False,
-                    help="Retain /replay/sync. Usually leave false to avoid stale replay starts")
-    ap.add_argument("--sync-burst", action=argparse.BooleanOptionalAction, default=True,
-                    help="Publish several identical /replay/sync messages to avoid child-startup races")
+    add_boolean_optional_argument(
+        ap, "--retain-config", default=True,
+        help="Retain /replay/config so later-starting supervisors know the selected scenario",
+    )
+    add_boolean_optional_argument(
+        ap, "--retain-sync", default=False,
+        help="Retain /replay/sync. Usually leave false to avoid stale replay starts",
+    )
+    add_boolean_optional_argument(
+        ap, "--sync-burst", default=False,
+        help="Publish several identical /replay/sync messages. Default false because readiness gating should make this unnecessary.",
+    )
+    add_boolean_optional_argument(
+        ap, "--wait-ready", default=True,
+        help="After /replay/config, wait for required service readiness before /replay/sync",
+    )
+    ap.add_argument("--ready-timeout", type=float, default=90.0)
+    ap.add_argument("--required-ready-services", default="zed,respeaker,yolo,audio_detector")
     ap.add_argument("--clear-retained", action="store_true", help="Clear retained /replay/config and /replay/sync and exit")
     args = ap.parse_args()
 
-    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+    client = make_mqtt_client()
     client.connect(args.mqtt_host, args.mqtt_port, keepalive=60)
     client.loop_start()
     time.sleep(0.2)
@@ -99,8 +223,20 @@ def main() -> None:
         print("published control: collection-start")
         time.sleep(0.1)
 
+    required_ready = [x.strip() for x in str(args.required_ready_services or "").split(",") if x.strip()]
+    if args.wait_ready and required_ready:
+        print(f"waiting up to {args.ready_timeout:g}s for readiness: {required_ready}")
+        report = wait_for_readiness(client, scenario=args.scenario, replay_id=replay_id, required=required_ready, timeout=args.ready_timeout)
+        if not report.get("ok"):
+            print(json.dumps(report, indent=2, default=str))
+            raise SystemExit(f"required services not ready: {report.get('missing')}")
+        print("readiness satisfied")
+
+    start_at = time.time() + max(args.sync_delay, 0.0)
+    sync["start_at"] = start_at
+
     if args.sync_burst:
-        delays = [0.0, max(args.sync_delay * 0.5, 0.25), max(args.sync_delay, 0.0) + 0.25, max(args.sync_delay, 0.0) + 1.0, max(args.sync_delay, 0.0) + 2.0]
+        delays = [0.0, max(args.sync_delay * 0.5, 0.25), max(args.sync_delay, 0.0) + 0.25]
         last_delay = 0.0
         for i, delay in enumerate(delays):
             sleep_for = max(delay - last_delay, 0.0)

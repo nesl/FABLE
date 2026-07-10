@@ -68,6 +68,10 @@ SUBSCRIPTIONS = [
     "/complex_events/#",
     "/trackers/#",
     "/geospatialdetections/#",
+    "/netwaggle/#",                       # NetWaggle profile + latency probes
+    "/readiness/#",                       # service readiness for replay gating
+    "/debug/+/analytics/yolo/ready",
+    "/debug/+/audio_detector/ready",
 ]
 
 app = FastAPI(title="IoBT Minimal Replay UI")
@@ -79,13 +83,16 @@ app.add_middleware(
 )
 app.mount("/static", StaticFiles(directory=str(STATIC)), name="static")
 
-_messages: Deque[Dict[str, Any]] = deque(maxlen=50)
+_messages: Deque[Dict[str, Any]] = deque(maxlen=500)
 _lock = Lock()
 _next_id = 1
 _mqtt_client: mqtt.Client | None = None
 _connected = False
 _last_replay_config: Dict[str, Any] | None = None
 _last_replay_sync: Dict[str, Any] | None = None
+_netwaggle_profile: Dict[str, Any] | None = None
+_netwaggle_nodes: Dict[str, Dict[str, Any]] = {}
+_readiness: Dict[str, Dict[str, Any]] = {}
 _startup_retained_clear_done = False
 
 
@@ -105,6 +112,9 @@ class ReplayStartRequest(BaseModel):
     playback_mode: str = Field("max", description="max, realtime, or scaled")
     speed: Optional[float] = Field(None, description="Speed multiplier used only when playback_mode=scaled")
     send_control: bool = False
+    wait_ready: bool = True
+    ready_timeout: float = Field(90.0, ge=0.0, le=300.0)
+    required_ready_services: Optional[List[str]] = Field(None, description="Services to wait for before /replay/sync")
 
 
 class ControlRequest(BaseModel):
@@ -126,6 +136,119 @@ def _normalize_payload(raw: bytes) -> Any:
         return text
 
 
+def _remember_netwaggle_message(topic: str, payload: Any, ts: float) -> None:
+    """Keep compact NetWaggle state independent of the rolling MQTT tail.
+
+    The UI tail is intentionally capped, so retained/profile messages can scroll
+    out quickly once probes are publishing every second. This state lets the UI
+    render the Network panel even if /netwaggle/profile is older than the last
+    N tail entries.
+    """
+    global _netwaggle_profile, _netwaggle_nodes
+    if not topic.startswith("/netwaggle/"):
+        return
+    if isinstance(payload, str):
+        try:
+            payload = json.loads(payload)
+        except Exception:
+            pass
+    if topic == "/netwaggle/profile" and isinstance(payload, dict):
+        _netwaggle_profile = payload
+        return
+    prefix = "/netwaggle/probe/"
+    if topic.startswith(prefix) and isinstance(payload, dict):
+        node = str(payload.get("node") or topic[len(prefix):].strip("/") or "unknown")
+        _netwaggle_nodes[node] = {
+            "topic": topic,
+            "payload": payload,
+            "ts": ts,
+        }
+
+
+
+def _remember_readiness_message(topic: str, payload: Any, ts: float) -> None:
+    global _readiness
+    if isinstance(payload, str):
+        try:
+            payload = json.loads(payload)
+        except Exception:
+            return
+    if not isinstance(payload, dict):
+        return
+
+    node = str(payload.get("node") or "").strip()
+    service = str(payload.get("service") or "").strip()
+    if topic.startswith("/readiness/"):
+        parts = topic.strip("/").split("/")
+        if len(parts) >= 3:
+            node = node or parts[1]
+            service = service or parts[2]
+    elif topic.endswith("/analytics/yolo/ready"):
+        service = service or "yolo"
+    elif topic.endswith("/audio_detector/ready"):
+        service = service or "audio_detector"
+    if not node or not service:
+        return
+    key = f"{node}:{service}"
+    _readiness[key] = {
+        "key": key,
+        "node": node,
+        "service": service,
+        "ready": bool(payload.get("ready")),
+        "payload": payload,
+        "topic": topic,
+        "ts": ts,
+    }
+
+
+def _normalize_required_services(raw: Optional[List[str]] = None) -> List[str]:
+    if raw:
+        values = raw
+    else:
+        values = [x.strip() for x in os.environ.get("REPLAY_READY_REQUIRED", "zed,respeaker,yolo,audio_detector").split(",")]
+    return [str(x).strip() for x in values if str(x).strip()]
+
+
+def _ready_row_matches(row: Dict[str, Any], service: str, *, scenario: str, replay_id: str) -> bool:
+    if row.get("service") != service or not row.get("ready"):
+        return False
+    payload = row.get("payload") if isinstance(row.get("payload"), dict) else {}
+    # Replay sources are scenario-specific. Analytics readiness is generally
+    # long-lived/prewarmed and has no scenario, so do not require a scenario for it.
+    if service in {"zed", "respeaker", "gps"}:
+        p_scenario = str(payload.get("scenario") or "").strip()
+        if p_scenario and p_scenario != scenario:
+            return False
+    p_replay_id = str(payload.get("replay_id") or "").strip()
+    if p_replay_id and p_replay_id != replay_id:
+        return False
+    return True
+
+
+def _readiness_report(required: List[str], *, scenario: str, replay_id: str) -> Dict[str, Any]:
+    with _lock:
+        rows = list(_readiness.values())
+    services = {}
+    missing = []
+    for service in required:
+        matches = [r for r in rows if _ready_row_matches(r, service, scenario=scenario, replay_id=replay_id)]
+        if matches:
+            services[service] = max(matches, key=lambda r: float(r.get("ts") or 0))
+        else:
+            missing.append(service)
+    return {"ok": not missing, "missing": missing, "services": services, "all": rows}
+
+
+def _wait_for_readiness(required: List[str], *, scenario: str, replay_id: str, timeout: float) -> Dict[str, Any]:
+    deadline = time.time() + max(float(timeout), 0.0)
+    last = _readiness_report(required, scenario=scenario, replay_id=replay_id)
+    while not last["ok"] and time.time() < deadline:
+        time.sleep(0.25)
+        last = _readiness_report(required, scenario=scenario, replay_id=replay_id)
+    last["timeout_sec"] = timeout
+    last["waited_until"] = time.time()
+    return last
+
 def _record_message(topic: str, payload: Any, direction: str = "in") -> Dict[str, Any]:
     global _next_id
     with _lock:
@@ -139,6 +262,8 @@ def _record_message(topic: str, payload: Any, direction: str = "in") -> Dict[str
         _next_id += 1
         _messages.append(item)
         _remember_replay_message(topic, payload)
+        _remember_netwaggle_message(topic, payload, item["ts"])
+        _remember_readiness_message(topic, payload, item["ts"])
         return item
 
 
@@ -319,6 +444,8 @@ def state() -> Dict[str, Any]:
         "data_roots": DATA_ROOTS,
         "recent": _recent_messages(limit=50),
         "replay": {"config": _last_replay_config, "sync": _last_replay_sync},
+        "netwaggle": {"profile": _netwaggle_profile, "nodes": _netwaggle_nodes},
+        "readiness": _readiness,
     }
 
 
@@ -336,8 +463,18 @@ def data_roots() -> Dict[str, Any]:
 
 @app.get("/api/messages")
 def messages(after_id: int = 0, limit: int = 50) -> Dict[str, Any]:
-    limit = min(max(int(limit), 1), 50)
+    limit = min(max(int(limit), 1), 500)
     return {"messages": _recent_messages(after_id=after_id, limit=limit)}
+
+
+@app.get("/api/netwaggle")
+def netwaggle_state() -> Dict[str, Any]:
+    return {"profile": _netwaggle_profile, "nodes": _netwaggle_nodes}
+
+
+@app.get("/api/readiness")
+def readiness_state() -> Dict[str, Any]:
+    return {"services": _readiness}
 
 
 @app.get("/api/scenarios")
@@ -417,6 +554,36 @@ def start_replay(req: ReplayStartRequest) -> Dict[str, Any]:
         "speed": speed,
         "replay_id": replay_id,
     }
+
+    # Keep /replay/config retained so replay supervisors that are already up can
+    # start/restart children and late supervisors can see the chosen scenario.
+    # Do not publish /replay/sync yet: first wait for replay children and
+    # detector containers to announce readiness.
+    _publish("/replay/config", config, qos=1, retain=True)
+    if req.send_control:
+        _publish("control", "collection-start", qos=1)
+
+    required = _normalize_required_services(req.required_ready_services)
+    readiness = {"ok": True, "missing": [], "services": {}, "all": []}
+    if req.wait_ready and required:
+        readiness = _wait_for_readiness(required, scenario=req.scenario, replay_id=replay_id, timeout=req.ready_timeout)
+        if not readiness["ok"]:
+            _record_message("$web_ui/readiness_timeout", {
+                "scenario": req.scenario,
+                "replay_id": replay_id,
+                "required": required,
+                "missing": readiness["missing"],
+            }, direction="status")
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "Replay not started because required services are not ready",
+                    "missing": readiness["missing"],
+                    "required": required,
+                    "readiness": readiness,
+                },
+            )
+
     start_at = time.time() + req.sync_delay
     sync = {
         "scenario": req.scenario,
@@ -425,25 +592,17 @@ def start_replay(req: ReplayStartRequest) -> Dict[str, Any]:
         "speed": speed,
         "replay_id": replay_id,
     }
-
-    # Keep /replay/config retained so supervisors that start later know the
-    # selected scenario. /replay/sync is deliberately non-retained; supervisors
-    # that already received it seed/rebroadcast it to their child replay process.
-    _publish("/replay/config", config, qos=1, retain=True)
-    if req.send_control:
-        _publish("control", "collection-start", qos=1)
-
-    burst = _publish_sync_burst(sync, initial_delay=req.sync_delay, reason="start_replay")
+    _publish("/replay/sync", sync, qos=1, retain=False)
 
     return {
         "ok": True,
         "config": config,
         "sync": sync,
-        "sync_burst": burst,
+        "readiness": readiness,
         "message": (
-            f"Replay sync burst published in {playback_mode} mode "
-            f"({burst['count']} MQTT sync messages over ~{max(burst['delays_sec']):.1f}s). "
-            "The persistent replay supervisors resolve the scenario against the mounted SSD data roots."
+            f"Replay config published, readiness satisfied for {', '.join(required) if required else 'no required services'}, "
+            f"then one /replay/sync was published in {playback_mode} mode. "
+            "This should avoid late-detector starts and duplicate-sync restarts."
         ),
     }
 
@@ -475,8 +634,8 @@ def resend_sync(delay: float = 0.5) -> Dict[str, Any]:
         "resent": True,
     }
     _publish("/replay/config", _last_replay_config, qos=1, retain=True)
-    burst = _publish_sync_burst(sync, initial_delay=delay, reason="resend_sync")
-    return {"ok": True, "sync": sync, "sync_burst": burst, "message": f"Resent /replay/sync burst for {scenario}"}
+    _publish_sync_once(sync, delay_sec=delay, burst_index=0, note="resend_sync")
+    return {"ok": True, "sync": sync, "message": f"Resent one /replay/sync for {scenario}"}
 
 
 @app.post("/api/replay/clear")

@@ -13,6 +13,8 @@ ANCHORS_ONLY=0
 BUILD=1
 START_TRACE=1
 START_METRICS=0
+START_PROBES=1
+PROBE_INTERVAL="1.0"
 RUN_ID=""
 
 usage() {
@@ -31,6 +33,8 @@ Options:
   --no-build                   Do not pass --build to docker compose.
   --no-trace                   Do not start MQTT JSONL tracing.
   --metrics                    Start interface/qdisc metrics collector.
+  --no-probes                  Do not start /netwaggle/probe latency probes.
+  --probe-interval SEC         Probe interval for UI latency panel. Default: 1.0.
   --run-id ID                  Run directory name. Default: timestamp_profile.
   -h, --help                   Show this help.
 
@@ -50,6 +54,8 @@ while [[ $# -gt 0 ]]; do
     --no-build) BUILD=0; shift ;;
     --no-trace) START_TRACE=0; shift ;;
     --metrics) START_METRICS=1; shift ;;
+    --no-probes) START_PROBES=0; shift ;;
+    --probe-interval) PROBE_INTERVAL="$2"; shift 2 ;;
     --run-id) RUN_ID="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) fail "Unknown argument: $1" ;;
@@ -72,7 +78,7 @@ need_cmd docker
 need_cmd sudo
 need_cmd "$PYTHON_BIN"
 ensure_system_python_mininet >/dev/null
-if (( START_TRACE )); then ensure_python_package paho.mqtt paho-mqtt >/dev/null; fi
+if (( START_TRACE || START_PROBES )); then ensure_python_package paho.mqtt paho-mqtt >/dev/null; fi
 
 sudo -v
 
@@ -141,6 +147,15 @@ if (( START_METRICS )); then
   echo $! > "$RUN_DIR/metrics.pid"
 fi
 
+if (( START_PROBES )); then
+  log "Starting NetWaggle latency probes for the web UI"
+  "$SCRIPT_DIR/start_latency_probes.sh" \
+    --topology "$TOPOLOGY" \
+    --profile "$PROFILE" \
+    --run-dir "$RUN_DIR" \
+    --interval "$PROBE_INTERVAL"
+fi
+
 if (( ANCHORS_ONLY )); then
   log "Anchors-only mode: replay services were not started."
 else
@@ -158,8 +173,11 @@ Web UI: http://localhost:8080
 MQTT broker from host: localhost:1883
 MQTT broker from NetWaggle nodes: 10.255.0.1:1883
 Anchors only: $ANCHORS_ONLY
+Latency probes: $START_PROBES
+Probe interval: $PROBE_INTERVAL
 STATUS
 
 log "Started. Web UI: http://localhost:8080"
 log "Logs are in: $RUN_DIR"
+log "The Web UI NetWaggle panel should update from /netwaggle/probe messages."
 log "Try: $SCRIPT_DIR/smoke_fixed_latency.sh"

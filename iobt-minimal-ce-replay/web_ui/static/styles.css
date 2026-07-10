@@ -232,3 +232,27 @@ select {
 .dimmed input {
   cursor: not-allowed;
 }
+
+.netwaggle-panel { grid-column: 2 / 3; }
+.netwaggle-cards { margin-top: 0.75rem; }
+.netwaggle-table td:nth-child(2),
+.netwaggle-table td:nth-child(3),
+.netwaggle-table td:nth-child(4) {
+  white-space: nowrap;
+}
+.badge-pill {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #334155;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+.badge-pill.good { background: #dcfce7; color: #166534; }
+.badge-pill.warn { background: #fef3c7; color: #92400e; }
+.badge-pill.bad { background: #fee2e2; color: #991b1b; }
+
+@media (max-width: 900px) {
+  .netwaggle-panel { grid-column: auto; }
+}

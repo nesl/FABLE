@@ -45,6 +45,7 @@ class audio_detector(iobt_max_service):
         self.last_db = None
         self.last_error = None
         self.last_status_pub_time = 0.0
+        self.local_subscription_ready = False
         print(f"Issuing audio detections on {self.net_topic}", flush=True)
         print(
             f"Issuing optional audio debug status on {self.status_topic} enabled={self.publish_status} "
@@ -56,6 +57,40 @@ class audio_detector(iobt_max_service):
 
         self.lock = Lock()
         self.data_file = None
+        self.publish_ready_state("startup_subscriber_requested")
+
+
+    def publish_ready_state(self, reason):
+        ready = bool(self.local_subscription_ready and self.last_error is None)
+        self.publish_readiness(
+            "audio_detector",
+            ready=ready,
+            reason=reason,
+            expected_local_ipc=self.expected_local_ipc,
+            expected_local_ipc_exists=os.path.exists(self.expected_local_ipc),
+            local_subscription_ready=bool(self.local_subscription_ready),
+            frames_total=int(self.frames_total),
+            detections_total=int(self.detections_total),
+            diagnosis=self.diagnosis(),
+            last_error=self.last_error,
+        )
+        try:
+            self.publish("net", f"/debug/{self.hostname}/audio_detector/ready", json.dumps({
+                "node": self.hostname,
+                "service": "audio_detector",
+                "ready": ready,
+                "reason": reason,
+                "local_subscription_ready": bool(self.local_subscription_ready),
+                "t": time.time(),
+            }))
+        except Exception:
+            pass
+
+    def on_local_subscription_ready(self, topic, addr):
+        if topic == "respeaker":
+            self.local_subscription_ready = True
+            print(f"[AudioDetector] Local ReSpeaker subscription ready at {addr}", flush=True)
+            self.publish_ready_state("local_respeaker_subscription_ready")
 
     def get_respeaker_data(self, data):
         self.q.put(data)
@@ -63,6 +98,7 @@ class audio_detector(iobt_max_service):
 
     def service_initialize(self):
         print("Calling audio-detector service initialize", flush=True)
+        self.publish_ready_state("service_initialized")
 
     def service_stop(self):
         print("Calling audio-detector service stop", flush=True)

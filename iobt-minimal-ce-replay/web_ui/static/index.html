@@ -59,6 +59,14 @@
           <input id="sendControl" name="sendControl" type="checkbox" />
           Also publish <code>collection-start</code>
         </label>
+        <label class="checkbox-row">
+          <input id="waitReady" name="waitReady" type="checkbox" checked />
+          Wait for ZED, ReSpeaker, YOLO, and audio detector readiness before publishing <code>/replay/sync</code>
+        </label>
+        <label>
+          Readiness timeout seconds
+          <input id="readyTimeout" name="readyTimeout" type="number" step="1" min="0" value="90" />
+        </label>
         <div class="button-row">
           <button type="submit">Start replay</button>
           <button type="button" id="resendSyncBtn" class="secondary">Resend sync</button>
@@ -97,6 +105,27 @@
       </div>
     </section>
 
+
+    <section class="panel readiness-panel">
+      <div class="progress-title-row">
+        <div>
+          <h2>Service Readiness</h2>
+          <p class="muted">Replay now sends <code>/replay/config</code>, waits for readiness, then sends a single <code>/replay/sync</code>. This prevents replay from racing ahead of late-loading detectors.</p>
+        </div>
+      </div>
+      <div id="readinessNote" class="progress-note muted">No readiness messages received yet.</div>
+      <div class="progress-table-wrap">
+        <table class="progress-table">
+          <thead>
+            <tr><th>Service</th><th>Node</th><th>Ready?</th><th>Reason</th><th>Last update</th></tr>
+          </thead>
+          <tbody id="readinessBody">
+            <tr><td colspan="5" class="muted">No readiness messages yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
     <section class="panel progress-panel">
       <div class="progress-title-row">
         <div>
@@ -131,6 +160,41 @@
       </div>
     </section>
 
+
+
+    <section class="panel netwaggle-panel">
+      <div class="progress-title-row">
+        <div>
+          <h2>NetWaggle Network</h2>
+          <p class="muted">Shows configured path delay and observed timestamped MQTT probe delay from each logical node. This is an evaluation sanity check that Mininet/TC is shaping replay traffic.</p>
+        </div>
+        <button id="resetNetWaggleBtn" class="secondary" type="button">Reset probes</button>
+      </div>
+      <div class="cards netwaggle-cards">
+        <div class="card"><span class="metric small" id="netwaggleProfileName">—</span><span>Active profile</span></div>
+        <div class="card"><span class="metric small" id="netwaggleActiveNodes">0</span><span>Active nodes</span></div>
+        <div class="card"><span class="metric small" id="netwaggleAvgDelay">—</span><span>Avg observed one-way</span></div>
+        <div class="card"><span class="metric small" id="netwaggleLastProbe">—</span><span>Last probe</span></div>
+      </div>
+      <div id="netwaggleNote" class="progress-note muted">No NetWaggle profile or latency probe received yet. Start NetWaggle with probes enabled, then refresh this page.</div>
+      <div class="progress-table-wrap">
+        <table class="progress-table netwaggle-table">
+          <thead>
+            <tr>
+              <th>Node</th>
+              <th>Observed one-way</th>
+              <th>Configured one-way</th>
+              <th>Overhead / delta</th>
+              <th>Last probe</th>
+            </tr>
+          </thead>
+          <tbody id="netwaggleBody">
+            <tr><td colspan="5" class="muted">No NetWaggle probes yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
     <section class="panel log-panel">
       <div class="log-header">
         <h2>MQTT Tail</h2>
@@ -159,6 +223,6 @@
     </section>
   </main>
 
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=readiness-gated-sync-v4"></script>
 </body>
 </html>

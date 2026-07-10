@@ -113,6 +113,7 @@ class yolo_detector(iobt_max_service):
         self.decode_failures = 0
         self.process_failures = 0
         self.model_loading = False
+        self.local_subscription_ready = (self.source_mode != "local")
 
         self.yolo_topic = f"/{self.source_host}/analytics/yolo/bbox"
         self.annotated_topic = os.environ.get("YOLO_ANNOTATED_TOPIC", f"/debug/{self.source_host}/analytics/yolo/annotated/compressed")
@@ -129,6 +130,7 @@ class yolo_detector(iobt_max_service):
         if self.load_model:
             try:
                 self.model_loading = True
+                self.publish_ready_state("model_loading")
                 self.publish_status(force=True)
                 print("Starting model load (this may take 30s)...", flush=True)
                 if torch.cuda.is_available() and os.environ.get("YOLO_DEVICE", "auto") != "cpu":
@@ -146,15 +148,19 @@ class yolo_detector(iobt_max_service):
                     self.detect(cv_rgb)
                 self.model_loaded = True
                 print("Finished loading model", flush=True)
+                self.publish_ready_state("model_loaded")
             except Exception as exc:
                 self.last_error = f"model_load_failed: {exc}"
+                self.publish_ready_state("model_load_failed")
                 print(self.last_error, flush=True)
                 traceback.print_exc()
             finally:
                 self.model_loading = False
                 self.publish_status(force=True)
         else:
+            self.model_loaded = True
             print("Warning: Not loading model. YOLO detector will emit synthetic test detections when frames arrive.", flush=True)
+            self.publish_ready_state("synthetic_model_ready")
 
 
         # Replay-control topics are not event data; they are only used to decide
@@ -173,11 +179,49 @@ class yolo_detector(iobt_max_service):
         print(f"YOLO debug status topic: {self.status_topic} enabled={self.publish_status_enabled} fps={self.status_fps}", flush=True)
         print(f"YOLO debug annotated-image topic: {self.annotated_topic} enabled={self.publish_annotated} fps={self.annotated_fps}", flush=True)
         print(f"YOLO debug frame-probe topic: {self.frame_status_topic} enabled={self.publish_frame_status_enabled} fps={self.frame_status_fps}", flush=True)
+        self.publish_ready_state("startup_complete")
 
         self.step_frame_count = 0
         self.frame_count = 0
         self.max_depth = 40
         self.publish_status(force=True)
+
+
+    def publish_ready_state(self, reason):
+        ready = bool((not self.load_model or self.model_loaded) and self.local_subscription_ready and not self.model_loading and not self.last_error)
+        self.publish_readiness(
+            "yolo",
+            ready=ready,
+            reason=reason,
+            source_host=self.source_host,
+            source_mode=self.source_mode,
+            model_loaded=bool(self.model_loaded),
+            model_loading=bool(self.model_loading),
+            local_subscription_ready=bool(self.local_subscription_ready),
+            expected_local_ipc=self.expected_local_ipc,
+            expected_local_ipc_exists=os.path.exists(self.expected_local_ipc) if self.expected_local_ipc else None,
+            yolo_topic=self.yolo_topic,
+            last_error=self.last_error,
+        )
+        # Compatibility/debug topic that is easier to inspect in the UI MQTT tail.
+        try:
+            self.publish("net", f"/debug/{self.source_host}/analytics/yolo/ready", json.dumps({
+                "node": self.hostname,
+                "service": "yolo",
+                "ready": ready,
+                "reason": reason,
+                "model_loaded": bool(self.model_loaded),
+                "local_subscription_ready": bool(self.local_subscription_ready),
+                "t": time.time(),
+            }))
+        except Exception:
+            pass
+
+    def on_local_subscription_ready(self, topic, addr):
+        if topic == "zed":
+            self.local_subscription_ready = True
+            print(f"[YOLO] Local ZED subscription ready at {addr}", flush=True)
+            self.publish_ready_state("local_zed_subscription_ready")
 
     def get_replay_config(self, topic, msg) -> None:
         self.last_replay_config = msg

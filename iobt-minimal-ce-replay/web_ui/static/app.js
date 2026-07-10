@@ -1,3 +1,4 @@
+console.log("IoBT UI app.js loaded: readiness-gated-sync-v4");
 const counters = { replay: 0, yolo: 0, audio: 0, ce: 0 };
 const maxLogEntries = 50;
 let logEntries = [];
@@ -16,6 +17,9 @@ let replaySession = {
   speed: 1.0,
 };
 let replayProgress = {};
+let netwaggleProfile = null;
+let netwaggleNodes = {};
+let readinessState = {};
 
 const $ = (id) => document.getElementById(id);
 
@@ -24,11 +28,22 @@ function asPretty(value) {
   return JSON.stringify(value, null, 2);
 }
 
+function normalizedPayload(value) {
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value);
+  } catch (_err) {
+    return value;
+  }
+}
+
 function topicKind(topic) {
   if (topic.startsWith("/replay/")) return "replay";
   if (topic.includes("/analytics/yolo/bbox") || topic.includes("/analytics/yolo/annotated/compressed")) return "yolo";
   if (topic.includes("/audio_detector/detections") || topic.includes("/audio_detector/status")) return "audio";
   if (topic.startsWith("/complex_events/")) return "ce";
+  if (topic.startsWith("/netwaggle/")) return "netwaggle";
+  if (topic.startsWith("/readiness/") || topic.endsWith("/ready")) return "readiness";
   return "other";
 }
 
@@ -74,6 +89,7 @@ function replaySourceFromTopic(topic) {
 function resetProgressView() {
   replayProgress = {};
   updateReplayProgressUI();
+  updateNetWaggleUI();
 }
 
 function maybeUpdateReplaySession(item) {
@@ -228,9 +244,205 @@ function updateReplayProgressUI() {
   $("progressNote").textContent = `${considered.length} source(s) reporting${scenario}. ${requested}. ${speedNote}`;
 }
 
+function netwaggleNodeConfig(nodeName) {
+  if (!netwaggleProfile || !netwaggleProfile.nodes) return null;
+  return netwaggleProfile.nodes[nodeName] || null;
+}
+
+function resetNetWaggleView() {
+  netwaggleNodes = {};
+  updateNetWaggleUI();
+}
+
+function formatMs(value) {
+  if (value == null || !Number.isFinite(Number(value))) return "—";
+  const v = Number(value);
+  if (Math.abs(v) >= 1000) return `${(v / 1000).toFixed(2)} s`;
+  if (Math.abs(v) >= 100) return `${v.toFixed(0)} ms`;
+  if (Math.abs(v) >= 10) return `${v.toFixed(1)} ms`;
+  return `${v.toFixed(2)} ms`;
+}
+
+function timestampSeconds(value) {
+  const v = Number(value);
+  if (!Number.isFinite(v) || v <= 0) return null;
+  // Epoch milliseconds, e.g. 1783720000123.
+  if (v > 1e12) return v / 1000.0;
+  // Epoch seconds, e.g. 1783720000.123.
+  if (v > 1e9) return v;
+  // Smaller values are usually monotonic/process-relative timestamps and are
+  // not comparable across processes, containers, or the browser.
+  return null;
+}
+
+function maybeUpdateNetWaggle(item, opts = {}) {
+  if (!item || !item.topic || !item.topic.startsWith("/netwaggle/")) return;
+  const payload = normalizedPayload(item.payload) || {};
+
+  if (item.topic === "/netwaggle/profile" && payload && typeof payload === "object") {
+    netwaggleProfile = payload;
+    updateNetWaggleUI();
+    return;
+  }
+
+  const m = item.topic.match(/^\/netwaggle\/probe\/([^/]+)$/);
+  if (!m || !payload || typeof payload !== "object") return;
+  const node = String(payload.node || m[1]);
+  // Use the timestamp assigned by the web backend when it received the MQTT
+  // message. Do not use browser Date.now() for SSE messages: EventSource may
+  // replay buffered messages after reconnect/page load, which can make a valid
+  // 100 ms probe look hundreds of seconds old.
+  const receiveTs = timestampSeconds(item.ts) || Date.now() / 1000;
+  const sentTs = timestampSeconds(payload.sent_ts) || timestampSeconds(payload.sent_ts_ms) || timestampSeconds(payload.sent_wall_time) || timestampSeconds(payload.t_send) || timestampSeconds(payload.ts);
+  const observedOneWayMs = sentTs == null ? null : Math.max(0, (receiveTs - sentTs) * 1000.0);
+  const cfg = netwaggleNodeConfig(node);
+  const configuredOneWayMs = Number(payload.configured_one_way_ms ?? cfg?.configured_one_way_ms ?? NaN);
+  const deltaMs = observedOneWayMs == null || !Number.isFinite(configuredOneWayMs)
+    ? null
+    : observedOneWayMs - configuredOneWayMs;
+
+  netwaggleNodes[node] = {
+    node,
+    seq: Number(payload.seq || 0),
+    profile: payload.profile || netwaggleProfile?.profile_name || "—",
+    anchor: payload.anchor_container || cfg?.anchor_container || "—",
+    path: cfg?.path || [],
+    tier: cfg?.tier || "",
+    configuredOneWayMs: Number.isFinite(configuredOneWayMs) ? configuredOneWayMs : null,
+    observedOneWayMs,
+    deltaMs,
+    ts: receiveTs,
+    raw: payload,
+  };
+  updateNetWaggleUI();
+}
+
+function updateNetWaggleUI() {
+  const body = $("netwaggleBody");
+  if (!body) return;
+  const now = Date.now() / 1000;
+  const rows = Object.values(netwaggleNodes).sort((a, b) => a.node.localeCompare(b.node));
+  const active = rows.filter((r) => now - r.ts < 5);
+  const profileName = netwaggleProfile?.profile_name || (rows[0] && rows[0].profile) || "—";
+
+  if ($("netwaggleProfileName")) $("netwaggleProfileName").textContent = profileName;
+  if ($("netwaggleActiveNodes")) $("netwaggleActiveNodes").textContent = String(active.length || rows.length || 0);
+  if ($("netwaggleLastProbe")) {
+    const newest = rows.length ? Math.max(...rows.map((r) => r.ts || 0)) : null;
+    $("netwaggleLastProbe").textContent = newest ? `${formatSeconds(now - newest)} ago` : "—";
+  }
+  const delays = active.length ? active : rows;
+  const observed = delays.map((r) => r.observedOneWayMs).filter((v) => Number.isFinite(v));
+  const avgObserved = observed.length ? observed.reduce((a, b) => a + b, 0) / observed.length : null;
+  if ($("netwaggleAvgDelay")) $("netwaggleAvgDelay").textContent = avgObserved == null ? "—" : formatMs(avgObserved);
+
+  body.innerHTML = "";
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="5" class="muted">No NetWaggle probes yet.</td></tr>';
+    if ($("netwaggleNote")) {
+      $("netwaggleNote").textContent = netwaggleProfile
+        ? `Profile ${profileName} received. Waiting for /netwaggle/probe/<node> messages.`
+        : "No NetWaggle profile or latency probe received yet. Start NetWaggle with probes enabled, then refresh this page.";
+    }
+    return;
+  }
+
+  for (const r of rows) {
+    const stale = now - r.ts > 5;
+    const delta = r.deltaMs;
+    const deltaClass = delta == null ? "" : Math.abs(delta) < 20 ? "good" : Math.abs(delta) < 100 ? "warn" : "bad";
+    const deltaText = delta == null ? "—" : `${delta >= 0 ? "+" : ""}${formatMs(delta)}`;
+    const pathText = r.path && r.path.length ? r.path.join(" → ") : "path unknown";
+    const tr = document.createElement("tr");
+    tr.className = stale ? "stale" : "";
+    tr.innerHTML = `
+      <td><strong>${escapeHtml(r.node)}</strong><br><span class="muted">${escapeHtml(r.anchor)} ${r.tier ? `· ${escapeHtml(r.tier)}` : ""}</span><br><span class="muted">${escapeHtml(pathText)}</span></td>
+      <td><strong>${escapeHtml(formatMs(r.observedOneWayMs))}</strong><br><span class="muted">seq ${escapeHtml(r.seq)}</span></td>
+      <td>${escapeHtml(formatMs(r.configuredOneWayMs))}</td>
+      <td><span class="badge-pill ${deltaClass}">${escapeHtml(deltaText)}</span><br><span class="muted">includes broker/web-backend overhead</span></td>
+      <td>${escapeHtml(formatSeconds(now - r.ts))} ago${stale ? '<br><span class="warn">stale</span>' : ""}</td>
+    `;
+    body.appendChild(tr);
+  }
+
+  if ($("netwaggleNote")) {
+    const profileDesc = netwaggleProfile?.profile_description ? ` ${netwaggleProfile.profile_description}` : "";
+    $("netwaggleNote").textContent = `${rows.length} node(s) reporting under profile ${profileName}.${profileDesc} Observed one-way delay is measured from the probe send timestamp to the web backend MQTT receive timestamp.`;
+  }
+}
+
+
+function maybeUpdateReadiness(item) {
+  if (!item || !item.topic) return;
+  if (!(item.topic.startsWith("/readiness/") || item.topic.endsWith("/ready"))) return;
+  const payload = normalizedPayload(item.payload) || {};
+  if (!payload || typeof payload !== "object") return;
+  let node = String(payload.node || "");
+  let service = String(payload.service || "");
+  if (item.topic.startsWith("/readiness/")) {
+    const parts = item.topic.replace(/^\//, "").split("/");
+    if (parts.length >= 3) {
+      node = node || parts[1];
+      service = service || parts[2];
+    }
+  } else if (item.topic.includes("/analytics/yolo/ready")) {
+    service = service || "yolo";
+  } else if (item.topic.includes("/audio_detector/ready")) {
+    service = service || "audio_detector";
+  }
+  if (!node || !service) return;
+  const key = `${node}:${service}`;
+  readinessState[key] = {
+    key, node, service,
+    ready: Boolean(payload.ready),
+    reason: payload.reason || "",
+    scenario: payload.scenario || "",
+    ts: timestampSeconds(item.ts) || Date.now() / 1000,
+    raw: payload,
+  };
+  updateReadinessUI();
+}
+
+function updateReadinessUI() {
+  const body = $("readinessBody");
+  if (!body) return;
+  const now = Date.now() / 1000;
+  const rows = Object.values(readinessState).sort((a, b) => `${a.service}:${a.node}`.localeCompare(`${b.service}:${b.node}`));
+  body.innerHTML = "";
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="5" class="muted">No readiness messages yet.</td></tr>';
+    if ($("readinessNote")) $("readinessNote").textContent = "No readiness messages received yet.";
+    return;
+  }
+  const required = ["zed", "respeaker", "yolo", "audio_detector"];
+  const readyServices = new Set(rows.filter(r => r.ready).map(r => r.service));
+  const missing = required.filter(s => !readyServices.has(s));
+  if ($("readinessNote")) {
+    $("readinessNote").textContent = missing.length
+      ? `Waiting for: ${missing.join(", ")}. Start replay will wait before sending /replay/sync.`
+      : "Required services are ready. Start replay should publish /replay/sync immediately after /replay/config.";
+  }
+  for (const r of rows) {
+    const stale = now - r.ts > 120;
+    const cls = r.ready ? "good" : "warn";
+    const tr = document.createElement("tr");
+    tr.className = stale ? "stale" : "";
+    tr.innerHTML = `
+      <td><strong>${escapeHtml(r.service)}</strong>${r.scenario ? `<br><span class="muted">${escapeHtml(r.scenario)}</span>` : ""}</td>
+      <td>${escapeHtml(r.node)}</td>
+      <td><span class="badge-pill ${cls}">${r.ready ? "ready" : "not ready"}</span></td>
+      <td>${escapeHtml(r.reason || "—")}</td>
+      <td>${escapeHtml(formatSeconds(now - r.ts))} ago${stale ? '<br><span class="warn">stale</span>' : ""}</td>
+    `;
+    body.appendChild(tr);
+  }
+}
+
 function addLog(item, opts = {}) {
   maybeUpdateReplaySession(item);
   maybeUpdateReplayProgress(item, opts);
+  maybeUpdateNetWaggle(item, opts);
+  maybeUpdateReadiness(item);
 
   const kind = topicKind(item.topic);
   if (kind in counters && item.direction === "in") counters[kind] += 1;
@@ -277,7 +489,7 @@ async function postJson(url, body) {
     body: JSON.stringify(body),
   });
   const payload = await resp.json().catch(() => ({}));
-  if (!resp.ok) throw new Error(payload.detail || `HTTP ${resp.status}`);
+  if (!resp.ok) throw new Error(typeof payload.detail === "string" ? payload.detail : JSON.stringify(payload.detail || payload));
   return payload;
 }
 
@@ -287,8 +499,21 @@ async function loadInitialState() {
   updateBadge(state.mqtt.connected);
   dataRoots = state.data_roots || dataRoots;
   updateCandidateFolders();
+  const nw = state.netwaggle || {};
+  if (nw.profile) netwaggleProfile = normalizedPayload(nw.profile);
+  for (const row of Object.values(nw.nodes || {})) {
+    if (row && row.topic) {
+      maybeUpdateNetWaggle({ topic: row.topic, payload: row.payload, ts: row.ts, direction: "state" }, { initial: true });
+    }
+  }
+  for (const row of Object.values(state.readiness || {})) {
+    if (row && row.topic) {
+      maybeUpdateReadiness({ topic: row.topic, payload: row.payload, ts: row.ts, direction: "state" });
+    }
+  }
   for (const item of state.recent || []) addLog(item, { initial: true });
   updateReplayProgressUI();
+  updateNetWaggleUI();
 }
 
 function connectEvents() {
@@ -304,6 +529,7 @@ function connectEvents() {
     const status = JSON.parse(event.data);
     updateBadge(Boolean(status.connected));
     updateReplayProgressUI();
+    updateNetWaggleUI();
   });
   source.onerror = () => updateBadge(false);
 }
@@ -318,6 +544,8 @@ $("replayForm").addEventListener("submit", async (event) => {
     sync_delay: Number($("syncDelay").value || 1),
     playback_mode: playbackMode,
     send_control: $("sendControl").checked,
+    wait_ready: $("waitReady") ? $("waitReady").checked : true,
+    ready_timeout: $("readyTimeout") ? Number($("readyTimeout").value || 90) : 90,
   };
   // Only send a custom multiplier when the user explicitly selected Custom speed.
   // Max-speed and realtime modes should not require or validate this field.
@@ -407,6 +635,7 @@ $("clearBtn").addEventListener("click", () => {
   renderLog();
 });
 $("resetProgressBtn").addEventListener("click", resetProgressView);
+if ($("resetNetWaggleBtn")) $("resetNetWaggleBtn").addEventListener("click", resetNetWaggleView);
 if ($("playbackMode")) $("playbackMode").addEventListener("change", updateSpeedControlVisibility);
 updateSpeedControlVisibility();
 

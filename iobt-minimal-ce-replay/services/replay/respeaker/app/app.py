@@ -16,7 +16,7 @@ import pandas as pd
 import argparse
 from pathlib import Path
 
-APP_VERSION = "respeaker-config-disabled-v20260709-4"
+APP_VERSION = "respeaker-readiness-sync-v20260710-1"
 
 
 class respeaker_replay(iobt_max_service):
@@ -237,6 +237,22 @@ class respeaker_replay(iobt_max_service):
             self._pending_config_signature = self._make_config_signature(self.flac_file, self._requested_playback_start_time, self._requested_playback_end_time)
         self._loaded_config_signature = self._pending_config_signature
         self._data_loaded = True
+        self.publish_replay_ready("data_loaded_waiting_for_sync")
+
+    def publish_replay_ready(self, reason, ready=True, **extra):
+        self.publish_readiness(
+            "respeaker",
+            ready=ready,
+            reason=reason,
+            scenario=getattr(self, "scenario", ""),
+            flac_file=self.flac_file,
+            timestamp_file=self.timestamp_file,
+            start_time=self.playback_start_time,
+            end_time=self.playback_end_time,
+            local_ipc="/tmp/respeaker.ipc",
+            total_playback_duration=getattr(self, "total_recording_duration", None),
+            **extra,
+        )
 
     def _normalize_playback_mode(self):
         mode = str(getattr(self, "playback_mode", "max") or "max").lower().strip()
@@ -580,7 +596,7 @@ class respeaker_replay(iobt_max_service):
                 if self._sync_event.is_set():
                     self._sync_event.clear()
                     interrupted_by_sync = True
-                    print("[ReSpeaker] Sync received during playback — restarting.")
+                    print("[ReSpeaker] New sync received during playback — restarting.")
                     break
                 if self._config_event.is_set():
                     interrupted_by_config = True

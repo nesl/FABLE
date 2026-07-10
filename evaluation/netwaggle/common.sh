@@ -142,3 +142,97 @@ safe_kill_pid_file() {
   fi
   rm -f "$file"
 }
+
+safe_kill_pid_glob() {
+  local pattern="$1"
+  shopt -s nullglob
+  for file in $pattern; do
+    safe_kill_pid_file "$file"
+  done
+  shopt -u nullglob
+  return 0
+}
+
+# Return a shared run directory for the three-terminal workflow.
+# Priority:
+#   1. NETWAGGLE_RUN_DIR=/absolute/or/relative/path
+#   2. NETWAGGLE_RUN_ID=name under runs/netwaggle
+#   3. existing runs/netwaggle/current symlink
+#   4. create a new timestamped run directory
+ensure_run_dir() {
+  local label="${1:-manual}"
+  local run_dir=""
+  mkdir -p "$RUN_ROOT"
+
+  if [[ -n "${NETWAGGLE_RUN_DIR:-}" ]]; then
+    run_dir="$(mkdir -p "$NETWAGGLE_RUN_DIR" && cd "$NETWAGGLE_RUN_DIR" && pwd)"
+  elif [[ -n "${NETWAGGLE_RUN_ID:-}" ]]; then
+    run_dir="$RUN_ROOT/$NETWAGGLE_RUN_ID"
+  elif [[ -L "$CURRENT_LINK" && -d "$(readlink -f "$CURRENT_LINK")" && ! -f "$(readlink -f "$CURRENT_LINK")/.closed" ]]; then
+    run_dir="$(readlink -f "$CURRENT_LINK")"
+  else
+    run_dir="$RUN_ROOT/$(date '+%Y%m%d_%H%M%S')_${label}"
+  fi
+
+  mkdir -p \
+    "$run_dir" \
+    "$run_dir/logs" \
+    "$run_dir/compose" \
+    "$run_dir/docker" \
+    "$run_dir/inspect" \
+    "$run_dir/api" \
+    "$run_dir/metrics" \
+    "$run_dir/notes"
+  ln -sfn "$run_dir" "$CURRENT_LINK"
+  printf '%s\n' "$run_dir"
+}
+
+write_run_event() {
+  local run_dir="$1"
+  shift
+  mkdir -p "$run_dir"
+  printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S.%N%z')" "$*" >> "$run_dir/events.log"
+}
+
+save_compose_rendered() {
+  local run_dir="$1"
+  local compose_file="$2"
+  local prefix="$3"
+  (cd "$REPLAY_DIR" && docker compose -f "$compose_file" config) > "$run_dir/compose/${prefix}.rendered.yaml" 2> "$run_dir/compose/${prefix}.config.err" || true
+  (cd "$REPLAY_DIR" && docker compose -f "$compose_file" config --services) > "$run_dir/compose/${prefix}.services.txt" 2> "$run_dir/compose/${prefix}.services.err" || true
+}
+
+save_docker_ps() {
+  local run_dir="$1"
+  local label="${2:-snapshot}"
+  docker ps -a --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}' > "$run_dir/docker/docker_ps_${label}.txt" 2>&1 || true
+}
+
+save_compose_logs() {
+  local run_dir="$1"
+  local compose_file="$2"
+  local prefix="$3"
+  (cd "$REPLAY_DIR" && docker compose -f "$compose_file" logs --timestamps --no-color) > "$run_dir/logs/${prefix}.compose_logs.final.log" 2>&1 || true
+  (cd "$REPLAY_DIR" && docker compose -f "$compose_file" ps) > "$run_dir/docker/${prefix}.compose_ps.final.txt" 2>&1 || true
+}
+
+save_container_inspect_for_compose() {
+  local run_dir="$1"
+  local compose_file="$2"
+  local prefix="$3"
+  local services=()
+  mapfile -t services < <((cd "$REPLAY_DIR" && docker compose -f "$compose_file" config --services) 2>/dev/null || true)
+  for svc in "${services[@]}"; do
+    local cid=""
+    cid="$(cd "$REPLAY_DIR" && docker compose -f "$compose_file" ps -q "$svc" 2>/dev/null || true)"
+    [[ -n "$cid" ]] || continue
+    docker inspect "$cid" > "$run_dir/inspect/${prefix}_${svc}.inspect.json" 2>/dev/null || true
+  done
+}
+
+save_webui_api_state() {
+  local run_dir="$1"
+  curl -fsS 'http://localhost:8080/api/state' > "$run_dir/api/state.json" 2> "$run_dir/api/state.err" || true
+  curl -fsS 'http://localhost:8080/api/netwaggle' > "$run_dir/api/netwaggle.json" 2> "$run_dir/api/netwaggle.err" || true
+  curl -fsS 'http://localhost:8080/api/messages?limit=1000' > "$run_dir/api/messages_1000.json" 2> "$run_dir/api/messages_1000.err" || true
+}
