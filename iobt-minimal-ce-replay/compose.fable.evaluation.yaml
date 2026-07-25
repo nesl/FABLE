@@ -1,0 +1,25 @@
+# Additive evaluation logger for the existing MQTT/Docker replay stack.
+# Required environment variables:
+#   FABLE_EVAL_RUN_ID, FABLE_EVAL_TRACE_ID, FABLE_EVAL_REQUEST_ID,
+#   FABLE_EVAL_BASELINE (B0_ALWAYS_ON ... FABLE ... O1_EXHAUSTIVE_ORACLE)
+services:
+  fable-evaluation-logger:
+    build:
+      context: ..
+      dockerfile: iobt-minimal-ce-replay/services/evaluation/logger/Dockerfile
+    image: fable/evaluation-logger:internal-baselines
+    container_name: fable-evaluation-logger
+    environment:
+      MQTT_HOST_IP: mqtt
+      MQTT_PORT: 1883
+      FABLE_EVAL_RUN_ID: ${FABLE_EVAL_RUN_ID:?set FABLE_EVAL_RUN_ID}
+      FABLE_EVAL_TRACE_ID: ${FABLE_EVAL_TRACE_ID:?set FABLE_EVAL_TRACE_ID}
+      FABLE_EVAL_REQUEST_ID: ${FABLE_EVAL_REQUEST_ID:?set FABLE_EVAL_REQUEST_ID}
+      FABLE_EVAL_BASELINE: ${FABLE_EVAL_BASELINE:?set FABLE_EVAL_BASELINE}
+      FABLE_EVAL_OUTPUT: /var/lib/fable/evaluation
+    volumes:
+      - ${FABLE_EVAL_OUTPUT_DIR:-./evaluation-runs}:/var/lib/fable/evaluation
+    depends_on:
+      mqtt:
+        condition: service_started
+    restart: unless-stopped

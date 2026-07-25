@@ -1,0 +1,200 @@
+{
+  "$defs": {
+    "BaselineId": {
+      "enum": [
+        "B0_ALWAYS_ON",
+        "B1_HANDWRITTEN_STATIC",
+        "B2_STATIC_WHOLE_EVENT",
+        "B3_TASK_RESOURCE_ADAPTIVE",
+        "B4_GREEDY_FRONTIER",
+        "FABLE",
+        "O1_EXHAUSTIVE_ORACLE",
+        "SPATIAL_BROADCAST",
+        "SPATIAL_TOPOLOGY_SHORTLIST",
+        "SPATIAL_RESOURCE_ONLY",
+        "SPATIAL_FABLE",
+        "SPATIAL_ORACLE"
+      ],
+      "title": "BaselineId",
+      "type": "string"
+    },
+    "JsonValue": {}
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "default": "fable.evaluation_record.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "record_type": {
+      "const": "resource_sample",
+      "default": "resource_sample",
+      "title": "Record Type",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "baseline_id": {
+      "$ref": "#/$defs/BaselineId"
+    },
+    "trace_id": {
+      "minLength": 1,
+      "title": "Trace Id",
+      "type": "string"
+    },
+    "request_id": {
+      "minLength": 1,
+      "title": "Request Id",
+      "type": "string"
+    },
+    "hypothesis_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Hypothesis Id"
+    },
+    "sensor_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sensor Id"
+    },
+    "provider_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Provider Id"
+    },
+    "event_time": {
+      "format": "date-time",
+      "title": "Event Time",
+      "type": "string"
+    },
+    "monotonic_timestamp_ns": {
+      "minimum": 0,
+      "title": "Monotonic Timestamp Ns",
+      "type": "integer"
+    },
+    "wall_timestamp": {
+      "format": "date-time",
+      "title": "Wall Timestamp",
+      "type": "string"
+    },
+    "metadata": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "title": "Metadata",
+      "type": "object"
+    },
+    "node_id": {
+      "minLength": 1,
+      "title": "Node Id",
+      "type": "string"
+    },
+    "cpu_utilization": {
+      "default": 0,
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Cpu Utilization",
+      "type": "number"
+    },
+    "cpu_time_seconds": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Cpu Time Seconds",
+      "type": "number"
+    },
+    "memory_bytes": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Memory Bytes",
+      "type": "integer"
+    },
+    "gpu_utilization": {
+      "anyOf": [
+        {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Gpu Utilization"
+    },
+    "gpu_memory_bytes": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Gpu Memory Bytes"
+    },
+    "gpu_energy_joules": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Gpu Energy Joules"
+    },
+    "network_tx_bytes": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Network Tx Bytes",
+      "type": "integer"
+    },
+    "network_rx_bytes": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Network Rx Bytes",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "run_id",
+    "baseline_id",
+    "trace_id",
+    "request_id",
+    "event_time",
+    "monotonic_timestamp_ns",
+    "node_id"
+  ],
+  "title": "ResourceSample",
+  "type": "object"
+}

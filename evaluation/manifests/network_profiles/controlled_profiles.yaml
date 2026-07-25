@@ -1,0 +1,14 @@
+schema_version: fable.evaluation_network_profiles.v1
+profiles:
+  good_network:
+    latency_ms: 2
+    bandwidth_mbps: 940
+    packet_loss_fraction: 0.0
+  constrained_edge_link:
+    latency_ms: 50
+    bandwidth_mbps: 10
+    packet_loss_fraction: 0.01
+  partitioned_sensor:
+    latency_ms: 1000
+    bandwidth_mbps: 0.01
+    packet_loss_fraction: 1.0

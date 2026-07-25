@@ -1,0 +1,19 @@
+schema_version: fable.evaluation_spatial_scope.v1
+current_replay_scope: fixed_orin_only
+campaigns:
+  2024:
+    sensor_topology: available
+    spatial_coordination_metrics: enabled_for_recommended_runs
+    mobile_layouts: available_but_replay_deferred
+  2025:
+    sensor_topology: available
+    spatial_coordination_metrics: enabled_for_recommended_runs
+    mobile_layouts: available_but_replay_deferred
+  2026:
+    sensor_topology: unavailable
+    spatial_coordination_metrics: disabled
+    note: Relevant-node log fields identify recordings, not calibrated spatial relationships.
+replay_policy:
+  include_sensor_prefixes: [orin_]
+  exclude_mobile_aliases: [n1, n2, n3, d1, d2, d3]
+  unavailable_mobile_handling: record_and_exclude_from_denominator

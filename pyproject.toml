@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fable-runtime"
-version = "0.9.0"
-description = "FABLE semantic runtime with spatially coordinated checkpoint planning and bounded LLM hooks"
+version = "0.10.0"
+description = "FABLE runtime with controlled evaluation baselines, spatial coordination, and bounded LLM hooks"
 requires-python = ">=3.11"
 dependencies = [
   "pydantic>=2.10,<3",
@@ -68,7 +68,7 @@ multimodal = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["fable*", "providers*"]
+include = ["fable*", "providers*", "evaluation*"]
 
 [tool.pytest.ini_options]
 python_files = ["test_*.py", "*_test.py"]

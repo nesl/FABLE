@@ -1,0 +1,165 @@
+{
+  "$defs": {
+    "BaselineId": {
+      "enum": [
+        "B0_ALWAYS_ON",
+        "B1_HANDWRITTEN_STATIC",
+        "B2_STATIC_WHOLE_EVENT",
+        "B3_TASK_RESOURCE_ADAPTIVE",
+        "B4_GREEDY_FRONTIER",
+        "FABLE",
+        "O1_EXHAUSTIVE_ORACLE",
+        "SPATIAL_BROADCAST",
+        "SPATIAL_TOPOLOGY_SHORTLIST",
+        "SPATIAL_RESOURCE_ONLY",
+        "SPATIAL_FABLE",
+        "SPATIAL_ORACLE"
+      ],
+      "title": "BaselineId",
+      "type": "string"
+    },
+    "JsonValue": {}
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "default": "fable.evaluation_record.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "record_type": {
+      "const": "network_condition",
+      "default": "network_condition",
+      "title": "Record Type",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "baseline_id": {
+      "$ref": "#/$defs/BaselineId"
+    },
+    "trace_id": {
+      "minLength": 1,
+      "title": "Trace Id",
+      "type": "string"
+    },
+    "request_id": {
+      "minLength": 1,
+      "title": "Request Id",
+      "type": "string"
+    },
+    "hypothesis_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Hypothesis Id"
+    },
+    "sensor_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sensor Id"
+    },
+    "provider_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Provider Id"
+    },
+    "event_time": {
+      "format": "date-time",
+      "title": "Event Time",
+      "type": "string"
+    },
+    "monotonic_timestamp_ns": {
+      "minimum": 0,
+      "title": "Monotonic Timestamp Ns",
+      "type": "integer"
+    },
+    "wall_timestamp": {
+      "format": "date-time",
+      "title": "Wall Timestamp",
+      "type": "string"
+    },
+    "metadata": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "title": "Metadata",
+      "type": "object"
+    },
+    "source_node_id": {
+      "minLength": 1,
+      "title": "Source Node Id",
+      "type": "string"
+    },
+    "target_node_id": {
+      "minLength": 1,
+      "title": "Target Node Id",
+      "type": "string"
+    },
+    "latency_ms": {
+      "minimum": 0,
+      "title": "Latency Ms",
+      "type": "number"
+    },
+    "bandwidth_mbps": {
+      "minimum": 0,
+      "title": "Bandwidth Mbps",
+      "type": "number"
+    },
+    "packet_loss_fraction": {
+      "default": 0,
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Packet Loss Fraction",
+      "type": "number"
+    },
+    "available": {
+      "default": true,
+      "title": "Available",
+      "type": "boolean"
+    },
+    "condition_epoch": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Condition Epoch",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "run_id",
+    "baseline_id",
+    "trace_id",
+    "request_id",
+    "event_time",
+    "monotonic_timestamp_ns",
+    "source_node_id",
+    "target_node_id",
+    "latency_ms",
+    "bandwidth_mbps"
+  ],
+  "title": "NetworkCondition",
+  "type": "object"
+}

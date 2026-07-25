@@ -1,0 +1,273 @@
+{
+  "$defs": {
+    "BaselineId": {
+      "enum": [
+        "B0_ALWAYS_ON",
+        "B1_HANDWRITTEN_STATIC",
+        "B2_STATIC_WHOLE_EVENT",
+        "B3_TASK_RESOURCE_ADAPTIVE",
+        "B4_GREEDY_FRONTIER",
+        "FABLE",
+        "O1_EXHAUSTIVE_ORACLE",
+        "SPATIAL_BROADCAST",
+        "SPATIAL_TOPOLOGY_SHORTLIST",
+        "SPATIAL_RESOURCE_ONLY",
+        "SPATIAL_FABLE",
+        "SPATIAL_ORACLE"
+      ],
+      "title": "BaselineId",
+      "type": "string"
+    },
+    "JsonValue": {}
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "default": "fable.evaluation_record.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "record_type": {
+      "const": "plan_decision",
+      "default": "plan_decision",
+      "title": "Record Type",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "baseline_id": {
+      "$ref": "#/$defs/BaselineId"
+    },
+    "trace_id": {
+      "minLength": 1,
+      "title": "Trace Id",
+      "type": "string"
+    },
+    "request_id": {
+      "minLength": 1,
+      "title": "Request Id",
+      "type": "string"
+    },
+    "hypothesis_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Hypothesis Id"
+    },
+    "sensor_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sensor Id"
+    },
+    "provider_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Provider Id"
+    },
+    "event_time": {
+      "format": "date-time",
+      "title": "Event Time",
+      "type": "string"
+    },
+    "monotonic_timestamp_ns": {
+      "minimum": 0,
+      "title": "Monotonic Timestamp Ns",
+      "type": "integer"
+    },
+    "wall_timestamp": {
+      "format": "date-time",
+      "title": "Wall Timestamp",
+      "type": "string"
+    },
+    "metadata": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "title": "Metadata",
+      "type": "object"
+    },
+    "decision_id": {
+      "minLength": 1,
+      "title": "Decision Id",
+      "type": "string"
+    },
+    "checkpoint_id": {
+      "minLength": 1,
+      "title": "Checkpoint Id",
+      "type": "string"
+    },
+    "planning_scope": {
+      "minLength": 1,
+      "title": "Planning Scope",
+      "type": "string"
+    },
+    "selected_alternative_ids": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Selected Alternative Ids",
+      "type": "array"
+    },
+    "selected_chain_ids": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Selected Chain Ids",
+      "type": "array"
+    },
+    "selected_node_ids": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Selected Node Ids",
+      "type": "array"
+    },
+    "selected_source_ids": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Selected Source Ids",
+      "type": "array"
+    },
+    "activated_provider_keys": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Activated Provider Keys",
+      "type": "array"
+    },
+    "continuation_types": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Continuation Types",
+      "type": "array"
+    },
+    "predicted_completion_ms": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Predicted Completion Ms"
+    },
+    "predicted_transfer_bytes": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Predicted Transfer Bytes"
+    },
+    "planning_latency_ms": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Planning Latency Ms",
+      "type": "number"
+    },
+    "labels_generated": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Labels Generated",
+      "type": "integer"
+    },
+    "labels_pruned": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Labels Pruned",
+      "type": "integer"
+    },
+    "labels_retained": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Labels Retained",
+      "type": "integer"
+    },
+    "oracle_gap_ms": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Oracle Gap Ms"
+    },
+    "reason": {
+      "default": "",
+      "title": "Reason",
+      "type": "string"
+    },
+    "frozen": {
+      "default": false,
+      "title": "Frozen",
+      "type": "boolean"
+    },
+    "resource_epoch": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Resource Epoch",
+      "type": "integer"
+    },
+    "semantic_epoch": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Semantic Epoch",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "run_id",
+    "baseline_id",
+    "trace_id",
+    "request_id",
+    "event_time",
+    "monotonic_timestamp_ns",
+    "decision_id",
+    "checkpoint_id",
+    "planning_scope"
+  ],
+  "title": "PlanDecision",
+  "type": "object"
+}

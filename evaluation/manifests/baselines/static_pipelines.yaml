@@ -1,0 +1,30 @@
+schema_version: fable.static_pipeline_registry.v1
+pipelines:
+  route_convoy:
+    preferred_chain_ids: [follows_cross_camera_reid, follows_local_tracks, passes_live_vehicle]
+    fixed_sensor_policy: all_replay_supported_orin
+    fixed_representation_policy: tracks_and_vehicle_reid
+  pass_follow_clear_convoy:
+    preferred_chain_ids: [passes_live_vehicle, follows_cross_camera_reid, follows_local_tracks]
+    fixed_sensor_policy: all_replay_supported_orin
+    fixed_representation_policy: tracks_and_vehicle_reid
+  vehicle_convergence:
+    preferred_chain_ids: [follows_local_tracks]
+    fixed_sensor_policy: all_replay_supported_orin
+    fixed_representation_policy: projected_tracks
+  robbery_with_alarm:
+    preferred_chain_ids: [audio_event_visual_association, person_vehicle_transition]
+    fixed_sensor_policy: all_replay_supported_orin
+    fixed_representation_policy: audio_events_tracks_and_selected_video
+  talking_rendezvous:
+    preferred_chain_ids: [conversation_proximity_diarization]
+    fixed_sensor_policy: all_replay_supported_orin
+    fixed_representation_policy: projected_tracks_and_speaker_turns
+  package_exchange:
+    preferred_chain_ids: [package_transfer_high_resolution]
+    fixed_sensor_policy: all_replay_supported_orin
+    fixed_representation_policy: raw_selected_frames_tracks_and_custody
+  repeated_visit_stalking:
+    preferred_chain_ids: [follows_cross_camera_reid, describe_vehicle_general_visual]
+    fixed_sensor_policy: all_replay_supported_orin
+    fixed_representation_policy: vehicle_reid_and_track_summary
