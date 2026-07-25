@@ -1,0 +1,32 @@
+{
+  "request_id": "robbery_demo",
+  "graph": "robbery",
+  "aliases": [
+    {"entity_type": "person", "source_id": "store_camera", "local_id": "person_track_7", "canonical_id": "person_7"}
+  ],
+  "results": [
+    {
+      "kind": "seed",
+      "node_key": "entry",
+      "source_id": "store_camera",
+      "start": "2026-04-14T18:19:51Z",
+      "end": "2026-04-14T18:19:53Z",
+      "introduced": {"person": "person_track_7", "location": "store_zone"}
+    },
+    {
+      "kind": "predicate",
+      "node_key": "gunshot",
+      "source_id": "store_microphone",
+      "start": "2026-04-14T18:19:56Z",
+      "end": "2026-04-14T18:19:56Z"
+    },
+    {
+      "kind": "predicate",
+      "node_key": "departure",
+      "source_id": "store_camera",
+      "start": "2026-04-14T18:20:01Z",
+      "end": "2026-04-14T18:20:02Z",
+      "validated": {"person": "person_track_7"}
+    }
+  ]
+}

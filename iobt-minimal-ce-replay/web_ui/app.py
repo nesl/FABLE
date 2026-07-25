@@ -72,6 +72,10 @@ SUBSCRIPTIONS = [
     "/readiness/#",                       # service readiness for replay gating
     "/debug/+/analytics/yolo/ready",
     "/debug/+/audio_detector/ready",
+    "fable/v1/status/+/heartbeat",          # FABLE node/session/source progress
+    "fable/v1/status/+/provider",           # provider lifecycle and leases
+    "fable/v1/result/+/+",                  # typed predicate results
+    "fable/v1/artifact/+/announce",         # continuation artifact metadata
 ]
 
 app = FastAPI(title="IoBT Minimal Replay UI")

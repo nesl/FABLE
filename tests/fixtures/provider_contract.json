@@ -1,0 +1,66 @@
+{
+  "schema_version": "fable.provider_contract.v1",
+  "provider_id": "follows_cross_sensor",
+  "contract_version": 1,
+  "description": "Evaluate cross-sensor following from canonical identity associations, projected tracks, and a route graph.",
+  "semantic_capabilities": {
+    "predicate_ids": [
+      "FOLLOWS"
+    ],
+    "role_capabilities": [],
+    "result_kinds": []
+  },
+  "ports": [
+    {
+      "name": "entity_map",
+      "kind": "INPUT",
+      "data_type": "canonical_entity_map.v1",
+      "required": true,
+      "purpose": "evidence"
+    },
+    {
+      "name": "leader_tracks",
+      "kind": "INPUT",
+      "data_type": "projected_track_set.v1",
+      "required": true,
+      "purpose": "evidence"
+    },
+    {
+      "name": "follower_tracks",
+      "kind": "INPUT",
+      "data_type": "projected_track_set.v1",
+      "required": true,
+      "purpose": "evidence"
+    },
+    {
+      "name": "route_graph",
+      "kind": "INPUT",
+      "data_type": "route_graph.v1",
+      "required": true,
+      "purpose": "deployment_metadata"
+    },
+    {
+      "name": "result",
+      "kind": "OUTPUT",
+      "data_type": "predicate_match.v1",
+      "required": false,
+      "purpose": "result"
+    }
+  ],
+  "parameters": {},
+  "execution_capabilities": {
+    "modes": [
+      "LIVE",
+      "RETROSPECTIVE"
+    ],
+    "supports_shared_execution": false,
+    "accepted_input_access": [
+      "LOCAL",
+      "REMOTE_REFERENCE",
+      "TRANSFERRED"
+    ],
+    "state_operations": []
+  },
+  "compatibility_groups": [],
+  "eligible_node_classes": []
+}

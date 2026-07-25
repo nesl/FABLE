@@ -1,0 +1,69 @@
+[
+  {
+    "available": true,
+    "capabilities": [
+      "vision",
+      "audio",
+      "gpu"
+    ],
+    "capacity": {
+      "cpu_cores": 4.0,
+      "gpu_memory_mb": 4096,
+      "memory_mb": 8192
+    },
+    "node_class": "sensor",
+    "node_id": "sensor_a",
+    "policy_tags": [],
+    "region": "road_a"
+  },
+  {
+    "available": true,
+    "capabilities": [
+      "vision",
+      "gpu"
+    ],
+    "capacity": {
+      "cpu_cores": 4.0,
+      "gpu_memory_mb": 4096,
+      "memory_mb": 8192
+    },
+    "node_class": "sensor",
+    "node_id": "sensor_b",
+    "policy_tags": [],
+    "region": "road_b"
+  },
+  {
+    "available": true,
+    "capabilities": [
+      "vision",
+      "audio",
+      "gpu"
+    ],
+    "capacity": {
+      "cpu_cores": 16.0,
+      "gpu_memory_mb": 8192,
+      "memory_mb": 32768
+    },
+    "node_class": "edge",
+    "node_id": "edge_1",
+    "policy_tags": [],
+    "region": "campus"
+  },
+  {
+    "available": true,
+    "capabilities": [
+      "vision",
+      "audio",
+      "gpu"
+    ],
+    "capacity": {
+      "cpu_cores": 32.0,
+      "gpu_memory_mb": 24576,
+      "memory_mb": 65536
+    },
+    "node_class": "server",
+    "node_id": "server_1",
+    "policy_tags": [],
+    "region": "cloud"
+  }
+]

@@ -1,0 +1,340 @@
+{
+  "$defs": {
+    "BindingDelta": {
+      "additionalProperties": false,
+      "properties": {
+        "introduced": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Introduced",
+          "type": "object"
+        },
+        "rejected_roles": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Rejected Roles",
+          "type": "array"
+        },
+        "validated": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Validated",
+          "type": "object"
+        }
+      },
+      "title": "BindingDelta",
+      "type": "object"
+    },
+    "EventTimeInterval": {
+      "additionalProperties": false,
+      "description": "Closed event-time interval.\n\nInstantaneous observations use ``start == end``. All timestamps are\nnormalized to UTC at validation time.",
+      "properties": {
+        "end": {
+          "format": "date-time",
+          "title": "End",
+          "type": "string"
+        },
+        "start": {
+          "format": "date-time",
+          "title": "Start",
+          "type": "string"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "title": "EventTimeInterval",
+      "type": "object"
+    },
+    "JsonValue": {},
+    "PredicateRole": {
+      "additionalProperties": false,
+      "properties": {
+        "entity_type": {
+          "minLength": 1,
+          "title": "Entity Type",
+          "type": "string"
+        },
+        "role_name": {
+          "minLength": 1,
+          "title": "Role Name",
+          "type": "string"
+        },
+        "variable": {
+          "minLength": 1,
+          "title": "Variable",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role_name",
+        "variable",
+        "entity_type"
+      ],
+      "title": "PredicateRole",
+      "type": "object"
+    },
+    "ResultKind": {
+      "enum": [
+        "INSTANT_MATCH",
+        "INTERVAL_MATCH",
+        "STATE_OBSERVATION",
+        "GROUP_MATCH",
+        "ARTIFACT_ONLY"
+      ],
+      "title": "ResultKind",
+      "type": "string"
+    },
+    "ResultProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "model_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Id"
+        },
+        "model_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Version"
+        },
+        "node_id": {
+          "minLength": 1,
+          "title": "Node Id",
+          "type": "string"
+        },
+        "provider_contract_version": {
+          "minimum": 1,
+          "title": "Provider Contract Version",
+          "type": "integer"
+        },
+        "provider_id": {
+          "minLength": 1,
+          "title": "Provider Id",
+          "type": "string"
+        },
+        "source_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Ids",
+          "type": "array"
+        },
+        "source_sequence_ranges": {
+          "additionalProperties": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "type": "array"
+          },
+          "title": "Source Sequence Ranges",
+          "type": "object"
+        }
+      },
+      "required": [
+        "provider_id",
+        "provider_contract_version",
+        "node_id",
+        "source_ids"
+      ],
+      "title": "ResultProvenance",
+      "type": "object"
+    },
+    "SemanticPredicate": {
+      "additionalProperties": false,
+      "description": "Provider-independent semantic condition.",
+      "properties": {
+        "parameters": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Parameters",
+          "type": "object"
+        },
+        "predicate_id": {
+          "minLength": 1,
+          "title": "Predicate Id",
+          "type": "string"
+        },
+        "result_kind": {
+          "$ref": "#/$defs/ResultKind"
+        },
+        "roles": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/PredicateRole"
+          },
+          "title": "Roles",
+          "type": "array"
+        }
+      },
+      "required": [
+        "predicate_id",
+        "result_kind"
+      ],
+      "title": "SemanticPredicate",
+      "type": "object"
+    },
+    "TruthValue": {
+      "enum": [
+        "TRUE",
+        "FALSE",
+        "UNKNOWN"
+      ],
+      "title": "TruthValue",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "artifact_ids": {
+      "default": [],
+      "items": {
+        "format": "uuid7",
+        "type": "string"
+      },
+      "title": "Artifact Ids",
+      "type": "array"
+    },
+    "binding_delta": {
+      "$ref": "#/$defs/BindingDelta"
+    },
+    "checkpoint_id": {
+      "format": "uuid7",
+      "title": "Checkpoint Id",
+      "type": "string"
+    },
+    "confidence": {
+      "anyOf": [
+        {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Confidence"
+    },
+    "demand_id": {
+      "format": "uuid7",
+      "title": "Demand Id",
+      "type": "string"
+    },
+    "event_time_interval": {
+      "$ref": "#/$defs/EventTimeInterval"
+    },
+    "expected_hypothesis_version": {
+      "minimum": 0,
+      "title": "Expected Hypothesis Version",
+      "type": "integer"
+    },
+    "frontier_id": {
+      "format": "uuid7",
+      "title": "Frontier Id",
+      "type": "string"
+    },
+    "graph_hash": {
+      "minLength": 1,
+      "title": "Graph Hash",
+      "type": "string"
+    },
+    "graph_node_id": {
+      "minLength": 1,
+      "title": "Graph Node Id",
+      "type": "string"
+    },
+    "hypothesis_id": {
+      "format": "uuid7",
+      "title": "Hypothesis Id",
+      "type": "string"
+    },
+    "occurrence_id": {
+      "minLength": 1,
+      "title": "Occurrence Id",
+      "type": "string"
+    },
+    "processing_completed_at": {
+      "format": "date-time",
+      "title": "Processing Completed At",
+      "type": "string"
+    },
+    "processing_started_at": {
+      "format": "date-time",
+      "title": "Processing Started At",
+      "type": "string"
+    },
+    "provenance": {
+      "$ref": "#/$defs/ResultProvenance"
+    },
+    "request_id": {
+      "minLength": 1,
+      "title": "Request Id",
+      "type": "string"
+    },
+    "result_id": {
+      "format": "uuid7",
+      "title": "Result Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "fable.predicate_result.v1",
+      "default": "fable.predicate_result.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "semantic_predicate": {
+      "$ref": "#/$defs/SemanticPredicate"
+    },
+    "truth": {
+      "$ref": "#/$defs/TruthValue"
+    }
+  },
+  "required": [
+    "occurrence_id",
+    "demand_id",
+    "request_id",
+    "graph_hash",
+    "hypothesis_id",
+    "expected_hypothesis_version",
+    "frontier_id",
+    "checkpoint_id",
+    "graph_node_id",
+    "semantic_predicate",
+    "truth",
+    "event_time_interval",
+    "provenance",
+    "processing_started_at",
+    "processing_completed_at"
+  ],
+  "title": "PredicateResult",
+  "type": "object"
+}

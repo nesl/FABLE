@@ -1,0 +1,33 @@
+{
+  "request_id": "convoy_demo",
+  "graph": "convoy",
+  "aliases": [
+    {"entity_type": "vehicle", "source_id": "camera_mobile", "local_id": "track_17", "canonical_id": "vehicle_17"},
+    {"entity_type": "vehicle", "source_id": "camera_downstream", "local_id": "track_23", "canonical_id": "vehicle_23"}
+  ],
+  "results": [
+    {
+      "kind": "seed",
+      "node_key": "leader_passes",
+      "source_id": "camera_mobile",
+      "start": "2026-04-14T18:19:51Z",
+      "end": "2026-04-14T18:19:52Z",
+      "introduced": {"leader": "track_17"}
+    },
+    {
+      "kind": "predicate",
+      "node_key": "follower_follows",
+      "source_id": "camera_downstream",
+      "start": "2026-04-14T18:19:53Z",
+      "end": "2026-04-14T18:19:57Z",
+      "introduced": {"follower": "track_23"},
+      "validated": {"leader": "vehicle_17"}
+    }
+  ],
+  "watermarks": {
+    "camera_mobile": {
+      "event_time": "2026-04-14T18:20:29Z",
+      "operational_coverage": true
+    }
+  }
+}

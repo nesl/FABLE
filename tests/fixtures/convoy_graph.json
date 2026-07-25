@@ -1,0 +1,193 @@
+{
+  "schema_version": "fable.semantic_graph.v1",
+  "graph_id": "graph_ba0716002a17cd28ef98462e9801bc39",
+  "graph_hash": "sha256:c1bad14edecac263da5da07049ce70a00d3c482f2e4be6f675ac376c1b2840e5",
+  "graph_version": 1,
+  "name": "Pass-follow-clear convoy",
+  "description": "Leader passes, follower follows, then the scene becomes clear.",
+  "root_node_id": "gn_fbe49f35ba1e9b5652ccbec4",
+  "roles": [
+    {
+      "role_name": "leader",
+      "entity_type": "vehicle",
+      "cardinality_min": 1,
+      "cardinality_max": 1,
+      "distinct_from": []
+    },
+    {
+      "role_name": "follower",
+      "entity_type": "vehicle",
+      "cardinality_min": 1,
+      "cardinality_max": 1,
+      "distinct_from": [
+        "leader"
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "node_id": "gn_fbe49f35ba1e9b5652ccbec4",
+      "authored_key": "convoy_sequence",
+      "kind": "AND",
+      "name": "Convoy progression",
+      "checkpoint_boundary": false,
+      "annotations": {}
+    },
+    {
+      "node_id": "gn_d04a05cb424ce464f0e0e8ad",
+      "authored_key": "follower_follows",
+      "kind": "PREDICATE",
+      "name": "Follower follows leader",
+      "predicate": {
+        "predicate_id": "FOLLOWS",
+        "roles": [
+          {
+            "role_name": "leader",
+            "variable": "leader",
+            "entity_type": "vehicle"
+          },
+          {
+            "role_name": "follower",
+            "variable": "follower",
+            "entity_type": "vehicle"
+          }
+        ],
+        "parameters": {
+          "max_gap_m": 15.0,
+          "min_duration_ms": 3000
+        },
+        "result_kind": "INTERVAL_MATCH"
+      },
+      "checkpoint_boundary": true,
+      "annotations": {}
+    },
+    {
+      "node_id": "gn_d80e16c2606aed2dfb7707e8",
+      "authored_key": "leader_passes",
+      "kind": "PREDICATE",
+      "name": "Leader passes mobile node",
+      "predicate": {
+        "predicate_id": "PASSES",
+        "roles": [
+          {
+            "role_name": "vehicle",
+            "variable": "leader",
+            "entity_type": "vehicle"
+          },
+          {
+            "role_name": "reference",
+            "variable": "mobile_node",
+            "entity_type": "location"
+          }
+        ],
+        "parameters": {},
+        "result_kind": "INSTANT_MATCH"
+      },
+      "checkpoint_boundary": true,
+      "annotations": {}
+    },
+    {
+      "node_id": "gn_346192eae44933109e6a8eeb",
+      "authored_key": "moving_vehicle",
+      "kind": "PREDICATE",
+      "name": "Vehicle is moving",
+      "predicate": {
+        "predicate_id": "MOVING",
+        "roles": [
+          {
+            "role_name": "vehicle",
+            "variable": "candidate",
+            "entity_type": "vehicle"
+          }
+        ],
+        "parameters": {},
+        "result_kind": "STATE_OBSERVATION"
+      },
+      "checkpoint_boundary": false,
+      "annotations": {}
+    },
+    {
+      "node_id": "gn_b29f73ea743bfe2ccc8b7352",
+      "authored_key": "scene_clear",
+      "kind": "ABSENT",
+      "name": "No moving vehicles remain",
+      "checkpoint_boundary": true,
+      "annotations": {}
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "ge_1e4c6bdc0bfc7bc87a1b9003",
+      "source_node_id": "gn_d04a05cb424ce464f0e0e8ad",
+      "target_node_id": "gn_b29f73ea743bfe2ccc8b7352",
+      "kind": "SEQUENCE",
+      "temporal_guard_ids": []
+    },
+    {
+      "edge_id": "ge_33ffc35d8a7e3cdf812f097b",
+      "source_node_id": "gn_fbe49f35ba1e9b5652ccbec4",
+      "target_node_id": "gn_d04a05cb424ce464f0e0e8ad",
+      "kind": "CHILD",
+      "temporal_guard_ids": []
+    },
+    {
+      "edge_id": "ge_35514c11f01e79ec2d032857",
+      "source_node_id": "gn_b29f73ea743bfe2ccc8b7352",
+      "target_node_id": "gn_346192eae44933109e6a8eeb",
+      "kind": "CHILD",
+      "temporal_guard_ids": [
+        "tg_74a326fa2019b7885f6298fa"
+      ]
+    },
+    {
+      "edge_id": "ge_452a764fece7c151fa25c4bb",
+      "source_node_id": "gn_fbe49f35ba1e9b5652ccbec4",
+      "target_node_id": "gn_d80e16c2606aed2dfb7707e8",
+      "kind": "CHILD",
+      "temporal_guard_ids": []
+    },
+    {
+      "edge_id": "ge_b70e7649cd2d5c8209662fc4",
+      "source_node_id": "gn_d80e16c2606aed2dfb7707e8",
+      "target_node_id": "gn_d04a05cb424ce464f0e0e8ad",
+      "kind": "SEQUENCE",
+      "temporal_guard_ids": [
+        "tg_edba03f1283c8df0f3114162"
+      ]
+    },
+    {
+      "edge_id": "ge_cf27d6bd9e3eb94fe6ee4cf4",
+      "source_node_id": "gn_fbe49f35ba1e9b5652ccbec4",
+      "target_node_id": "gn_b29f73ea743bfe2ccc8b7352",
+      "kind": "CHILD",
+      "temporal_guard_ids": []
+    }
+  ],
+  "temporal_guards": [
+    {
+      "guard_id": "tg_74a326fa2019b7885f6298fa",
+      "kind": "ABSENCE_WINDOW",
+      "source_node_ids": [
+        "gn_346192eae44933109e6a8eeb"
+      ],
+      "target_node_id": "gn_b29f73ea743bfe2ccc8b7352",
+      "minimum_ms": 30000,
+      "required_source_ids": [
+        "camera_mobile"
+      ]
+    },
+    {
+      "guard_id": "tg_edba03f1283c8df0f3114162",
+      "kind": "WITHIN",
+      "source_node_ids": [
+        "gn_d80e16c2606aed2dfb7707e8"
+      ],
+      "target_node_id": "gn_d04a05cb424ce464f0e0e8ad",
+      "maximum_ms": 15000,
+      "required_source_ids": []
+    }
+  ],
+  "authored_variant_ids": [
+    "pass_follow_clear"
+  ]
+}

@@ -1,0 +1,112 @@
+# Add this file to compose.server.yaml and compose.replay.yaml.
+# Example:
+#   docker compose -f compose.server.yaml -f compose.replay.yaml \
+#     -f compose.fable.yaml up --build
+services:
+  mqtt:
+    volumes:
+      - ./server/mosquitto.fable.conf:/mosquitto/config/mosquitto.conf:ro
+      - fable-mosquitto-data:/mosquitto/data
+    restart: unless-stopped
+
+  fable-mongo:
+    image: mongo:7
+    container_name: fable-mongo
+    command: ["mongod", "--bind_ip_all", "--wiredTigerCacheSizeGB", "1"]
+    volumes:
+      - fable-mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ping:1}).ok"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  fable-orchestrator:
+    build:
+      context: ..
+      dockerfile: iobt-minimal-ce-replay/services/orchestration/fable_orchestrator/Dockerfile
+    image: fable/orchestrator:phase6
+    container_name: fable-orchestrator
+    environment:
+      MQTT_HOST_IP: mqtt
+      MQTT_PORT: 1883
+      MONGODB_URI: mongodb://fable-mongo:27017
+      MONGODB_DATABASE: fable
+      FABLE_ORCHESTRATOR_ID: orchestrator
+      FABLE_DEPLOYMENT_CONFIG: /workspace/replay/config/fable_deployment.yaml
+      FABLE_RUNTIME_CONFIG: /workspace/replay/config/fable_provider_runtimes.yaml
+      FABLE_STATE_DIR: /var/lib/fable/orchestrator
+      FABLE_MONITOR_INTERVAL_SEC: 1.0
+      FABLE_REQUIRE_HEARTBEAT_ON_RESTART: "false"
+      LOG_LEVEL: INFO
+    volumes:
+      - ./config:/workspace/replay/config:ro
+      - fable-orchestrator-state:/var/lib/fable/orchestrator
+    depends_on:
+      mqtt:
+        condition: service_started
+      fable-mongo:
+        condition: service_healthy
+    restart: unless-stopped
+
+  fable-agent-orin11:
+    build:
+      context: ..
+      dockerfile: iobt-minimal-ce-replay/services/agent/fable_node_agent/Dockerfile
+    image: fable/node-agent:phase6
+    container_name: fable-agent-orin11
+    environment:
+      MQTT_HOST_IP: mqtt
+      MQTT_PORT: 1883
+      FABLE_NODE_ID: dvpg_gq_orin_11
+      FABLE_MQTT_CLIENT_ID: fable-agent-dvpg-gq-orin-11
+      FABLE_STATE_DIR: /var/lib/fable/dvpg_gq_orin_11
+      FABLE_HEARTBEAT_INTERVAL_SEC: 1.0
+      FABLE_ALLOW_FAULT_INJECTION: "true"
+      FABLE_CONTAINER_RUNTIME: docker
+      FABLE_SOURCE_ALIASES_JSON: >-
+        {"zed:dvpg_gq_orin_11":"orin11_camera","camera:dvpg_gq_orin_11":"orin11_camera","respeaker:dvpg_gq_orin_11":"orin11_microphone","audio:dvpg_gq_orin_11":"orin11_microphone"}
+      LOG_LEVEL: INFO
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - fable-agent-orin11-state:/var/lib/fable/dvpg_gq_orin_11
+    depends_on:
+      mqtt:
+        condition: service_started
+      fable-orchestrator:
+        condition: service_started
+    restart: unless-stopped
+
+  fable-agent-x86server:
+    build:
+      context: ..
+      dockerfile: iobt-minimal-ce-replay/services/agent/fable_node_agent/Dockerfile
+    image: fable/node-agent:phase6
+    container_name: fable-agent-x86server
+    environment:
+      MQTT_HOST_IP: mqtt
+      MQTT_PORT: 1883
+      FABLE_NODE_ID: x86server
+      FABLE_MQTT_CLIENT_ID: fable-agent-x86server
+      FABLE_STATE_DIR: /var/lib/fable/x86server
+      FABLE_HEARTBEAT_INTERVAL_SEC: 1.0
+      FABLE_ALLOW_FAULT_INJECTION: "true"
+      FABLE_CONTAINER_RUNTIME: docker
+      LOG_LEVEL: INFO
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - fable-agent-x86server-state:/var/lib/fable/x86server
+    depends_on:
+      mqtt:
+        condition: service_started
+      fable-orchestrator:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  fable-mosquitto-data:
+  fable-mongo-data:
+  fable-orchestrator-state:
+  fable-agent-orin11-state:
+  fable-agent-x86server-state:

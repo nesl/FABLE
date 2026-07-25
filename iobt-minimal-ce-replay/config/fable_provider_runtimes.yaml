@@ -1,0 +1,376 @@
+schema_version: fable.provider_runtimes.v1
+nodes:
+  dvpg_gq_orin_11:
+    providers:
+      yolo_vehicle_fast_640:
+        mode: ADOPT_EXISTING
+        container_name: yolo-detector-orin11
+        stop_adopted_when_idle: false
+        readiness:
+          mqtt_topic: /readiness/dvpg_gq_orin_11/yolo
+          ready_field: ready
+          ready_value: true
+          timeout_ms: 60000
+        output_topics:
+        - /dvpg_gq_orin_11/analytics/yolo/bbox
+        output_adapter: YOLO_OBJECT_PRESENT
+      audio_event_classifier:
+        mode: ADOPT_EXISTING
+        container_name: fable-multimodal-orin11
+        stop_adopted_when_idle: false
+        readiness:
+          mqtt_topic: /readiness/dvpg_gq_orin_11/fable_multimodal
+          ready_field: ready
+          ready_value: true
+          timeout_ms: 60000
+        output_topics:
+        - /dvpg_gq_orin_11/fable/audio/events
+        output_adapter: MULTIMODAL_PREDICATE
+      multi_object_tracker:
+        mode: ADOPT_EXISTING
+        container_name: fable-vehicle-orin11
+        stop_adopted_when_idle: false
+        readiness: &id001
+          mqtt_topic: /readiness/dvpg_gq_orin_11/fable_vehicle
+          ready_field: ready
+          ready_value: true
+          timeout_ms: 60000
+        output_adapter: NONE
+      camera_projection:
+        mode: ADOPT_EXISTING
+        container_name: fable-vehicle-orin11
+        stop_adopted_when_idle: false
+        readiness: *id001
+        output_adapter: NONE
+      route_map_matcher:
+        mode: ADOPT_EXISTING
+        container_name: fable-vehicle-orin11
+        stop_adopted_when_idle: false
+        readiness: *id001
+        output_adapter: NONE
+      pass_reference_evaluator:
+        mode: ADOPT_EXISTING
+        container_name: fable-vehicle-orin11
+        stop_adopted_when_idle: false
+        readiness: *id001
+        output_topics:
+        - /dvpg_gq_orin_11/fable/vehicle/predicates
+        output_adapter: VEHICLE_PREDICATE
+      zone_membership_evaluator:
+        mode: ADOPT_EXISTING
+        container_name: fable-vehicle-orin11
+        stop_adopted_when_idle: false
+        readiness: *id001
+        output_topics:
+        - /dvpg_gq_orin_11/fable/vehicle/predicates
+        output_adapter: VEHICLE_PREDICATE
+      zone_transition_evaluator:
+        mode: ADOPT_EXISTING
+        container_name: fable-vehicle-orin11
+        stop_adopted_when_idle: false
+        readiness: *id001
+        output_topics:
+        - /dvpg_gq_orin_11/fable/vehicle/predicates
+        output_adapter: VEHICLE_PREDICATE
+      motion_state_evaluator:
+        mode: ADOPT_EXISTING
+        container_name: fable-vehicle-orin11
+        stop_adopted_when_idle: false
+        readiness: *id001
+        output_topics:
+        - /dvpg_gq_orin_11/fable/vehicle/predicates
+        output_adapter: VEHICLE_PREDICATE
+      follows_local_geometry:
+        mode: ADOPT_EXISTING
+        container_name: fable-vehicle-orin11
+        stop_adopted_when_idle: false
+        readiness: *id001
+        output_topics:
+        - /dvpg_gq_orin_11/fable/vehicle/predicates
+        output_adapter: VEHICLE_PREDICATE
+      gcc_phat_audio_localizer:
+        mode: ADOPT_EXISTING
+        container_name: fable-multimodal-orin11
+        stop_adopted_when_idle: false
+        readiness:
+          mqtt_topic: /readiness/dvpg_gq_orin_11/fable_multimodal
+          ready_field: ready
+          ready_value: true
+          timeout_ms: 60000
+        output_topics:
+        - /dvpg_gq_orin_11/fable/audio/localizations
+        output_adapter: NONE
+      audio_visual_association:
+        mode: ADOPT_EXISTING
+        container_name: fable-multimodal-orin11
+        stop_adopted_when_idle: false
+        readiness:
+          mqtt_topic: /readiness/dvpg_gq_orin_11/fable_multimodal
+          ready_field: ready
+          ready_value: true
+          timeout_ms: 60000
+        output_topics: []
+        output_adapter: NONE
+      voice_activity_detector:
+        mode: ADOPT_EXISTING
+        container_name: fable-multimodal-orin11
+        stop_adopted_when_idle: false
+        readiness:
+          mqtt_topic: /readiness/dvpg_gq_orin_11/fable_multimodal
+          ready_field: ready
+          ready_value: true
+          timeout_ms: 60000
+        output_topics: []
+        output_adapter: NONE
+      speaker_embedding_provider:
+        mode: ADOPT_EXISTING
+        container_name: fable-multimodal-orin11
+        stop_adopted_when_idle: false
+        readiness:
+          mqtt_topic: /readiness/dvpg_gq_orin_11/fable_multimodal
+          ready_field: ready
+          ready_value: true
+          timeout_ms: 60000
+        output_topics: []
+        output_adapter: NONE
+      speaker_diarization_provider:
+        mode: ADOPT_EXISTING
+        container_name: fable-multimodal-orin11
+        stop_adopted_when_idle: false
+        readiness:
+          mqtt_topic: /readiness/dvpg_gq_orin_11/fable_multimodal
+          ready_field: ready
+          ready_value: true
+          timeout_ms: 60000
+        output_topics:
+        - /dvpg_gq_orin_11/fable/audio/speaker_turns
+        output_adapter: NONE
+      keyword_or_asr_provider:
+        mode: ADOPT_EXISTING
+        container_name: fable-multimodal-orin11
+        stop_adopted_when_idle: false
+        readiness:
+          mqtt_topic: /readiness/dvpg_gq_orin_11/fable_multimodal
+          ready_field: ready
+          ready_value: true
+          timeout_ms: 60000
+        output_topics: []
+        output_adapter: NONE
+      conversation_provider:
+        mode: ADOPT_EXISTING
+        container_name: fable-multimodal-orin11
+        stop_adopted_when_idle: false
+        readiness:
+          mqtt_topic: /readiness/dvpg_gq_orin_11/fable_multimodal
+          ready_field: ready
+          ready_value: true
+          timeout_ms: 60000
+        output_topics:
+        - /dvpg_gq_orin_11/fable/interactions/predicates
+        output_adapter: MULTIMODAL_PREDICATE
+      person_vehicle_relation_provider:
+        mode: ADOPT_EXISTING
+        container_name: fable-multimodal-orin11
+        stop_adopted_when_idle: false
+        readiness:
+          mqtt_topic: /readiness/dvpg_gq_orin_11/fable_multimodal
+          ready_field: ready
+          ready_value: true
+          timeout_ms: 60000
+        output_topics:
+        - /dvpg_gq_orin_11/fable/interactions/predicates
+        output_adapter: MULTIMODAL_PREDICATE
+      package_detector:
+        mode: ADOPT_EXISTING
+        container_name: fable-multimodal-orin11
+        stop_adopted_when_idle: false
+        readiness:
+          mqtt_topic: /readiness/dvpg_gq_orin_11/fable_multimodal
+          ready_field: ready
+          ready_value: true
+          timeout_ms: 60000
+        output_topics: []
+        output_adapter: NONE
+      interaction_evidence_analyzer:
+        mode: ADOPT_EXISTING
+        container_name: fable-multimodal-orin11
+        stop_adopted_when_idle: false
+        readiness:
+          mqtt_topic: /readiness/dvpg_gq_orin_11/fable_multimodal
+          ready_field: ready
+          ready_value: true
+          timeout_ms: 60000
+        output_topics: []
+        output_adapter: NONE
+      object_transfer_reasoner:
+        mode: ADOPT_EXISTING
+        container_name: fable-multimodal-orin11
+        stop_adopted_when_idle: false
+        readiness:
+          mqtt_topic: /readiness/dvpg_gq_orin_11/fable_multimodal
+          ready_field: ready
+          ready_value: true
+          timeout_ms: 60000
+        output_topics:
+        - /dvpg_gq_orin_11/fable/interactions/predicates
+        - /dvpg_gq_orin_11/fable/interactions/custody
+        output_adapter: MULTIMODAL_PREDICATE
+      historical_vehicle_interval_matcher:
+        mode: ADOPT_EXISTING
+        container_name: fable-multimodal-orin11
+        stop_adopted_when_idle: false
+        readiness:
+          mqtt_topic: /readiness/dvpg_gq_orin_11/fable_multimodal
+          ready_field: ready
+          ready_value: true
+          timeout_ms: 60000
+        output_topics: []
+        output_adapter: NONE
+  x86server:
+    providers:
+      audio_event_classifier:
+        mode: REFERENCE
+        reference_delay_ms: 20
+        reference_truth: true
+      yolo_vehicle_fast_640:
+        mode: REFERENCE
+        reference_delay_ms: 30
+        reference_truth: true
+      vehicle_reid_descriptor:
+        mode: REFERENCE
+        reference_delay_ms: 40
+        reference_truth: true
+      openclip_visual_descriptor:
+        mode: REFERENCE
+        reference_delay_ms: 55
+        reference_truth: true
+      cross_sensor_identity_association:
+        mode: REFERENCE
+        reference_delay_ms: 20
+        reference_truth: true
+      follows_cross_sensor:
+        mode: REFERENCE
+        reference_delay_ms: 20
+        reference_truth: true
+      gcc_phat_audio_localizer:
+        mode: REFERENCE
+        reference_delay_ms: 8
+        reference_truth: true
+      audio_visual_association:
+        mode: REFERENCE
+        reference_delay_ms: 12
+        reference_truth: true
+      voice_activity_detector:
+        mode: REFERENCE
+        reference_delay_ms: 6
+        reference_truth: true
+      speaker_embedding_provider:
+        mode: REFERENCE
+        reference_delay_ms: 18
+        reference_truth: true
+      speaker_diarization_provider:
+        mode: REFERENCE
+        reference_delay_ms: 12
+        reference_truth: true
+      keyword_or_asr_provider:
+        mode: REFERENCE
+        reference_delay_ms: 80
+        reference_truth: true
+      conversation_provider:
+        mode: REFERENCE
+        reference_delay_ms: 10
+        reference_truth: true
+      person_vehicle_relation_provider:
+        mode: REFERENCE
+        reference_delay_ms: 12
+        reference_truth: true
+      package_detector:
+        mode: REFERENCE
+        reference_delay_ms: 30
+        reference_truth: true
+      interaction_evidence_analyzer:
+        mode: REFERENCE
+        reference_delay_ms: 20
+        reference_truth: true
+      object_transfer_reasoner:
+        mode: REFERENCE
+        reference_delay_ms: 12
+        reference_truth: true
+      historical_vehicle_interval_matcher:
+        mode: REFERENCE
+        reference_delay_ms: 15
+        reference_truth: true
+  cloud1:
+    providers:
+      audio_event_classifier:
+        mode: REFERENCE
+        reference_delay_ms: 20
+        reference_truth: true
+      yolo_vehicle_fast_640:
+        mode: REFERENCE
+        reference_delay_ms: 30
+        reference_truth: true
+      vehicle_reid_descriptor:
+        mode: REFERENCE
+        reference_delay_ms: 40
+        reference_truth: true
+      openclip_visual_descriptor:
+        mode: REFERENCE
+        reference_delay_ms: 55
+        reference_truth: true
+      cross_sensor_identity_association:
+        mode: REFERENCE
+        reference_delay_ms: 20
+        reference_truth: true
+      follows_cross_sensor:
+        mode: REFERENCE
+        reference_delay_ms: 20
+        reference_truth: true
+      gcc_phat_audio_localizer:
+        mode: REFERENCE
+        reference_delay_ms: 8
+        reference_truth: true
+      audio_visual_association:
+        mode: REFERENCE
+        reference_delay_ms: 12
+        reference_truth: true
+      voice_activity_detector:
+        mode: REFERENCE
+        reference_delay_ms: 6
+        reference_truth: true
+      speaker_embedding_provider:
+        mode: REFERENCE
+        reference_delay_ms: 18
+        reference_truth: true
+      speaker_diarization_provider:
+        mode: REFERENCE
+        reference_delay_ms: 12
+        reference_truth: true
+      keyword_or_asr_provider:
+        mode: REFERENCE
+        reference_delay_ms: 80
+        reference_truth: true
+      conversation_provider:
+        mode: REFERENCE
+        reference_delay_ms: 10
+        reference_truth: true
+      person_vehicle_relation_provider:
+        mode: REFERENCE
+        reference_delay_ms: 12
+        reference_truth: true
+      package_detector:
+        mode: REFERENCE
+        reference_delay_ms: 30
+        reference_truth: true
+      interaction_evidence_analyzer:
+        mode: REFERENCE
+        reference_delay_ms: 20
+        reference_truth: true
+      object_transfer_reasoner:
+        mode: REFERENCE
+        reference_delay_ms: 12
+        reference_truth: true
+      historical_vehicle_interval_matcher:
+        mode: REFERENCE
+        reference_delay_ms: 15
+        reference_truth: true

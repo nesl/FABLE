@@ -1,0 +1,76 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fable-runtime"
+version = "0.9.0"
+description = "FABLE semantic runtime with spatially coordinated checkpoint planning and bounded LLM hooks"
+requires-python = ">=3.11"
+dependencies = [
+  "pydantic>=2.10,<3",
+  "PyYAML>=6,<7",
+  "paho-mqtt>=2.1,<3",
+  "pymongo>=4.8,<5",
+  "docker>=7,<8",
+  "psutil>=6,<8",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8,<10",
+  "mypy>=1.10,<2",
+  "ruff>=0.6,<1",
+]
+vehicle-tracking = [
+  "numpy>=1.26,<3",
+  "supervision>=0.25,<1",
+  "trackers==2.5.0.post0",
+]
+vehicle-models = [
+  "numpy>=1.26,<3",
+  "pillow>=10,<13",
+  "torch>=2.2,<3",
+  "torchvision>=0.17,<1",
+  "ultralytics>=8.3,<9",
+  "open_clip_torch>=2.30,<4",
+]
+vehicle = [
+  "numpy>=1.26,<3",
+  "supervision>=0.25,<1",
+  "trackers==2.5.0.post0",
+  "pillow>=10,<13",
+  "torch>=2.2,<3",
+  "torchvision>=0.17,<1",
+  "ultralytics>=8.3,<9",
+  "open_clip_torch>=2.30,<4",
+]
+multimodal-core = [
+  "numpy>=1.26,<3",
+]
+multimodal-audio = [
+  "numpy>=1.26,<3",
+  "webrtcvad-wheels>=2.0.14,<3",
+]
+multimodal-models = [
+  "numpy>=1.26,<3",
+  "torch>=2.2,<3",
+  "tensorflow>=2.16,<3",
+  "tensorflow-hub>=0.16,<1",
+]
+multimodal = [
+  "numpy>=1.26,<3",
+  "webrtcvad-wheels>=2.0.14,<3",
+  "torch>=2.2,<3",
+  "tensorflow>=2.16,<3",
+  "tensorflow-hub>=0.16,<1",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["fable*", "providers*"]
+
+[tool.pytest.ini_options]
+python_files = ["test_*.py", "*_test.py"]
+testpaths = ["tests", "providers/tests"]
+addopts = "-ra"

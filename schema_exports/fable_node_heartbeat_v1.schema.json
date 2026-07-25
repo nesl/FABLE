@@ -1,0 +1,205 @@
+{
+  "$defs": {
+    "EventTimeInterval": {
+      "additionalProperties": false,
+      "description": "Closed event-time interval.\n\nInstantaneous observations use ``start == end``. All timestamps are\nnormalized to UTC at validation time.",
+      "properties": {
+        "end": {
+          "format": "date-time",
+          "title": "End",
+          "type": "string"
+        },
+        "start": {
+          "format": "date-time",
+          "title": "Start",
+          "type": "string"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "title": "EventTimeInterval",
+      "type": "object"
+    },
+    "NodeAvailability": {
+      "enum": [
+        "AVAILABLE",
+        "SUSPECT",
+        "UNAVAILABLE",
+        "RECOVERING"
+      ],
+      "title": "NodeAvailability",
+      "type": "string"
+    },
+    "NodeCapacity": {
+      "additionalProperties": false,
+      "properties": {
+        "cpu_free_cores": {
+          "minimum": 0,
+          "title": "Cpu Free Cores",
+          "type": "number"
+        },
+        "gpu_free_mb": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Gpu Free Mb",
+          "type": "integer"
+        },
+        "memory_free_mb": {
+          "minimum": 0,
+          "title": "Memory Free Mb",
+          "type": "integer"
+        },
+        "network_rx_available_mbps": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Network Rx Available Mbps"
+        },
+        "network_tx_available_mbps": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Network Tx Available Mbps"
+        }
+      },
+      "required": [
+        "cpu_free_cores",
+        "memory_free_mb"
+      ],
+      "title": "NodeCapacity",
+      "type": "object"
+    },
+    "SourceHeartbeat": {
+      "additionalProperties": false,
+      "properties": {
+        "latest_event_time": {
+          "format": "date-time",
+          "title": "Latest Event Time",
+          "type": "string"
+        },
+        "latest_sequence": {
+          "minimum": 0,
+          "title": "Latest Sequence",
+          "type": "integer"
+        },
+        "operational_coverage": {
+          "default": true,
+          "title": "Operational Coverage",
+          "type": "boolean"
+        },
+        "raw_buffer_interval": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EventTimeInterval"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "source_id": {
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_id",
+        "latest_sequence",
+        "latest_event_time"
+      ],
+      "title": "SourceHeartbeat",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "active_demand_ids": {
+      "default": [],
+      "items": {
+        "format": "uuid7",
+        "type": "string"
+      },
+      "title": "Active Demand Ids",
+      "type": "array"
+    },
+    "active_provider_instance_ids": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Active Provider Instance Ids",
+      "type": "array"
+    },
+    "availability": {
+      "$ref": "#/$defs/NodeAvailability",
+      "default": "AVAILABLE"
+    },
+    "capacity": {
+      "$ref": "#/$defs/NodeCapacity"
+    },
+    "message_id": {
+      "format": "uuid7",
+      "title": "Message Id",
+      "type": "string"
+    },
+    "node_id": {
+      "minLength": 1,
+      "title": "Node Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "fable.node_heartbeat.v1",
+      "default": "fable.node_heartbeat.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "sent_at": {
+      "format": "date-time",
+      "title": "Sent At",
+      "type": "string"
+    },
+    "sequence": {
+      "minimum": 0,
+      "title": "Sequence",
+      "type": "integer"
+    },
+    "session_id": {
+      "minLength": 1,
+      "title": "Session Id",
+      "type": "string"
+    },
+    "sources": {
+      "additionalProperties": {
+        "$ref": "#/$defs/SourceHeartbeat"
+      },
+      "title": "Sources",
+      "type": "object"
+    }
+  },
+  "required": [
+    "node_id",
+    "session_id",
+    "sequence",
+    "capacity"
+  ],
+  "title": "NodeHeartbeat",
+  "type": "object"
+}

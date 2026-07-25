@@ -1,0 +1,59 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "acceptable_input_types": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Acceptable Input Types",
+      "type": "array"
+    },
+    "description": {
+      "minLength": 1,
+      "title": "Description",
+      "type": "string"
+    },
+    "family_id": {
+      "minLength": 1,
+      "title": "Family Id",
+      "type": "string"
+    },
+    "output_types": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Output Types",
+      "type": "array"
+    },
+    "predicate_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Predicate Ids",
+      "type": "array"
+    },
+    "provider_contract_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Provider Contract Ids",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "fable.provider_family.v1",
+      "default": "fable.provider_family.v1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "family_id",
+    "description",
+    "predicate_ids",
+    "provider_contract_ids"
+  ],
+  "title": "ProviderFamily",
+  "type": "object"
+}

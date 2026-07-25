@@ -1,0 +1,70 @@
+{
+  "schema_version": "fable.predicate_result.v1",
+  "result_id": "019f967d-bc04-7b7c-91f4-84eb1b64ba14",
+  "occurrence_id": "occ_c6bb936691089c409b8b61669bc9142f",
+  "demand_id": "019f967d-bbec-7094-8760-aa924e0b91a6",
+  "request_id": "request_convoy_demo",
+  "graph_hash": "sha256:c1bad14edecac263da5da07049ce70a00d3c482f2e4be6f675ac376c1b2840e5",
+  "hypothesis_id": "019f967d-bbec-7094-8760-aa924e0b91a3",
+  "expected_hypothesis_version": 0,
+  "frontier_id": "019f967d-bbec-7094-8760-aa924e0b91a5",
+  "checkpoint_id": "019f967d-bbec-7094-8760-aa924e0b91a4",
+  "graph_node_id": "gn_d04a05cb424ce464f0e0e8ad",
+  "semantic_predicate": {
+    "predicate_id": "FOLLOWS",
+    "roles": [
+      {
+        "role_name": "leader",
+        "variable": "leader",
+        "entity_type": "vehicle"
+      },
+      {
+        "role_name": "follower",
+        "variable": "follower",
+        "entity_type": "vehicle"
+      }
+    ],
+    "parameters": {
+      "max_gap_m": 15.0,
+      "min_duration_ms": 3000
+    },
+    "result_kind": "INTERVAL_MATCH"
+  },
+  "truth": "TRUE",
+  "confidence": 0.93,
+  "event_time_interval": {
+    "start": "2026-04-14T18:19:53Z",
+    "end": "2026-04-14T18:19:58Z"
+  },
+  "binding_delta": {
+    "introduced": {
+      "follower": "vehicle_23"
+    },
+    "validated": {},
+    "rejected_roles": []
+  },
+  "artifact_ids": [
+    "019f967d-bbec-7094-8760-aa924e0b91a7"
+  ],
+  "provenance": {
+    "provider_id": "follows_cross_sensor",
+    "provider_contract_version": 1,
+    "node_id": "edge_1",
+    "source_ids": [
+      "camera_mobile",
+      "camera_downstream"
+    ],
+    "source_sequence_ranges": {
+      "camera_mobile": [
+        101,
+        140
+      ],
+      "camera_downstream": [
+        88,
+        131
+      ]
+    }
+  },
+  "processing_started_at": "2026-04-14T18:19:58.010000Z",
+  "processing_completed_at": "2026-04-14T18:19:58.125000Z"
+}

@@ -1,0 +1,60 @@
+{
+  "schema_version": "fable.physical_plan_label.v1",
+  "label_id": "label_2383c7730e4968bad49e0a9fd75f7c23",
+  "checkpoint_id": "019f967d-bbec-7094-8760-aa924e0b91a4",
+  "covered_demand_ids": [
+    "019f967d-bbec-7094-8760-aa924e0b91a6"
+  ],
+  "steps": [
+    {
+      "step_id": "step_follows_cross_sensor",
+      "provider_id": "follows_cross_sensor",
+      "node_id": "edge_1",
+      "input_artifact_ids": [
+        "019f967d-bbec-7094-8760-aa924e0b91a7"
+      ],
+      "input_data_types": [
+        "canonical_entity_map.v1",
+        "projected_track_set.v1",
+        "route_graph.v1"
+      ],
+      "output_data_types": [
+        "predicate_match.v1",
+        "pair_trajectory.v1"
+      ],
+      "parameters": [
+        [
+          "maximum_gap_m",
+          15.0
+        ],
+        [
+          "minimum_duration_s",
+          3.0
+        ]
+      ],
+      "depends_on_step_ids": [],
+      "estimated_startup_ms": 40,
+      "estimated_execution_ms": 70,
+      "estimated_transfer_ms": 15,
+      "estimated_transfer_bytes": 8192
+    }
+  ],
+  "input_artifact_ids": [
+    "019f967d-bbec-7094-8760-aa924e0b91a7"
+  ],
+  "continuation_output_types": [
+    "pair_trajectory.v1"
+  ],
+  "cost": {
+    "predicted_completion_ms": 125,
+    "deadline_slack_ms": 6875,
+    "startup_cost_ms": 40,
+    "resource_cost_units": 1.25,
+    "transfer_bytes": 8192
+  },
+  "hard_constraints_satisfied": true,
+  "quality_floor_satisfied": true,
+  "feasibility_reasons": [
+    "all required representations are available"
+  ]
+}

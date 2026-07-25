@@ -1,0 +1,287 @@
+{
+  "schema_version": "fable.semantic_graph.v1",
+  "graph_id": "graph_0292476572af281acde747f9d973b0ef",
+  "graph_hash": "sha256:6788817b0f411884bf7df5fd48d8748e7a62b89dd43c4d7f39a9fc44951f2a28",
+  "graph_version": 1,
+  "name": "Authored robbery family",
+  "description": "Common entry, authored evidence alternatives, and departure.",
+  "root_node_id": "gn_a02e373df9520817eaa58009",
+  "roles": [
+    {
+      "role_name": "person",
+      "entity_type": "person",
+      "cardinality_min": 1,
+      "cardinality_max": 1,
+      "distinct_from": []
+    },
+    {
+      "role_name": "location",
+      "entity_type": "zone",
+      "cardinality_min": 1,
+      "cardinality_max": 1,
+      "distinct_from": []
+    },
+    {
+      "role_name": "vehicle",
+      "entity_type": "vehicle",
+      "cardinality_min": 0,
+      "cardinality_max": 1,
+      "distinct_from": []
+    }
+  ],
+  "nodes": [
+    {
+      "node_id": "gn_a090fd9c8632c696f92286da",
+      "authored_key": "departure",
+      "kind": "PREDICATE",
+      "name": "Departure or escape",
+      "predicate": {
+        "predicate_id": "DEPARTURE_OR_ESCAPE",
+        "roles": [
+          {
+            "role_name": "person",
+            "variable": "person",
+            "entity_type": "person"
+          },
+          {
+            "role_name": "vehicle",
+            "variable": "vehicle",
+            "entity_type": "vehicle"
+          }
+        ],
+        "parameters": {},
+        "result_kind": "INSTANT_MATCH"
+      },
+      "checkpoint_boundary": true,
+      "annotations": {}
+    },
+    {
+      "node_id": "gn_b548426489abefe2d78433d1",
+      "authored_key": "entry",
+      "kind": "PREDICATE",
+      "name": "Suspicious entry",
+      "predicate": {
+        "predicate_id": "SUSPICIOUS_ENTRY",
+        "roles": [
+          {
+            "role_name": "person",
+            "variable": "person",
+            "entity_type": "person"
+          },
+          {
+            "role_name": "location",
+            "variable": "location",
+            "entity_type": "zone"
+          }
+        ],
+        "parameters": {},
+        "result_kind": "INSTANT_MATCH"
+      },
+      "checkpoint_boundary": true,
+      "annotations": {}
+    },
+    {
+      "node_id": "gn_a286125b3386f4a699ed5312",
+      "authored_key": "evidence_or",
+      "kind": "OR",
+      "name": "Robbery evidence alternatives",
+      "checkpoint_boundary": true,
+      "annotations": {}
+    },
+    {
+      "node_id": "gn_d604803ac7b0e10394d35797",
+      "authored_key": "failed_attempt",
+      "kind": "PREDICATE",
+      "name": "Failed attempt and rapid exit",
+      "predicate": {
+        "predicate_id": "FAILED_ATTEMPT_RAPID_EXIT",
+        "roles": [
+          {
+            "role_name": "person",
+            "variable": "person",
+            "entity_type": "person"
+          },
+          {
+            "role_name": "location",
+            "variable": "location",
+            "entity_type": "zone"
+          }
+        ],
+        "parameters": {},
+        "result_kind": "INSTANT_MATCH"
+      },
+      "checkpoint_boundary": false,
+      "annotations": {}
+    },
+    {
+      "node_id": "gn_f79bccc378c8e4c6937364f2",
+      "authored_key": "forced_transfer",
+      "kind": "PREDICATE",
+      "name": "Forced transfer",
+      "predicate": {
+        "predicate_id": "FORCED_TRANSFER",
+        "roles": [
+          {
+            "role_name": "person",
+            "variable": "person",
+            "entity_type": "person"
+          },
+          {
+            "role_name": "location",
+            "variable": "location",
+            "entity_type": "zone"
+          }
+        ],
+        "parameters": {},
+        "result_kind": "INTERVAL_MATCH"
+      },
+      "checkpoint_boundary": false,
+      "annotations": {}
+    },
+    {
+      "node_id": "gn_2673d71975c6b0a3e08fc9fb",
+      "authored_key": "gunshot",
+      "kind": "PREDICATE",
+      "name": "Gunshot or weapon evidence",
+      "predicate": {
+        "predicate_id": "AUDIO_EVENT",
+        "roles": [
+          {
+            "role_name": "location",
+            "variable": "location",
+            "entity_type": "zone"
+          }
+        ],
+        "parameters": {
+          "label": "gunshot"
+        },
+        "result_kind": "INSTANT_MATCH"
+      },
+      "checkpoint_boundary": false,
+      "annotations": {}
+    },
+    {
+      "node_id": "gn_a02e373df9520817eaa58009",
+      "authored_key": "robbery_sequence",
+      "kind": "AND",
+      "name": "Robbery progression",
+      "checkpoint_boundary": false,
+      "annotations": {}
+    },
+    {
+      "node_id": "gn_3033e86441a69aa3bfe717f1",
+      "authored_key": "threat",
+      "kind": "PREDICATE",
+      "name": "Shouting or threat evidence",
+      "predicate": {
+        "predicate_id": "THREAT_EVENT",
+        "roles": [
+          {
+            "role_name": "person",
+            "variable": "person",
+            "entity_type": "person"
+          },
+          {
+            "role_name": "location",
+            "variable": "location",
+            "entity_type": "zone"
+          }
+        ],
+        "parameters": {},
+        "result_kind": "INTERVAL_MATCH"
+      },
+      "checkpoint_boundary": false,
+      "annotations": {}
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "ge_04811e9960d9db667f956b8d",
+      "source_node_id": "gn_a286125b3386f4a699ed5312",
+      "target_node_id": "gn_d604803ac7b0e10394d35797",
+      "kind": "ALTERNATIVE",
+      "temporal_guard_ids": [],
+      "branch_label": "failed_attempt"
+    },
+    {
+      "edge_id": "ge_04970bc8163d0ca613ed4554",
+      "source_node_id": "gn_b548426489abefe2d78433d1",
+      "target_node_id": "gn_a286125b3386f4a699ed5312",
+      "kind": "SEQUENCE",
+      "temporal_guard_ids": []
+    },
+    {
+      "edge_id": "ge_166be9e99b49d3a75c2ef838",
+      "source_node_id": "gn_a286125b3386f4a699ed5312",
+      "target_node_id": "gn_a090fd9c8632c696f92286da",
+      "kind": "SEQUENCE",
+      "temporal_guard_ids": [
+        "tg_78ee1ff9aa56e992a0296600"
+      ]
+    },
+    {
+      "edge_id": "ge_21c681603be395e3e6d342d4",
+      "source_node_id": "gn_a02e373df9520817eaa58009",
+      "target_node_id": "gn_a286125b3386f4a699ed5312",
+      "kind": "CHILD",
+      "temporal_guard_ids": []
+    },
+    {
+      "edge_id": "ge_2d82045b31afe0dc2ba01394",
+      "source_node_id": "gn_a286125b3386f4a699ed5312",
+      "target_node_id": "gn_2673d71975c6b0a3e08fc9fb",
+      "kind": "ALTERNATIVE",
+      "temporal_guard_ids": [],
+      "branch_label": "gunshot"
+    },
+    {
+      "edge_id": "ge_8f159fb050d5066c53ee57ec",
+      "source_node_id": "gn_a286125b3386f4a699ed5312",
+      "target_node_id": "gn_f79bccc378c8e4c6937364f2",
+      "kind": "ALTERNATIVE",
+      "temporal_guard_ids": [],
+      "branch_label": "forced_transfer"
+    },
+    {
+      "edge_id": "ge_94d61dd0eb5268a5bcc91dbb",
+      "source_node_id": "gn_a02e373df9520817eaa58009",
+      "target_node_id": "gn_a090fd9c8632c696f92286da",
+      "kind": "CHILD",
+      "temporal_guard_ids": []
+    },
+    {
+      "edge_id": "ge_a5c6bc85f3b84d24a7a20d44",
+      "source_node_id": "gn_a286125b3386f4a699ed5312",
+      "target_node_id": "gn_3033e86441a69aa3bfe717f1",
+      "kind": "ALTERNATIVE",
+      "temporal_guard_ids": [],
+      "branch_label": "threat"
+    },
+    {
+      "edge_id": "ge_ca8a80c75e7ceba97ecc17ec",
+      "source_node_id": "gn_a02e373df9520817eaa58009",
+      "target_node_id": "gn_b548426489abefe2d78433d1",
+      "kind": "CHILD",
+      "temporal_guard_ids": []
+    }
+  ],
+  "temporal_guards": [
+    {
+      "guard_id": "tg_78ee1ff9aa56e992a0296600",
+      "kind": "WITHIN",
+      "source_node_ids": [
+        "gn_b548426489abefe2d78433d1",
+        "gn_a286125b3386f4a699ed5312"
+      ],
+      "target_node_id": "gn_a090fd9c8632c696f92286da",
+      "maximum_ms": 180000,
+      "required_source_ids": []
+    }
+  ],
+  "authored_variant_ids": [
+    "failed_attempt",
+    "forced_transfer",
+    "gunshot",
+    "threat"
+  ]
+}

@@ -1,0 +1,250 @@
+"""Library-backed tracking and deterministic retained-detection replay."""
+
+from __future__ import annotations
+
+from collections import defaultdict
+from datetime import datetime
+from typing import Any, Callable, Iterable, Protocol
+from uuid import uuid4
+
+from .errors import InvalidProviderInput, OptionalDependencyError
+from .models import (
+    BoundingBox,
+    Detection,
+    DetectionFrame,
+    TrackObservation,
+    TrackSet,
+    scoped_track_identity,
+)
+
+
+class TrackerProtocol(Protocol):
+    def update(self, detections: Any, frame: Any | None = None, timestamp: float | None = None) -> Any: ...
+    def reset(self) -> None: ...
+
+
+class RoboflowTrackerAdapter:
+    """Adapter for Roboflow ``trackers`` ByteTrack or SORT.
+
+    Provider-local IDs are never treated as global identity. Every output uses
+    ``(source_id, tracker_session_id, local_track_id)``. The tracker does not
+    advertise arbitrary state migration: retrospective recovery is performed by
+    replaying retained ``detection_set.v1`` frames into a fresh instance.
+    """
+
+    def __init__(
+        self,
+        *,
+        algorithm: str = "bytetrack",
+        frame_rate: float = 30.0,
+        tracker: TrackerProtocol | None = None,
+        detections_factory: Callable[[DetectionFrame], Any] | None = None,
+        tracker_version: str = "trackers-2.5",
+        session_id: str | None = None,
+        tracker_kwargs: dict[str, Any] | None = None,
+    ) -> None:
+        self.algorithm = algorithm.lower()
+        self.frame_rate = float(frame_rate)
+        self.tracker_version = tracker_version
+        self.session_id = session_id or uuid4().hex
+        self._tracker_kwargs = dict(tracker_kwargs or {})
+        self._tracker = tracker
+        self._detections_factory = detections_factory
+        self._ages: dict[int, int] = defaultdict(int)
+        self._last_event_time: datetime | None = None
+
+    @property
+    def family(self) -> str:
+        return f"roboflow_{self.algorithm}"
+
+    def _ensure_tracker(self) -> TrackerProtocol:
+        if self._tracker is not None:
+            return self._tracker
+        try:
+            from trackers import ByteTrackTracker, SORTTracker
+        except ImportError as exc:  # pragma: no cover - optional dependency
+            raise OptionalDependencyError(
+                "Roboflow trackers is required; install trackers==2.5.0.post0 and supervision"
+            ) from exc
+        kwargs = {"frame_rate": self.frame_rate, **self._tracker_kwargs}
+        if self.algorithm in {"bytetrack", "byte_track", "byte-track"}:
+            self._tracker = ByteTrackTracker(**kwargs)
+        elif self.algorithm == "sort":
+            self._tracker = SORTTracker(**kwargs)
+        else:
+            raise ValueError(f"unsupported tracker algorithm: {self.algorithm}")
+        return self._tracker
+
+    def _to_supervision(self, frame: DetectionFrame) -> Any:
+        if self._detections_factory is not None:
+            return self._detections_factory(frame)
+        try:
+            import numpy as np
+            import supervision as sv
+        except ImportError as exc:  # pragma: no cover - optional dependency
+            raise OptionalDependencyError(
+                "Roboflow Trackers uses supervision.Detections; install the vehicle-tracking extra"
+            ) from exc
+        xyxy = np.asarray(
+            [[det.bbox.x1, det.bbox.y1, det.bbox.x2, det.bbox.y2] for det in frame.detections],
+            dtype=np.float32,
+        ).reshape((-1, 4))
+        confidence = np.asarray([det.confidence for det in frame.detections], dtype=np.float32)
+        class_ids = np.arange(len(frame.detections), dtype=np.int32)
+        return sv.Detections(
+            xyxy=xyxy,
+            confidence=confidence,
+            class_id=class_ids,
+            data={"fable_detection_id": [det.detection_id for det in frame.detections]},
+        )
+
+    def update(self, frame: DetectionFrame, *, image: Any | None = None) -> TrackSet:
+        if self._last_event_time is not None and frame.event_time < self._last_event_time:
+            raise InvalidProviderInput("tracker input event time must be monotonic")
+        self._last_event_time = frame.event_time
+        tracker = self._ensure_tracker()
+        tracked = tracker.update(
+            self._to_supervision(frame),
+            frame=image,
+            timestamp=frame.event_time.timestamp(),
+        )
+        output = self._from_tracked(frame, tracked)
+        return TrackSet(
+            source_id=frame.source_id,
+            tracker_family=self.family,
+            tracker_version=self.tracker_version,
+            tracker_session_id=self.session_id,
+            event_time=frame.event_time,
+            tracks=tuple(output),
+        )
+
+    def reset(self, *, new_session: bool = True) -> None:
+        if self._tracker is not None:
+            self._tracker.reset()
+        self._ages.clear()
+        self._last_event_time = None
+        if new_session:
+            self.session_id = uuid4().hex
+
+    def _from_tracked(self, source: DetectionFrame, tracked: Any) -> list[TrackObservation]:
+        xyxy = _array(getattr(tracked, "xyxy", ()), columns=4)
+        tracker_ids = _vector(getattr(tracked, "tracker_id", ()), integer=True)
+        confidences = _vector(getattr(tracked, "confidence", ()))
+        class_ids = _vector(getattr(tracked, "class_id", ()), integer=True)
+        if len(confidences) < len(xyxy):
+            confidences += [1.0] * (len(xyxy) - len(confidences))
+        if len(class_ids) < len(xyxy):
+            class_ids += [-1] * (len(xyxy) - len(class_ids))
+        rows: list[TrackObservation] = []
+        for index, coords in enumerate(xyxy):
+            track_id = tracker_ids[index] if index < len(tracker_ids) else -1
+            if track_id < 0:
+                continue
+            bbox = BoundingBox(x1=coords[0], y1=coords[1], x2=coords[2], y2=coords[3])
+            matched = _match_input_detection(source.detections, bbox, class_ids[index])
+            self._ages[track_id] += 1
+            rows.append(
+                TrackObservation(
+                    local_track_id=track_id,
+                    scoped_track_id=scoped_track_identity(source.source_id, self.session_id, track_id),
+                    source_id=source.source_id,
+                    tracker_session_id=self.session_id,
+                    class_name=matched.class_name if matched else "object",
+                    confidence=max(0.0, min(1.0, confidences[index])),
+                    bbox=bbox,
+                    event_time=source.event_time,
+                    world_point=matched.world_point if matched else None,
+                    age_frames=self._ages[track_id],
+                    attributes={
+                        "matched_detection_id": matched.detection_id if matched else "",
+                    },
+                )
+            )
+        return rows
+
+
+class DetectionReplayTracker:
+    """Reconstruct tracker state by replaying retained detection frames."""
+
+    def __init__(self, factory: Callable[[], RoboflowTrackerAdapter]) -> None:
+        self.factory = factory
+
+    def replay(self, frames: Iterable[DetectionFrame]) -> tuple[TrackSet, ...]:
+        ordered = tuple(sorted(frames, key=lambda frame: (frame.event_time, frame.frame_id)))
+        if not ordered:
+            return ()
+        sources = {frame.source_id for frame in ordered}
+        if len(sources) != 1:
+            raise InvalidProviderInput("one replay tracker invocation must use one source")
+        tracker = self.factory()
+        outputs = [tracker.update(frame) for frame in ordered]
+        start = ordered[0].event_time
+        end = ordered[-1].event_time
+        from fable.common.time import EventTimeInterval
+
+        interval = EventTimeInterval(start=start, end=end)
+        return tuple(
+            output.model_copy(
+                update={
+                    "reconstructed_from_detection_replay": True,
+                    "replay_interval": interval,
+                }
+            )
+            for output in outputs
+        )
+
+
+def _array(value: Any, *, columns: int) -> list[list[float]]:
+    if value is None:
+        return []
+    if hasattr(value, "detach"):
+        value = value.detach()
+    if hasattr(value, "cpu"):
+        value = value.cpu()
+    if hasattr(value, "numpy"):
+        value = value.numpy()
+    if hasattr(value, "tolist"):
+        value = value.tolist()
+    rows = list(value)
+    if not rows:
+        return []
+    if rows and not isinstance(rows[0], (list, tuple)):
+        rows = [rows]
+    return [[float(item) for item in row[:columns]] for row in rows]
+
+
+def _vector(value: Any, *, integer: bool = False) -> list[Any]:
+    if value is None:
+        return []
+    if hasattr(value, "detach"):
+        value = value.detach()
+    if hasattr(value, "cpu"):
+        value = value.cpu()
+    if hasattr(value, "numpy"):
+        value = value.numpy()
+    if hasattr(value, "tolist"):
+        value = value.tolist()
+    result = list(value)
+    return [int(item) if integer else float(item) for item in result]
+
+
+def _match_input_detection(
+    detections: tuple[Detection, ...],
+    bbox: BoundingBox,
+    class_index: int,
+) -> Detection | None:
+    if 0 <= class_index < len(detections):
+        return detections[class_index]
+    if not detections:
+        return None
+    return max(detections, key=lambda item: _iou(item.bbox, bbox))
+
+
+def _iou(left: BoundingBox, right: BoundingBox) -> float:
+    x1 = max(left.x1, right.x1)
+    y1 = max(left.y1, right.y1)
+    x2 = min(left.x2, right.x2)
+    y2 = min(left.y2, right.y2)
+    intersection = max(0.0, x2 - x1) * max(0.0, y2 - y1)
+    union = left.area + right.area - intersection
+    return intersection / union if union > 0 else 0.0

@@ -1,0 +1,4533 @@
+{
+  "alternatives": [
+    {
+      "alternative_id": "alt_27863aaf8ea9e8ab44870b0e20e42ab0",
+      "chain_id": "follows_local_with_tracker_resume",
+      "checkpoint_id": "019f9697-b30b-792a-8b00-4ec120481e9a",
+      "continuation_output_types": [
+        "pair_trajectory.v1",
+        "tracker_state_snapshot.v1"
+      ],
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "estimated_completion_ms": 828,
+      "estimated_transfer_bytes": 1100000,
+      "execution_mode": "RETROSPECTIVE",
+      "external_inputs": [
+        {
+          "access_modes": [
+            "LOCAL",
+            "TRANSFERRED",
+            "REMOTE_REFERENCE"
+          ],
+          "artifact_id": "019f9697-b32a-7fd5-8a37-5adfc8305f91",
+          "bytes": 16000,
+          "data_type": "camera_calibration.v1",
+          "expires_at": "2026-04-16T18:19:51Z",
+          "input_name": "calibration",
+          "kind": "DEPLOYMENT_ARTIFACT",
+          "node_id": "sensor_b",
+          "source_id": "camera_downstream"
+        },
+        {
+          "access_modes": [],
+          "bytes": 0,
+          "data_type": "tracker_state_snapshot.v1",
+          "input_name": "tracker_checkpoint",
+          "kind": "OMITTED_OPTIONAL"
+        },
+        {
+          "access_modes": [
+            "LOCAL",
+            "TRANSFERRED",
+            "REMOTE_REFERENCE"
+          ],
+          "artifact_id": "019f9697-b32a-7fd5-8a37-5adfc8305f94",
+          "bytes": 18000000,
+          "data_type": "raw_video_frames.v1",
+          "expires_at": "2026-04-16T18:19:51Z",
+          "input_name": "video",
+          "kind": "RETAINED_ARTIFACT",
+          "node_id": "sensor_b",
+          "source_id": "camera_downstream"
+        }
+      ],
+      "graph_edge_ids": [
+        "pae_0e8974e63cee276c465da56c",
+        "pae_2b47dbc8bcd320ece3beabe2",
+        "pae_2b99de9322d3418bb8300994",
+        "pae_3052fe58bf0da439b9d2660d",
+        "pae_339a3ada4c9b3b5a108c76af",
+        "pae_51003ddcd3c5fe964b1cadcd",
+        "pae_5537e1cb8414c7123e5cb730",
+        "pae_81c96aee2e3046ad3b17ea54",
+        "pae_a98e9b3612715b27c9c6dc0d",
+        "pae_ae9649dd13dbd0f4b63dc8ef",
+        "pae_d0f3b27417a61659795a708c",
+        "pae_ee29e7aba0583ef45645311a",
+        "pae_f895bc6aaf472c48069446de"
+      ],
+      "graph_node_ids": [
+        "pan_1fc3aaa23c6e8b5faff0dfe9",
+        "pan_245e1b342bc8aed9bc79a922",
+        "pan_3117080e707477e0aa599678",
+        "pan_3be10f687acfe930bf026cde",
+        "pan_4dbb4a01868f198d1f671a5a",
+        "pan_5c01914e2e10b44bc5ab2f7f",
+        "pan_67312f07fb78d0acdb0d1f16",
+        "pan_7a974d7544a6003bc212a5a0",
+        "pan_817b3e9b531b038e8702c1d5",
+        "pan_a8a4473e2b16037516f10eff",
+        "pan_d267989691f9a6f18d8ab023",
+        "pan_d42db8cfccb8deaef412f983",
+        "pan_ed1586aa048de1458d37d135"
+      ],
+      "minimum_quality_score": 0.9,
+      "result_output_type": "predicate_match.v1",
+      "step_placements": [
+        {
+          "cpu_cores": 1.0,
+          "execution_ms": 45,
+          "gpu_memory_mb": 1536,
+          "memory_mb": 768,
+          "node_class": "sensor",
+          "node_id": "sensor_b",
+          "provider_id": "vision_object_detector_yolo",
+          "quality_score": 0.9,
+          "startup_ms": 550,
+          "step_id": "detect"
+        },
+        {
+          "cpu_cores": 0.8,
+          "execution_ms": 12,
+          "gpu_memory_mb": 0,
+          "memory_mb": 384,
+          "node_class": "edge",
+          "node_id": "edge_1",
+          "provider_id": "multi_object_tracker",
+          "quality_score": 0.95,
+          "startup_ms": 80,
+          "step_id": "track"
+        },
+        {
+          "cpu_cores": 0.2,
+          "execution_ms": 5,
+          "gpu_memory_mb": 0,
+          "memory_mb": 96,
+          "node_class": "edge",
+          "node_id": "edge_1",
+          "provider_id": "camera_projection",
+          "quality_score": 1.0,
+          "startup_ms": 20,
+          "step_id": "project"
+        },
+        {
+          "cpu_cores": 0.3,
+          "execution_ms": 10,
+          "gpu_memory_mb": 0,
+          "memory_mb": 128,
+          "node_class": "sensor",
+          "node_id": "sensor_a",
+          "provider_id": "follows_local_geometry",
+          "quality_score": 0.94,
+          "startup_ms": 20,
+          "step_id": "follows"
+        }
+      ],
+      "transfers": [
+        {
+          "bytes": 0,
+          "data_type": "raw_video_frames.v1",
+          "estimated_ms": 0,
+          "mode": "LOCAL",
+          "path_node_ids": [],
+          "source_node_id": "sensor_b",
+          "source_ref": "external.video",
+          "target_node_id": "sensor_b",
+          "target_port": "frames",
+          "target_step_id": "detect"
+        },
+        {
+          "bytes": 500000,
+          "data_type": "detection_set.v1",
+          "estimated_ms": 36,
+          "mode": "TRANSFER",
+          "path_node_ids": [
+            "sensor_b",
+            "edge_1"
+          ],
+          "source_node_id": "sensor_b",
+          "source_ref": "detect.detections",
+          "target_node_id": "edge_1",
+          "target_port": "detections",
+          "target_step_id": "track"
+        },
+        {
+          "bytes": 0,
+          "data_type": "camera_calibration.v1",
+          "estimated_ms": 10,
+          "mode": "REMOTE_REFERENCE",
+          "path_node_ids": [
+            "sensor_b",
+            "edge_1"
+          ],
+          "source_node_id": "sensor_b",
+          "source_ref": "external.calibration",
+          "target_node_id": "edge_1",
+          "target_port": "calibration",
+          "target_step_id": "project"
+        },
+        {
+          "bytes": 0,
+          "data_type": "track_set.v1",
+          "estimated_ms": 0,
+          "mode": "LOCAL",
+          "path_node_ids": [],
+          "source_node_id": "edge_1",
+          "source_ref": "track.tracks",
+          "target_node_id": "edge_1",
+          "target_port": "tracks",
+          "target_step_id": "project"
+        },
+        {
+          "bytes": 300000,
+          "data_type": "projected_track_set.v1",
+          "estimated_ms": 20,
+          "mode": "TRANSFER",
+          "path_node_ids": [
+            "edge_1",
+            "sensor_a"
+          ],
+          "source_node_id": "edge_1",
+          "source_ref": "project.projected_tracks",
+          "target_node_id": "sensor_a",
+          "target_port": "follower_tracks",
+          "target_step_id": "follows"
+        },
+        {
+          "bytes": 300000,
+          "data_type": "projected_track_set.v1",
+          "estimated_ms": 20,
+          "mode": "TRANSFER",
+          "path_node_ids": [
+            "edge_1",
+            "sensor_a"
+          ],
+          "source_node_id": "edge_1",
+          "source_ref": "project.projected_tracks",
+          "target_node_id": "sensor_a",
+          "target_port": "leader_tracks",
+          "target_step_id": "follows"
+        }
+      ]
+    },
+    {
+      "alternative_id": "alt_2cff0dd39946e11c72cc3ae68393feee",
+      "chain_id": "follows_local_with_tracker_resume",
+      "checkpoint_id": "019f9697-b30b-792a-8b00-4ec120481e9a",
+      "continuation_output_types": [
+        "pair_trajectory.v1",
+        "tracker_state_snapshot.v1"
+      ],
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "estimated_completion_ms": 788,
+      "estimated_transfer_bytes": 500000,
+      "execution_mode": "RETROSPECTIVE",
+      "external_inputs": [
+        {
+          "access_modes": [
+            "LOCAL",
+            "TRANSFERRED",
+            "REMOTE_REFERENCE"
+          ],
+          "artifact_id": "019f9697-b32a-7fd5-8a37-5adfc8305f91",
+          "bytes": 16000,
+          "data_type": "camera_calibration.v1",
+          "expires_at": "2026-04-16T18:19:51Z",
+          "input_name": "calibration",
+          "kind": "DEPLOYMENT_ARTIFACT",
+          "node_id": "sensor_b",
+          "source_id": "camera_downstream"
+        },
+        {
+          "access_modes": [],
+          "bytes": 0,
+          "data_type": "tracker_state_snapshot.v1",
+          "input_name": "tracker_checkpoint",
+          "kind": "OMITTED_OPTIONAL"
+        },
+        {
+          "access_modes": [
+            "LOCAL",
+            "TRANSFERRED",
+            "REMOTE_REFERENCE"
+          ],
+          "artifact_id": "019f9697-b32a-7fd5-8a37-5adfc8305f94",
+          "bytes": 18000000,
+          "data_type": "raw_video_frames.v1",
+          "expires_at": "2026-04-16T18:19:51Z",
+          "input_name": "video",
+          "kind": "RETAINED_ARTIFACT",
+          "node_id": "sensor_b",
+          "source_id": "camera_downstream"
+        }
+      ],
+      "graph_edge_ids": [
+        "pae_0fab43983d17e085f27d2d3f",
+        "pae_2f0a6e0cb39da149d5325059",
+        "pae_6099dc7b70d3026ee782521f",
+        "pae_9564d5ac4e3857168e78fd89",
+        "pae_9db2fc630b6f5c6e685b00fb",
+        "pae_b44a25b44f43e62d1df621e3",
+        "pae_c1f048b210e06d87f9adcf0e",
+        "pae_cdda46a889957501d2466f86",
+        "pae_faa4ba7593f62d51dd3ed449",
+        "pae_fefadfc8827450da1f955464"
+      ],
+      "graph_node_ids": [
+        "pan_30609e5ea7262fb8622967af",
+        "pan_488c3908c22e46e1eba4861b",
+        "pan_49a2a7479ec6e29fe2a34275",
+        "pan_7edb8fdda06d948c7a208db4",
+        "pan_9a5ced58dcac49afe8a50f81",
+        "pan_9adac6140248417ac464e78a",
+        "pan_bc001a96bb463f43ad669246",
+        "pan_c90de4386e83491a30ea90ab",
+        "pan_dea4b3cc71b4155c3eee6cb6",
+        "pan_e7b1128e4794c2ad4a98093c",
+        "pan_fdcab077c6b7b7e4b75077f7"
+      ],
+      "minimum_quality_score": 0.9,
+      "result_output_type": "predicate_match.v1",
+      "step_placements": [
+        {
+          "cpu_cores": 1.0,
+          "execution_ms": 45,
+          "gpu_memory_mb": 1536,
+          "memory_mb": 768,
+          "node_class": "sensor",
+          "node_id": "sensor_b",
+          "provider_id": "vision_object_detector_yolo",
+          "quality_score": 0.9,
+          "startup_ms": 550,
+          "step_id": "detect"
+        },
+        {
+          "cpu_cores": 0.8,
+          "execution_ms": 12,
+          "gpu_memory_mb": 0,
+          "memory_mb": 384,
+          "node_class": "edge",
+          "node_id": "edge_1",
+          "provider_id": "multi_object_tracker",
+          "quality_score": 0.95,
+          "startup_ms": 80,
+          "step_id": "track"
+        },
+        {
+          "cpu_cores": 0.2,
+          "execution_ms": 5,
+          "gpu_memory_mb": 0,
+          "memory_mb": 96,
+          "node_class": "edge",
+          "node_id": "edge_1",
+          "provider_id": "camera_projection",
+          "quality_score": 1.0,
+          "startup_ms": 20,
+          "step_id": "project"
+        },
+        {
+          "cpu_cores": 0.3,
+          "execution_ms": 10,
+          "gpu_memory_mb": 0,
+          "memory_mb": 128,
+          "node_class": "edge",
+          "node_id": "edge_1",
+          "provider_id": "follows_local_geometry",
+          "quality_score": 0.94,
+          "startup_ms": 20,
+          "step_id": "follows"
+        }
+      ],
+      "transfers": [
+        {
+          "bytes": 0,
+          "data_type": "raw_video_frames.v1",
+          "estimated_ms": 0,
+          "mode": "LOCAL",
+          "path_node_ids": [],
+          "source_node_id": "sensor_b",
+          "source_ref": "external.video",
+          "target_node_id": "sensor_b",
+          "target_port": "frames",
+          "target_step_id": "detect"
+        },
+        {
+          "bytes": 500000,
+          "data_type": "detection_set.v1",
+          "estimated_ms": 36,
+          "mode": "TRANSFER",
+          "path_node_ids": [
+            "sensor_b",
+            "edge_1"
+          ],
+          "source_node_id": "sensor_b",
+          "source_ref": "detect.detections",
+          "target_node_id": "edge_1",
+          "target_port": "detections",
+          "target_step_id": "track"
+        },
+        {
+          "bytes": 0,
+          "data_type": "camera_calibration.v1",
+          "estimated_ms": 10,
+          "mode": "REMOTE_REFERENCE",
+          "path_node_ids": [
+            "sensor_b",
+            "edge_1"
+          ],
+          "source_node_id": "sensor_b",
+          "source_ref": "external.calibration",
+          "target_node_id": "edge_1",
+          "target_port": "calibration",
+          "target_step_id": "project"
+        },
+        {
+          "bytes": 0,
+          "data_type": "track_set.v1",
+          "estimated_ms": 0,
+          "mode": "LOCAL",
+          "path_node_ids": [],
+          "source_node_id": "edge_1",
+          "source_ref": "track.tracks",
+          "target_node_id": "edge_1",
+          "target_port": "tracks",
+          "target_step_id": "project"
+        },
+        {
+          "bytes": 0,
+          "data_type": "projected_track_set.v1",
+          "estimated_ms": 0,
+          "mode": "LOCAL",
+          "path_node_ids": [],
+          "source_node_id": "edge_1",
+          "source_ref": "project.projected_tracks",
+          "target_node_id": "edge_1",
+          "target_port": "follower_tracks",
+          "target_step_id": "follows"
+        },
+        {
+          "bytes": 0,
+          "data_type": "projected_track_set.v1",
+          "estimated_ms": 0,
+          "mode": "LOCAL",
+          "path_node_ids": [],
+          "source_node_id": "edge_1",
+          "source_ref": "project.projected_tracks",
+          "target_node_id": "edge_1",
+          "target_port": "leader_tracks",
+          "target_step_id": "follows"
+        }
+      ]
+    },
+    {
+      "alternative_id": "alt_78875718f8b54242c9fa45ba21682043",
+      "chain_id": "follows_local_tracks",
+      "checkpoint_id": "019f9697-b30b-792a-8b00-4ec120481e9a",
+      "continuation_output_types": [
+        "pair_trajectory.v1"
+      ],
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "estimated_completion_ms": 828,
+      "estimated_transfer_bytes": 1100000,
+      "execution_mode": "RETROSPECTIVE",
+      "external_inputs": [
+        {
+          "access_modes": [
+            "LOCAL",
+            "TRANSFERRED",
+            "REMOTE_REFERENCE"
+          ],
+          "artifact_id": "019f9697-b32a-7fd5-8a37-5adfc8305f91",
+          "bytes": 16000,
+          "data_type": "camera_calibration.v1",
+          "expires_at": "2026-04-16T18:19:51Z",
+          "input_name": "calibration",
+          "kind": "DEPLOYMENT_ARTIFACT",
+          "node_id": "sensor_b",
+          "source_id": "camera_downstream"
+        },
+        {
+          "access_modes": [
+            "LOCAL",
+            "TRANSFERRED",
+            "REMOTE_REFERENCE"
+          ],
+          "artifact_id": "019f9697-b32a-7fd5-8a37-5adfc8305f94",
+          "bytes": 18000000,
+          "data_type": "raw_video_frames.v1",
+          "expires_at": "2026-04-16T18:19:51Z",
+          "input_name": "video",
+          "kind": "RETAINED_ARTIFACT",
+          "node_id": "sensor_b",
+          "source_id": "camera_downstream"
+        }
+      ],
+      "graph_edge_ids": [
+        "pae_15366901a5134a07ca6e8bf0",
+        "pae_465511a3610d04962b526df8",
+        "pae_4ec657ca8b071eb7afba0eb6",
+        "pae_82875893e291b7e906a76851",
+        "pae_91d6f07638bb53038a567811",
+        "pae_955521a63f1a17906168ea91",
+        "pae_96d99586a31d470324b511c6",
+        "pae_a659bc00547ce24f200123a3",
+        "pae_b36591bb505afcdf6c654621",
+        "pae_ee1cc42186efbc8685df5324",
+        "pae_fa0545890d421e48a34c9d6d",
+        "pae_fa56dca58f5815666afd84f9"
+      ],
+      "graph_node_ids": [
+        "pan_3927802678885ebec499273d",
+        "pan_3f821d933491a2fa3d4552bc",
+        "pan_4ed14966f9893a0f0b0968fb",
+        "pan_5e6e1edcd1b18eee0f00b4b7",
+        "pan_756d292bf7f1be63ccab29ef",
+        "pan_975a28712de70ca89cba88d1",
+        "pan_98dc9737229fa2f2db8fcf0a",
+        "pan_bf828ec88521cce252ade72c",
+        "pan_c6917f68316e42209b7a1321",
+        "pan_c7a81c0a4fa09202fdb38a84",
+        "pan_dcb35b70093c8f370d500ed6",
+        "pan_f1acf8a07f3e1e5ac2bb860b"
+      ],
+      "minimum_quality_score": 0.9,
+      "result_output_type": "predicate_match.v1",
+      "step_placements": [
+        {
+          "cpu_cores": 1.0,
+          "execution_ms": 45,
+          "gpu_memory_mb": 1536,
+          "memory_mb": 768,
+          "node_class": "sensor",
+          "node_id": "sensor_b",
+          "provider_id": "vision_object_detector_yolo",
+          "quality_score": 0.9,
+          "startup_ms": 550,
+          "step_id": "detect"
+        },
+        {
+          "cpu_cores": 0.8,
+          "execution_ms": 12,
+          "gpu_memory_mb": 0,
+          "memory_mb": 384,
+          "node_class": "edge",
+          "node_id": "edge_1",
+          "provider_id": "multi_object_tracker",
+          "quality_score": 0.95,
+          "startup_ms": 80,
+          "step_id": "track"
+        },
+        {
+          "cpu_cores": 0.2,
+          "execution_ms": 5,
+          "gpu_memory_mb": 0,
+          "memory_mb": 96,
+          "node_class": "edge",
+          "node_id": "edge_1",
+          "provider_id": "camera_projection",
+          "quality_score": 1.0,
+          "startup_ms": 20,
+          "step_id": "project"
+        },
+        {
+          "cpu_cores": 0.3,
+          "execution_ms": 10,
+          "gpu_memory_mb": 0,
+          "memory_mb": 128,
+          "node_class": "sensor",
+          "node_id": "sensor_a",
+          "provider_id": "follows_local_geometry",
+          "quality_score": 0.94,
+          "startup_ms": 20,
+          "step_id": "follows"
+        }
+      ],
+      "transfers": [
+        {
+          "bytes": 0,
+          "data_type": "raw_video_frames.v1",
+          "estimated_ms": 0,
+          "mode": "LOCAL",
+          "path_node_ids": [],
+          "source_node_id": "sensor_b",
+          "source_ref": "external.video",
+          "target_node_id": "sensor_b",
+          "target_port": "frames",
+          "target_step_id": "detect"
+        },
+        {
+          "bytes": 500000,
+          "data_type": "detection_set.v1",
+          "estimated_ms": 36,
+          "mode": "TRANSFER",
+          "path_node_ids": [
+            "sensor_b",
+            "edge_1"
+          ],
+          "source_node_id": "sensor_b",
+          "source_ref": "detect.detections",
+          "target_node_id": "edge_1",
+          "target_port": "detections",
+          "target_step_id": "track"
+        },
+        {
+          "bytes": 0,
+          "data_type": "camera_calibration.v1",
+          "estimated_ms": 10,
+          "mode": "REMOTE_REFERENCE",
+          "path_node_ids": [
+            "sensor_b",
+            "edge_1"
+          ],
+          "source_node_id": "sensor_b",
+          "source_ref": "external.calibration",
+          "target_node_id": "edge_1",
+          "target_port": "calibration",
+          "target_step_id": "project"
+        },
+        {
+          "bytes": 0,
+          "data_type": "track_set.v1",
+          "estimated_ms": 0,
+          "mode": "LOCAL",
+          "path_node_ids": [],
+          "source_node_id": "edge_1",
+          "source_ref": "track.tracks",
+          "target_node_id": "edge_1",
+          "target_port": "tracks",
+          "target_step_id": "project"
+        },
+        {
+          "bytes": 300000,
+          "data_type": "projected_track_set.v1",
+          "estimated_ms": 20,
+          "mode": "TRANSFER",
+          "path_node_ids": [
+            "edge_1",
+            "sensor_a"
+          ],
+          "source_node_id": "edge_1",
+          "source_ref": "project.projected_tracks",
+          "target_node_id": "sensor_a",
+          "target_port": "follower_tracks",
+          "target_step_id": "follows"
+        },
+        {
+          "bytes": 300000,
+          "data_type": "projected_track_set.v1",
+          "estimated_ms": 20,
+          "mode": "TRANSFER",
+          "path_node_ids": [
+            "edge_1",
+            "sensor_a"
+          ],
+          "source_node_id": "edge_1",
+          "source_ref": "project.projected_tracks",
+          "target_node_id": "sensor_a",
+          "target_port": "leader_tracks",
+          "target_step_id": "follows"
+        }
+      ]
+    },
+    {
+      "alternative_id": "alt_ce1ab1e79114a3b73ee03a66f5956098",
+      "chain_id": "follows_local_tracks",
+      "checkpoint_id": "019f9697-b30b-792a-8b00-4ec120481e9a",
+      "continuation_output_types": [
+        "pair_trajectory.v1"
+      ],
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "estimated_completion_ms": 788,
+      "estimated_transfer_bytes": 500000,
+      "execution_mode": "RETROSPECTIVE",
+      "external_inputs": [
+        {
+          "access_modes": [
+            "LOCAL",
+            "TRANSFERRED",
+            "REMOTE_REFERENCE"
+          ],
+          "artifact_id": "019f9697-b32a-7fd5-8a37-5adfc8305f91",
+          "bytes": 16000,
+          "data_type": "camera_calibration.v1",
+          "expires_at": "2026-04-16T18:19:51Z",
+          "input_name": "calibration",
+          "kind": "DEPLOYMENT_ARTIFACT",
+          "node_id": "sensor_b",
+          "source_id": "camera_downstream"
+        },
+        {
+          "access_modes": [
+            "LOCAL",
+            "TRANSFERRED",
+            "REMOTE_REFERENCE"
+          ],
+          "artifact_id": "019f9697-b32a-7fd5-8a37-5adfc8305f94",
+          "bytes": 18000000,
+          "data_type": "raw_video_frames.v1",
+          "expires_at": "2026-04-16T18:19:51Z",
+          "input_name": "video",
+          "kind": "RETAINED_ARTIFACT",
+          "node_id": "sensor_b",
+          "source_id": "camera_downstream"
+        }
+      ],
+      "graph_edge_ids": [
+        "pae_1e184b87e3d52641f9154c1a",
+        "pae_2dc103e1c752acefb5e83d01",
+        "pae_32bdc940db1e048945ad0a52",
+        "pae_6403b706a0d917c4a94d2b4a",
+        "pae_97540a857eda4463f50e7aa1",
+        "pae_a2bc52d8014ca3daf685c841",
+        "pae_b25f711fa700a3bd3054bff2",
+        "pae_b29c94c65fa2dfc7b54b551b",
+        "pae_dea5cad8b033644421e2c3a6"
+      ],
+      "graph_node_ids": [
+        "pan_236cbc09d60a1e97d08fa8fa",
+        "pan_34cfef732c44d80d1b6217bb",
+        "pan_3955fb2c5a40241e858c1ffb",
+        "pan_431b0ab39f771e9591a05c4a",
+        "pan_4d4c0b9552a01cfc3c38fc1f",
+        "pan_5937786492b5fb9ffb887225",
+        "pan_7ce2ac16dd81d04c05a68d86",
+        "pan_aed8a31d0040873809a7dab1",
+        "pan_b557bd79d0c2c98acaef222b",
+        "pan_e303ef6ceabee1523043d558"
+      ],
+      "minimum_quality_score": 0.9,
+      "result_output_type": "predicate_match.v1",
+      "step_placements": [
+        {
+          "cpu_cores": 1.0,
+          "execution_ms": 45,
+          "gpu_memory_mb": 1536,
+          "memory_mb": 768,
+          "node_class": "sensor",
+          "node_id": "sensor_b",
+          "provider_id": "vision_object_detector_yolo",
+          "quality_score": 0.9,
+          "startup_ms": 550,
+          "step_id": "detect"
+        },
+        {
+          "cpu_cores": 0.8,
+          "execution_ms": 12,
+          "gpu_memory_mb": 0,
+          "memory_mb": 384,
+          "node_class": "edge",
+          "node_id": "edge_1",
+          "provider_id": "multi_object_tracker",
+          "quality_score": 0.95,
+          "startup_ms": 80,
+          "step_id": "track"
+        },
+        {
+          "cpu_cores": 0.2,
+          "execution_ms": 5,
+          "gpu_memory_mb": 0,
+          "memory_mb": 96,
+          "node_class": "edge",
+          "node_id": "edge_1",
+          "provider_id": "camera_projection",
+          "quality_score": 1.0,
+          "startup_ms": 20,
+          "step_id": "project"
+        },
+        {
+          "cpu_cores": 0.3,
+          "execution_ms": 10,
+          "gpu_memory_mb": 0,
+          "memory_mb": 128,
+          "node_class": "edge",
+          "node_id": "edge_1",
+          "provider_id": "follows_local_geometry",
+          "quality_score": 0.94,
+          "startup_ms": 20,
+          "step_id": "follows"
+        }
+      ],
+      "transfers": [
+        {
+          "bytes": 0,
+          "data_type": "raw_video_frames.v1",
+          "estimated_ms": 0,
+          "mode": "LOCAL",
+          "path_node_ids": [],
+          "source_node_id": "sensor_b",
+          "source_ref": "external.video",
+          "target_node_id": "sensor_b",
+          "target_port": "frames",
+          "target_step_id": "detect"
+        },
+        {
+          "bytes": 500000,
+          "data_type": "detection_set.v1",
+          "estimated_ms": 36,
+          "mode": "TRANSFER",
+          "path_node_ids": [
+            "sensor_b",
+            "edge_1"
+          ],
+          "source_node_id": "sensor_b",
+          "source_ref": "detect.detections",
+          "target_node_id": "edge_1",
+          "target_port": "detections",
+          "target_step_id": "track"
+        },
+        {
+          "bytes": 0,
+          "data_type": "camera_calibration.v1",
+          "estimated_ms": 10,
+          "mode": "REMOTE_REFERENCE",
+          "path_node_ids": [
+            "sensor_b",
+            "edge_1"
+          ],
+          "source_node_id": "sensor_b",
+          "source_ref": "external.calibration",
+          "target_node_id": "edge_1",
+          "target_port": "calibration",
+          "target_step_id": "project"
+        },
+        {
+          "bytes": 0,
+          "data_type": "track_set.v1",
+          "estimated_ms": 0,
+          "mode": "LOCAL",
+          "path_node_ids": [],
+          "source_node_id": "edge_1",
+          "source_ref": "track.tracks",
+          "target_node_id": "edge_1",
+          "target_port": "tracks",
+          "target_step_id": "project"
+        },
+        {
+          "bytes": 0,
+          "data_type": "projected_track_set.v1",
+          "estimated_ms": 0,
+          "mode": "LOCAL",
+          "path_node_ids": [],
+          "source_node_id": "edge_1",
+          "source_ref": "project.projected_tracks",
+          "target_node_id": "edge_1",
+          "target_port": "follower_tracks",
+          "target_step_id": "follows"
+        },
+        {
+          "bytes": 0,
+          "data_type": "projected_track_set.v1",
+          "estimated_ms": 0,
+          "mode": "LOCAL",
+          "path_node_ids": [],
+          "source_node_id": "edge_1",
+          "source_ref": "project.projected_tracks",
+          "target_node_id": "edge_1",
+          "target_port": "leader_tracks",
+          "target_step_id": "follows"
+        }
+      ]
+    },
+    {
+      "alternative_id": "alt_d83148cf90bf8a71b8e2ff504be649df",
+      "chain_id": "follows_cross_camera_reid",
+      "checkpoint_id": "019f9697-b30b-792a-8b00-4ec120481e9a",
+      "continuation_output_types": [],
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "estimated_completion_ms": 2687,
+      "estimated_transfer_bytes": 7026000,
+      "execution_mode": "LIVE",
+      "external_inputs": [
+        {
+          "access_modes": [
+            "LOCAL",
+            "TRANSFERRED",
+            "REMOTE_REFERENCE"
+          ],
+          "artifact_id": "019f9697-b32a-7fd5-8a37-5adfc8305f91",
+          "bytes": 16000,
+          "data_type": "camera_calibration.v1",
+          "expires_at": "2026-04-16T18:19:51Z",
+          "input_name": "calibration_a",
+          "kind": "DEPLOYMENT_ARTIFACT",
+          "node_id": "sensor_b",
+          "source_id": "camera_downstream"
+        },
+        {
+          "access_modes": [
+            "LOCAL",
+            "TRANSFERRED",
+            "REMOTE_REFERENCE"
+          ],
+          "artifact_id": "019f9697-b32a-7fd5-8a37-5adfc8305f90",
+          "bytes": 16000,
+          "data_type": "camera_calibration.v1",
+          "expires_at": "2026-04-16T18:19:51Z",
+          "input_name": "calibration_b",
+          "kind": "DEPLOYMENT_ARTIFACT",
+          "node_id": "sensor_a",
+          "source_id": "camera_mobile"
+        },
+        {
+          "access_modes": [
+            "LOCAL",
+            "TRANSFERRED",
+            "REMOTE_REFERENCE"
+          ],
+          "artifact_id": "019f9697-b32a-7fd5-8a37-5adfc8305f92",
+          "bytes": 128000,
+          "data_type": "route_graph.v1",
+          "expires_at": "2026-04-16T18:19:51Z",
+          "input_name": "route_graph",
+          "kind": "DEPLOYMENT_ARTIFACT",
+          "node_id": "edge_1"
+        },
+        {
+          "access_modes": [
+            "LOCAL"
+          ],
+          "bytes": 20000000,
+          "data_type": "raw_video_frames.v1",
+          "input_name": "video_a",
+          "kind": "LIVE_SOURCE",
+          "node_id": "sensor_b",
+          "source_id": "camera_downstream"
+        },
+        {
+          "access_modes": [
+            "LOCAL"
+          ],
+          "bytes": 20000000,
+          "data_type": "raw_video_frames.v1",
+          "input_name": "video_b",
+          "kind": "LIVE_SOURCE",
+          "node_id": "sensor_a",
+          "source_id": "camera_mobile"
+        }
+      ],
+      "graph_edge_ids": [
+        "pae_02ad4cfe901e8c64f0e4ef63",
+        "pae_0c05e5a21ba4d48f55b860be",
+        "pae_0f67df6f7456804df3972cce",
+        "pae_207afe206a4ecf9cc9ae1f68",
+        "pae_2a75d44d0da08a9cf2c502f6",
+        "pae_2c9f3e8ea3f5a44b2c737120",
+        "pae_420511bf6839190aba2276f4",
+        "pae_4a260e770eeba61e6b0f4e91",
+        "pae_50bb362e8a4d435fb63725df",
+        "pae_56a6200717bab129470ea657",
+        "pae_62249f82bd5da2465ebb91cf",
+        "pae_71ec288b8702922be6a79844",
+        "pae_7f8900f6c82ffeea36c57abf",
+        "pae_8d4c5b2015f77e40bfa94afd",
+        "pae_90c29ff6e0944d90c0c62f22",
+        "pae_97c6ddd747b711bf908383fd",
+        "pae_a1291dc9f49875396d0278d5",
+        "pae_bb464b82881771a5e77d0db0",
+        "pae_c11eb1a0cf9e329c858f696d",
+        "pae_c749aea2a54fe837389968d5",
+        "pae_cb486c5a3e06452dea8a5993",
+        "pae_cc538b49fc3475e5cce7d6d9",
+        "pae_cd4bf38604db320f8ca4444f",
+        "pae_d999e3557086f17c9da1f807",
+        "pae_dac2d77b659aef8dea25b603",
+        "pae_dbe8b4ebbde8a45ac0261163",
+        "pae_e5f0c5d05b5ba77fd04c0a12",
+        "pae_eb521c098874e82aa4cddf17",
+        "pae_ecb799577318ee533d08eef6",
+        "pae_ef01de41efc3f3a1a59bd793",
+        "pae_f3a6af375a84b108937446a8",
+        "pae_f7719a779f88a2447706f14f",
+        "pae_fcaab14ecd92a19ae49e5b10"
+      ],
+      "graph_node_ids": [
+        "pan_015637f2554ffd4af1bea8ae",
+        "pan_03192e701357d4e391370ad5",
+        "pan_07d0b98d1dcec1ed73eab18d",
+        "pan_091e7eddfecd043338252e78",
+        "pan_0e047b82f7dca84bbb2f9dc9",
+        "pan_1cd03d52ba0c5e744f791e77",
+        "pan_23e8c4b32ad94073c57416c0",
+        "pan_2e47664ae705ee6d9db2e6b3",
+        "pan_376abd2f8f6bb28d705a1205",
+        "pan_3c238439ccc9e7826007479f",
+        "pan_4160fd5af8a9dda3ad396f31",
+        "pan_43c10e63e3d9f8882457d357",
+        "pan_477db23a2e9e6f609d7efb4f",
+        "pan_5bc686fa93c46c9094dacd5e",
+        "pan_6056441ef68bea41a0dba1e1",
+        "pan_715596346a6ed9a0099a1cc5",
+        "pan_76412575f5e26ec1002cad79",
+        "pan_800d16d94fdcc2a6fe174833",
+        "pan_9132f7f7b3095315d96febef",
+        "pan_9582e031ac213e268888b736",
+        "pan_b5f85cc8aa93488052b67674",
+        "pan_b920426812b344f47104dc74",
+        "pan_ba6bfdc6c04bf87a545b8268",
+        "pan_be2dc8cb1578d2e6c7046f31",
+        "pan_cce86fd428f18f528bbdc74b",
+        "pan_d2bf6cab40d543cebeb3de1a",
+        "pan_da97fcd563cb062b3912a380",
+        "pan_e319d55bdf8fa988addfe2bf",
+        "pan_e64327852df4d2d271c701ec",
+        "pan_fd0e85dfed7ef9dd210c3f6b"
+      ],
+      "minimum_quality_score": 0.86,
+      "result_output_type": "predicate_match.v1",
+      "step_placements": [
+        {
+          "cpu_cores": 1.0,
+          "execution_ms": 45,
+          "gpu_memory_mb": 1536,
+          "memory_mb": 768,
+          "node_class": "sensor",
+          "node_id": "sensor_b",
+          "provider_id": "vision_object_detector_yolo",
+          "quality_score": 0.9,
+          "startup_ms": 550,
+          "step_id": "detect_a"
+        },
+        {
+          "cpu_cores": 0.8,
+          "execution_ms": 12,
+          "gpu_memory_mb": 0,
+          "memory_mb": 384,
+          "node_class": "edge",
+          "node_id": "edge_1",
+          "provider_id": "multi_object_tracker",
+          "quality_score": 0.95,
+          "startup_ms": 80,
+          "step_id": "track_a"
+        },
+        {
+          "cpu_cores": 0.4,
+          "execution_ms": 18,
+          "gpu_memory_mb": 0,
+          "memory_mb": 192,
+          "node_class": "sensor",
+          "node_id": "sensor_b",
+          "provider_id": "track_crop_extractor",
+          "quality_score": 0.98,
+          "startup_ms": 25,
+          "step_id": "crops_a"
+        },
+        {
+          "cpu_cores": 0.8,
+          "execution_ms": 35,
+          "gpu_memory_mb": 1024,
+          "memory_mb": 512,
+          "node_class": "sensor",
+          "node_id": "sensor_b",
+          "provider_id": "vehicle_reid_descriptor",
+          "quality_score": 0.88,
+          "startup_ms": 300,
+          "step_id": "reid_a"
+        },
+        {
+          "cpu_cores": 0.2,
+          "execution_ms": 5,
+          "gpu_memory_mb": 0,
+          "memory_mb": 96,
+          "node_class": "edge",
+          "node_id": "edge_1",
+          "provider_id": "camera_projection",
+          "quality_score": 1.0,
+          "startup_ms": 20,
+          "step_id": "project_a"
+        },
+        {
+          "cpu_cores": 1.0,
+          "execution_ms": 45,
+          "gpu_memory_mb": 1536,
+          "memory_mb": 768,
+          "node_class": "sensor",
+          "node_id": "sensor_a",
+          "provider_id": "vision_object_detector_yolo",
+          "quality_score": 0.9,
+          "startup_ms": 550,
+          "step_id": "detect_b"
+        },
+        {
+          "cpu_cores": 0.8,
+          "execution_ms": 12,
+          "gpu_memory_mb": 0,
+          "memory_mb": 384,
+          "node_class": "edge",
+          "node_id": "edge_1",
+          "provider_id": "multi_object_tracker",
+          "quality_score": 0.95,
+          "startup_ms": 80,
+          "step_id": "track_b"
+        },
+        {
+          "cpu_cores": 0.4,
+          "execution_ms": 18,
+          "gpu_memory_mb": 0,
+          "memory_mb": 192,
+          "node_class": "sensor",
+          "node_id": "sensor_a",
+          "provider_id": "track_crop_extractor",
+          "quality_score": 0.98,
+          "startup_ms": 25,
+          "step_id": "crops_b"
+        },
+        {
+          "cpu_cores": 0.8,
+          "execution_ms": 35,
+          "gpu_memory_mb": 1024,
+          "memory_mb": 512,
+          "node_class": "edge",
+          "node_id": "edge_1",
+          "provider_id": "vehicle_reid_descriptor",
+          "quality_score": 0.88,
+          "startup_ms": 300,
+          "step_id": "reid_b"
+        },
+        {
+          "cpu_cores": 0.2,
+          "execution_ms": 5,
+          "gpu_memory_mb": 0,
+          "memory_mb": 96,
+          "node_class": "edge",
+          "node_id": "edge_1",
+          "provider_id": "camera_projection",
+          "quality_score": 1.0,
+          "startup_ms": 20,
+          "step_id": "project_b"
+        },
+        {
+          "cpu_cores": 0.6,
+          "execution_ms": 20,
+          "gpu_memory_mb": 0,
+          "memory_mb": 256,
+          "node_class": "edge",
+          "node_id": "edge_1",
+          "provider_id": "cross_sensor_identity_association",
+          "quality_score": 0.86,
+          "startup_ms": 50,
+          "step_id": "associate"
+        },
+        {
+          "cpu_cores": 0.4,
+          "execution_ms": 15,
+          "gpu_memory_mb": 0,
+          "memory_mb": 160,
+          "node_class": "sensor",
+          "node_id": "sensor_a",
+          "provider_id": "follows_cross_sensor",
+          "quality_score": 0.89,
+          "startup_ms": 30,
+          "step_id": "follows"
+        }
+      ],
+      "transfers": [
+        {
+          "bytes": 0,
+          "data_type": "raw_video_frames.v1",
+          "estimated_ms": 0,
+          "mode": "LOCAL",
+          "path_node_ids": [],
+          "source_node_id": "sensor_b",
+          "source_ref": "external.video_a",
+          "target_node_id": "sensor_b",
+          "target_port": "frames",
+          "target_step_id": "detect_a"
+        },
+        {
+          "bytes": 500000,
+          "data_type": "detection_set.v1",
+          "estimated_ms": 36,
+          "mode": "TRANSFER",
+          "path_node_ids": [
+            "sensor_b",
+            "edge_1"
+          ],
+          "source_node_id": "sensor_b",
+          "source_ref": "detect_a.detections",
+          "target_node_id": "edge_1",
+          "target_port": "detections",
+          "target_step_id": "track_a"
+        },
+        {
+          "bytes": 0,
+          "data_type": "raw_video_frames.v1",
+          "estimated_ms": 0,
+          "mode": "LOCAL",
+          "path_node_ids": [],
+          "source_node_id": "sensor_b",
+          "source_ref": "external.video_a",
+          "target_node_id": "sensor_b",
+          "target_port": "frames",
+          "target_step_id": "crops_a"
+        },
+        {
+          "bytes": 250000,
+          "data_type": "track_set.v1",
+          "estimated_ms": 23,
+          "mode": "TRANSFER",
+          "path_node_ids": [
+            "edge_1",
+            "sensor_b"
+          ],
+          "source_node_id": "edge_1",
+          "source_ref": "track_a.tracks",
+          "target_node_id": "sensor_b",
+          "target_port": "tracks",
+          "target_step_id": "crops_a"
+        },
+        {
+          "bytes": 0,
+          "data_type": "image_crop_set.v1",
+          "estimated_ms": 0,
+          "mode": "LOCAL",
+          "path_node_ids": [],
+          "source_node_id": "sensor_b",
+          "source_ref": "crops_a.crops",
+          "target_node_id": "sensor_b",
+          "target_port": "crops",
+          "target_step_id": "reid_a"
+        },
+        {
+          "bytes": 16000,
+          "data_type": "camera_calibration.v1",
+          "estimated_ms": 10,
+          "mode": "TRANSFER",
+          "path_node_ids": [
+            "sensor_b",
+            "edge_1"
+          ],
+          "source_node_id": "sensor_b",
+          "source_ref": "external.calibration_a",
+          "target_node_id": "edge_1",
+          "target_port": "calibration",
+          "target_step_id": "project_a"
+        },
+        {
+          "bytes": 0,
+          "data_type": "track_set.v1",
+          "estimated_ms": 0,
+          "mode": "LOCAL",
+          "path_node_ids": [],
+          "source_node_id": "edge_1",
+          "source_ref": "track_a.tracks",
+          "target_node_id": "edge_1",
+          "target_port": "tracks",
+          "target_step_id": "project_a"
+        },
+        {
+          "bytes": 0,
+          "data_type": "raw_video_frames.v1",
+          "estimated_ms": 0,
+          "mode": "LOCAL",
+          "path_node_ids": [],
+          "source_node_id": "sensor_a",
+          "source_ref": "external.video_b",
+          "target_node_id": "sensor_a",
+          "target_port": "frames",
+          "target_step_id": "detect_b"
+        },
+        {
+          "bytes": 500000,
+          "data_type": "detection_set.v1",
+          "estimated_ms": 28,
+          "mode": "TRANSFER",
+          "path_node_ids": [
+            "sensor_a",
+            "edge_1"
+          ],
+          "source_node_id": "sensor_a",
+          "source_ref": "detect_b.detections",
+          "target_node_id": "edge_1",
+          "target_port": "detections",
+          "target_step_id": "track_b"
+        },
+        {
+          "bytes": 0,
+          "data_type": "raw_video_frames.v1",
+          "estimated_ms": 0,
+          "mode": "LOCAL",
+          "path_node_ids": [],
+          "source_node_id": "sensor_a",
+          "source_ref": "external.video_b",
+          "target_node_id": "sensor_a",
+          "target_port": "frames",
+          "target_step_id": "crops_b"
+        },
+        {
+          "bytes": 0,
+          "data_type": "track_set.v1",
+          "estimated_ms": 8,
+          "mode": "REMOTE_REFERENCE",
+          "path_node_ids": [
+            "edge_1",
+            "sensor_a"
+          ],
+          "source_node_id": "edge_1",
+          "source_ref": "track_b.tracks",
+          "target_node_id": "sensor_a",
+          "target_port": "tracks",
+          "target_step_id": "crops_b"
+        },
+        {
+          "bytes": 5000000,
+          "data_type": "image_crop_set.v1",
+          "estimated_ms": 208,
+          "mode": "TRANSFER",
+          "path_node_ids": [
+            "sensor_a",
+            "edge_1"
+          ],
+          "source_node_id": "sensor_a",
+          "source_ref": "crops_b.crops",
+          "target_node_id": "edge_1",
+          "target_port": "crops",
+          "target_step_id": "reid_b"
+        },
+        {
+          "bytes": 16000,
+          "data_type": "camera_calibration.v1",
+          "estimated_ms": 8,
+          "mode": "TRANSFER",
+          "path_node_ids": [
+            "sensor_a",
+            "edge_1"
+          ],
+          "source_node_id": "sensor_a",
+          "source_ref": "external.calibration_b",
+          "target_node_id": "edge_1",
+          "target_port": "calibration",
+          "target_step_id": "project_b"
+        },
+        {
+          "bytes": 0,
+          "data_type": "track_set.v1",
+          "estimated_ms": 0,
+          "mode": "LOCAL",
+          "path_node_ids": [],
+          "source_node_id": "edge_1",
+          "source_ref": "track_b.tracks",
+          "target_node_id": "edge_1",
+          "target_port": "tracks",
+          "target_step_id": "project_b"
+        },
+        {
+          "bytes": 0,
+          "data_type": "vehicle_reid_embedding_set.v1",
+          "estimated_ms": 10,
+          "mode": "REMOTE_REFERENCE",
+          "path_node_ids": [
+            "sensor_b",
+            "edge_1"
+          ],
+          "source_node_id": "sensor_b",
+          "source_ref": "reid_a.embeddings",
+          "target_node_id": "edge_1",
+          "target_port": "left_embeddings",
+          "target_step_id": "associate"
+        },
+        {
+          "bytes": 0,
+          "data_type": "vehicle_reid_embedding_set.v1",
+          "estimated_ms": 0,
+          "mode": "LOCAL",
+          "path_node_ids": [],
+          "source_node_id": "edge_1",
+          "source_ref": "reid_b.embeddings",
+          "target_node_id": "edge_1",
+          "target_port": "right_embeddings",
+          "target_step_id": "associate"
+        },
+        {
+          "bytes": 16000,
+          "data_type": "canonical_entity_map.v1",
+          "estimated_ms": 8,
+          "mode": "TRANSFER",
+          "path_node_ids": [
+            "edge_1",
+            "sensor_a"
+          ],
+          "source_node_id": "edge_1",
+          "source_ref": "associate.entity_map",
+          "target_node_id": "sensor_a",
+          "target_port": "entity_map",
+          "target_step_id": "follows"
+        },
+        {
+          "bytes": 300000,
+          "data_type": "projected_track_set.v1",
+          "estimated_ms": 20,
+          "mode": "TRANSFER",
+          "path_node_ids": [
+            "edge_1",
+            "sensor_a"
+          ],
+          "source_node_id": "edge_1",
+          "source_ref": "project_b.projected_tracks",
+          "target_node_id": "sensor_a",
+          "target_port": "follower_tracks",
+          "target_step_id": "follows"
+        },
+        {
+          "bytes": 300000,
+          "data_type": "projected_track_set.v1",
+          "estimated_ms": 20,
+          "mode": "TRANSFER",
+          "path_node_ids": [
+            "edge_1",
+            "sensor_a"
+          ],
+          "source_node_id": "edge_1",
+          "source_ref": "project_a.projected_tracks",
+          "target_node_id": "sensor_a",
+          "target_port": "leader_tracks",
+          "target_step_id": "follows"
+        },
+        {
+          "bytes": 128000,
+          "data_type": "route_graph.v1",
+          "estimated_ms": 13,
+          "mode": "TRANSFER",
+          "path_node_ids": [
+            "edge_1",
+            "sensor_a"
+          ],
+          "source_node_id": "edge_1",
+          "source_ref": "external.route_graph",
+          "target_node_id": "sensor_a",
+          "target_port": "route_graph",
+          "target_step_id": "follows"
+        }
+      ]
+    },
+    {
+      "alternative_id": "alt_fa5091f80fcf5279aa1a8eef1c91179a",
+      "chain_id": "follows_cross_camera_reid",
+      "checkpoint_id": "019f9697-b30b-792a-8b00-4ec120481e9a",
+      "continuation_output_types": [],
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "estimated_completion_ms": 2626,
+      "estimated_transfer_bytes": 6282000,
+      "execution_mode": "LIVE",
+      "external_inputs": [
+        {
+          "access_modes": [
+            "LOCAL",
+            "TRANSFERRED",
+            "REMOTE_REFERENCE"
+          ],
+          "artifact_id": "019f9697-b32a-7fd5-8a37-5adfc8305f91",
+          "bytes": 16000,
+          "data_type": "camera_calibration.v1",
+          "expires_at": "2026-04-16T18:19:51Z",
+          "input_name": "calibration_a",
+          "kind": "DEPLOYMENT_ARTIFACT",
+          "node_id": "sensor_b",
+          "source_id": "camera_downstream"
+        },
+        {
+          "access_modes": [
+            "LOCAL",
+            "TRANSFERRED",
+            "REMOTE_REFERENCE"
+          ],
+          "artifact_id": "019f9697-b32a-7fd5-8a37-5adfc8305f90",
+          "bytes": 16000,
+          "data_type": "camera_calibration.v1",
+          "expires_at": "2026-04-16T18:19:51Z",
+          "input_name": "calibration_b",
+          "kind": "DEPLOYMENT_ARTIFACT",
+          "node_id": "sensor_a",
+          "source_id": "camera_mobile"
+        },
+        {
+          "access_modes": [
+            "LOCAL",
+            "TRANSFERRED",
+            "REMOTE_REFERENCE"
+          ],
+          "artifact_id": "019f9697-b32a-7fd5-8a37-5adfc8305f92",
+          "bytes": 128000,
+          "data_type": "route_graph.v1",
+          "expires_at": "2026-04-16T18:19:51Z",
+          "input_name": "route_graph",
+          "kind": "DEPLOYMENT_ARTIFACT",
+          "node_id": "edge_1"
+        },
+        {
+          "access_modes": [
+            "LOCAL"
+          ],
+          "bytes": 20000000,
+          "data_type": "raw_video_frames.v1",
+          "input_name": "video_a",
+          "kind": "LIVE_SOURCE",
+          "node_id": "sensor_b",
+          "source_id": "camera_downstream"
+        },
+        {
+          "access_modes": [
+            "LOCAL"
+          ],
+          "bytes": 20000000,
+          "data_type": "raw_video_frames.v1",
+          "input_name": "video_b",
+          "kind": "LIVE_SOURCE",
+          "node_id": "sensor_a",
+          "source_id": "camera_mobile"
+        }
+      ],
+      "graph_edge_ids": [
+        "pae_0b518135af5990e1ac671eba",
+        "pae_17cf6c8d991b900e1a1c68c7",
+        "pae_1c170129cc30637a0728607b",
+        "pae_2807562a745c0a53ec5a88a7",
+        "pae_31b863b8c81dbc2febf42630",
+        "pae_35567e1a273e0777e05941af",
+        "pae_41514826ca8e2337efcdbe3c",
+        "pae_469b7a0036c517ad38fa8219",
+        "pae_48c76a633595f8bf2669d221",
+        "pae_4fd5a8a4544362d3d57355bf",
+        "pae_61d85d3a7499b92937f101c8",
+        "pae_6f4d8d644fc3b0ba70f8f3c5",
+        "pae_82216355acd120bc08e24094",
+        "pae_8adb38efbd428182af7fbc56",
+        "pae_8f7bc8a17f473e46dd1c21f8",
+        "pae_933f6941a29c5537a04a3416",
+        "pae_974d515e5e454f1a8886becb",
+        "pae_98957e5fd59713f041406d0a",
+        "pae_9cb184cb26bc59a5cf4527a0",
+        "pae_aafdd552f9874d8e9d43f9da",
+        "pae_acb5a4e11734d4be2395e8a9",
+        "pae_ae3515d979e36689b43580bc",
+        "pae_b70b31231dc84e4e769c4424",
+        "pae_c63a57f7273aa6c6e3e97bca",
+        "pae_d20d1c19c0a5db9e0af90651",
+        "pae_d88e19b2266f749692273771",
+        "pae_dc3da7d263d381d154bd810a",
+        "pae_e38363ee1525da2081fb0901",
+        "pae_f2a94e7c04a474785bcb6fef"
+      ],
+      "graph_node_ids": [
+        "pan_02403a8694c1da694ad3572d",
+        "pan_3c4e31ac19fb059e4be30fcd",
+        "pan_4db92db570bbb79b71d4fbab",
+        "pan_59fa30c53c4ff18a53311488",
+        "pan_649188b068ffa815e65d1d59",
+        "pan_78cffffa81dcec5c40f7351d",
+        "pan_7be9aa5b411a46c1ab1411c7",
+        "pan_80488c65356a2f8f99166be3",
+        "pan_81e56cef5953ffafb704e8bb",
+        "pan_8dc7c0cb63aa47c6318a78e2",
+        "pan_8e4d5de65815b5d5f447c3de",
+        "pan_988c144a0d7f10b083c442d7",
+        "pan_9a60d6c531525263d56f7041",
+        "pan_9aaa2462da517fe36777c600",
+        "pan_a3207962264de5e2bd7e8fae",
+        "pan_a6e8e475420c9500847e2e9c",
+        "pan_b2770147f0f7c9bc13d19971",
+        "pan_b72d4a90a701a46bbab33300",
+        "pan_be62fb03cc09584a78d5e0ee",
+        "pan_c5c9e6ece7f077bb3269b2d0",
+        "pan_d50620642d30413a05222186",
+        "pan_d8f5d13901edd2289091c84b",
+        "pan_dcf4ac79e15470aac46fde36",
+        "pan_e7f6d3e8177150df20f9ba53",
+        "pan_f8ec8d4ba8532a1c84114413",
+        "pan_fdef0ee2bf1af252d6c56228"
+      ],
+      "minimum_quality_score": 0.86,
+      "result_output_type": "predicate_match.v1",
+      "step_placements": [
+        {
+          "cpu_cores": 1.0,
+          "execution_ms": 45,
+          "gpu_memory_mb": 1536,
+          "memory_mb": 768,
+          "node_class": "sensor",
+          "node_id": "sensor_b",
+          "provider_id": "vision_object_detector_yolo",
+          "quality_score": 0.9,
+          "startup_ms": 550,
+          "step_id": "detect_a"
+        },
+        {
+          "cpu_cores": 0.8,
+          "execution_ms": 12,
+          "gpu_memory_mb": 0,
+          "memory_mb": 384,
+          "node_class": "edge",
+          "node_id": "edge_1",
+          "provider_id": "multi_object_tracker",
+          "quality_score": 0.95,
+          "startup_ms": 80,
+          "step_id": "track_a"
+        },
+        {
+          "cpu_cores": 0.4,
+          "execution_ms": 18,
+          "gpu_memory_mb": 0,
+          "memory_mb": 192,
+          "node_class": "sensor",
+          "node_id": "sensor_b",
+          "provider_id": "track_crop_extractor",
+          "quality_score": 0.98,
+          "startup_ms": 25,
+          "step_id": "crops_a"
+        },
+        {
+          "cpu_cores": 0.8,
+          "execution_ms": 35,
+          "gpu_memory_mb": 1024,
+          "memory_mb": 512,
+          "node_class": "sensor",
+          "node_id": "sensor_b",
+          "provider_id": "vehicle_reid_descriptor",
+          "quality_score": 0.88,
+          "startup_ms": 300,
+          "step_id": "reid_a"
+        },
+        {
+          "cpu_cores": 0.2,
+          "execution_ms": 5,
+          "gpu_memory_mb": 0,
+          "memory_mb": 96,
+          "node_class": "edge",
+          "node_id": "edge_1",
+          "provider_id": "camera_projection",
+          "quality_score": 1.0,
+          "startup_ms": 20,
+          "step_id": "project_a"
+        },
+        {
+          "cpu_cores": 1.0,
+          "execution_ms": 45,
+          "gpu_memory_mb": 1536,
+          "memory_mb": 768,
+          "node_class": "sensor",
+          "node_id": "sensor_a",
+          "provider_id": "vision_object_detector_yolo",
+          "quality_score": 0.9,
+          "startup_ms": 550,
+          "step_id": "detect_b"
+        },
+        {
+          "cpu_cores": 0.8,
+          "execution_ms": 12,
+          "gpu_memory_mb": 0,
+          "memory_mb": 384,
+          "node_class": "edge",
+          "node_id": "edge_1",
+          "provider_id": "multi_object_tracker",
+          "quality_score": 0.95,
+          "startup_ms": 80,
+          "step_id": "track_b"
+        },
+        {
+          "cpu_cores": 0.4,
+          "execution_ms": 18,
+          "gpu_memory_mb": 0,
+          "memory_mb": 192,
+          "node_class": "sensor",
+          "node_id": "sensor_a",
+          "provider_id": "track_crop_extractor",
+          "quality_score": 0.98,
+          "startup_ms": 25,
+          "step_id": "crops_b"
+        },
+        {
+          "cpu_cores": 0.8,
+          "execution_ms": 35,
+          "gpu_memory_mb": 1024,
+          "memory_mb": 512,
+          "node_class": "edge",
+          "node_id": "edge_1",
+          "provider_id": "vehicle_reid_descriptor",
+          "quality_score": 0.88,
+          "startup_ms": 300,
+          "step_id": "reid_b"
+        },
+        {
+          "cpu_cores": 0.2,
+          "execution_ms": 5,
+          "gpu_memory_mb": 0,
+          "memory_mb": 96,
+          "node_class": "edge",
+          "node_id": "edge_1",
+          "provider_id": "camera_projection",
+          "quality_score": 1.0,
+          "startup_ms": 20,
+          "step_id": "project_b"
+        },
+        {
+          "cpu_cores": 0.6,
+          "execution_ms": 20,
+          "gpu_memory_mb": 0,
+          "memory_mb": 256,
+          "node_class": "edge",
+          "node_id": "edge_1",
+          "provider_id": "cross_sensor_identity_association",
+          "quality_score": 0.86,
+          "startup_ms": 50,
+          "step_id": "associate"
+        },
+        {
+          "cpu_cores": 0.4,
+          "execution_ms": 15,
+          "gpu_memory_mb": 0,
+          "memory_mb": 160,
+          "node_class": "edge",
+          "node_id": "edge_1",
+          "provider_id": "follows_cross_sensor",
+          "quality_score": 0.89,
+          "startup_ms": 30,
+          "step_id": "follows"
+        }
+      ],
+      "transfers": [
+        {
+          "bytes": 0,
+          "data_type": "raw_video_frames.v1",
+          "estimated_ms": 0,
+          "mode": "LOCAL",
+          "path_node_ids": [],
+          "source_node_id": "sensor_b",
+          "source_ref": "external.video_a",
+          "target_node_id": "sensor_b",
+          "target_port": "frames",
+          "target_step_id": "detect_a"
+        },
+        {
+          "bytes": 500000,
+          "data_type": "detection_set.v1",
+          "estimated_ms": 36,
+          "mode": "TRANSFER",
+          "path_node_ids": [
+            "sensor_b",
+            "edge_1"
+          ],
+          "source_node_id": "sensor_b",
+          "source_ref": "detect_a.detections",
+          "target_node_id": "edge_1",
+          "target_port": "detections",
+          "target_step_id": "track_a"
+        },
+        {
+          "bytes": 0,
+          "data_type": "raw_video_frames.v1",
+          "estimated_ms": 0,
+          "mode": "LOCAL",
+          "path_node_ids": [],
+          "source_node_id": "sensor_b",
+          "source_ref": "external.video_a",
+          "target_node_id": "sensor_b",
+          "target_port": "frames",
+          "target_step_id": "crops_a"
+        },
+        {
+          "bytes": 250000,
+          "data_type": "track_set.v1",
+          "estimated_ms": 23,
+          "mode": "TRANSFER",
+          "path_node_ids": [
+            "edge_1",
+            "sensor_b"
+          ],
+          "source_node_id": "edge_1",
+          "source_ref": "track_a.tracks",
+          "target_node_id": "sensor_b",
+          "target_port": "tracks",
+          "target_step_id": "crops_a"
+        },
+        {
+          "bytes": 0,
+          "data_type": "image_crop_set.v1",
+          "estimated_ms": 0,
+          "mode": "LOCAL",
+          "path_node_ids": [],
+          "source_node_id": "sensor_b",
+          "source_ref": "crops_a.crops",
+          "target_node_id": "sensor_b",
+          "target_port": "crops",
+          "target_step_id": "reid_a"
+        },
+        {
+          "bytes": 16000,
+          "data_type": "camera_calibration.v1",
+          "estimated_ms": 10,
+          "mode": "TRANSFER",
+          "path_node_ids": [
+            "sensor_b",
+            "edge_1"
+          ],
+          "source_node_id": "sensor_b",
+          "source_ref": "external.calibration_a",
+          "target_node_id": "edge_1",
+          "target_port": "calibration",
+          "target_step_id": "project_a"
+        },
+        {
+          "bytes": 0,
+          "data_type": "track_set.v1",
+          "estimated_ms": 0,
+          "mode": "LOCAL",
+          "path_node_ids": [],
+          "source_node_id": "edge_1",
+          "source_ref": "track_a.tracks",
+          "target_node_id": "edge_1",
+          "target_port": "tracks",
+          "target_step_id": "project_a"
+        },
+        {
+          "bytes": 0,
+          "data_type": "raw_video_frames.v1",
+          "estimated_ms": 0,
+          "mode": "LOCAL",
+          "path_node_ids": [],
+          "source_node_id": "sensor_a",
+          "source_ref": "external.video_b",
+          "target_node_id": "sensor_a",
+          "target_port": "frames",
+          "target_step_id": "detect_b"
+        },
+        {
+          "bytes": 500000,
+          "data_type": "detection_set.v1",
+          "estimated_ms": 28,
+          "mode": "TRANSFER",
+          "path_node_ids": [
+            "sensor_a",
+            "edge_1"
+          ],
+          "source_node_id": "sensor_a",
+          "source_ref": "detect_b.detections",
+          "target_node_id": "edge_1",
+          "target_port": "detections",
+          "target_step_id": "track_b"
+        },
+        {
+          "bytes": 0,
+          "data_type": "raw_video_frames.v1",
+          "estimated_ms": 0,
+          "mode": "LOCAL",
+          "path_node_ids": [],
+          "source_node_id": "sensor_a",
+          "source_ref": "external.video_b",
+          "target_node_id": "sensor_a",
+          "target_port": "frames",
+          "target_step_id": "crops_b"
+        },
+        {
+          "bytes": 0,
+          "data_type": "track_set.v1",
+          "estimated_ms": 8,
+          "mode": "REMOTE_REFERENCE",
+          "path_node_ids": [
+            "edge_1",
+            "sensor_a"
+          ],
+          "source_node_id": "edge_1",
+          "source_ref": "track_b.tracks",
+          "target_node_id": "sensor_a",
+          "target_port": "tracks",
+          "target_step_id": "crops_b"
+        },
+        {
+          "bytes": 5000000,
+          "data_type": "image_crop_set.v1",
+          "estimated_ms": 208,
+          "mode": "TRANSFER",
+          "path_node_ids": [
+            "sensor_a",
+            "edge_1"
+          ],
+          "source_node_id": "sensor_a",
+          "source_ref": "crops_b.crops",
+          "target_node_id": "edge_1",
+          "target_port": "crops",
+          "target_step_id": "reid_b"
+        },
+        {
+          "bytes": 16000,
+          "data_type": "camera_calibration.v1",
+          "estimated_ms": 8,
+          "mode": "TRANSFER",
+          "path_node_ids": [
+            "sensor_a",
+            "edge_1"
+          ],
+          "source_node_id": "sensor_a",
+          "source_ref": "external.calibration_b",
+          "target_node_id": "edge_1",
+          "target_port": "calibration",
+          "target_step_id": "project_b"
+        },
+        {
+          "bytes": 0,
+          "data_type": "track_set.v1",
+          "estimated_ms": 0,
+          "mode": "LOCAL",
+          "path_node_ids": [],
+          "source_node_id": "edge_1",
+          "source_ref": "track_b.tracks",
+          "target_node_id": "edge_1",
+          "target_port": "tracks",
+          "target_step_id": "project_b"
+        },
+        {
+          "bytes": 0,
+          "data_type": "vehicle_reid_embedding_set.v1",
+          "estimated_ms": 10,
+          "mode": "REMOTE_REFERENCE",
+          "path_node_ids": [
+            "sensor_b",
+            "edge_1"
+          ],
+          "source_node_id": "sensor_b",
+          "source_ref": "reid_a.embeddings",
+          "target_node_id": "edge_1",
+          "target_port": "left_embeddings",
+          "target_step_id": "associate"
+        },
+        {
+          "bytes": 0,
+          "data_type": "vehicle_reid_embedding_set.v1",
+          "estimated_ms": 0,
+          "mode": "LOCAL",
+          "path_node_ids": [],
+          "source_node_id": "edge_1",
+          "source_ref": "reid_b.embeddings",
+          "target_node_id": "edge_1",
+          "target_port": "right_embeddings",
+          "target_step_id": "associate"
+        },
+        {
+          "bytes": 0,
+          "data_type": "canonical_entity_map.v1",
+          "estimated_ms": 0,
+          "mode": "LOCAL",
+          "path_node_ids": [],
+          "source_node_id": "edge_1",
+          "source_ref": "associate.entity_map",
+          "target_node_id": "edge_1",
+          "target_port": "entity_map",
+          "target_step_id": "follows"
+        },
+        {
+          "bytes": 0,
+          "data_type": "projected_track_set.v1",
+          "estimated_ms": 0,
+          "mode": "LOCAL",
+          "path_node_ids": [],
+          "source_node_id": "edge_1",
+          "source_ref": "project_b.projected_tracks",
+          "target_node_id": "edge_1",
+          "target_port": "follower_tracks",
+          "target_step_id": "follows"
+        },
+        {
+          "bytes": 0,
+          "data_type": "projected_track_set.v1",
+          "estimated_ms": 0,
+          "mode": "LOCAL",
+          "path_node_ids": [],
+          "source_node_id": "edge_1",
+          "source_ref": "project_a.projected_tracks",
+          "target_node_id": "edge_1",
+          "target_port": "leader_tracks",
+          "target_step_id": "follows"
+        },
+        {
+          "bytes": 0,
+          "data_type": "route_graph.v1",
+          "estimated_ms": 0,
+          "mode": "LOCAL",
+          "path_node_ids": [],
+          "source_node_id": "edge_1",
+          "source_ref": "external.route_graph",
+          "target_node_id": "edge_1",
+          "target_port": "route_graph",
+          "target_step_id": "follows"
+        }
+      ]
+    }
+  ],
+  "built_at": "2026-04-14T18:19:51Z",
+  "checkpoint_ids": [
+    "019f9697-b30b-792a-8b00-4ec120481e9a"
+  ],
+  "demand_ids": [
+    "019f9697-b30b-792a-8b00-4ec120481e9c"
+  ],
+  "edges": [
+    {
+      "annotations": {},
+      "data_type": "image_crop_set.v1",
+      "edge_id": "pae_02ad4cfe901e8c64f0e4ef63",
+      "kind": "DATA",
+      "source_node_id": "pan_5bc686fa93c46c9094dacd5e",
+      "target_node_id": "pan_76412575f5e26ec1002cad79"
+    },
+    {
+      "annotations": {},
+      "data_type": "raw_video_frames.v1",
+      "edge_id": "pae_0b518135af5990e1ac671eba",
+      "kind": "DATA",
+      "source_node_id": "pan_f8ec8d4ba8532a1c84114413",
+      "target_node_id": "pan_649188b068ffa815e65d1d59"
+    },
+    {
+      "annotations": {},
+      "data_type": "raw_video_frames.v1",
+      "edge_id": "pae_0c05e5a21ba4d48f55b860be",
+      "kind": "DATA",
+      "source_node_id": "pan_43c10e63e3d9f8882457d357",
+      "target_node_id": "pan_e64327852df4d2d271c701ec"
+    },
+    {
+      "annotations": {},
+      "data_type": "raw_video_frames.v1",
+      "edge_id": "pae_0e8974e63cee276c465da56c",
+      "kind": "DATA",
+      "source_node_id": "pan_a8a4473e2b16037516f10eff",
+      "target_node_id": "pan_7a974d7544a6003bc212a5a0"
+    },
+    {
+      "annotations": {},
+      "data_type": "route_graph.v1",
+      "edge_id": "pae_0f67df6f7456804df3972cce",
+      "kind": "DATA",
+      "source_node_id": "pan_23e8c4b32ad94073c57416c0",
+      "target_node_id": "pan_0e047b82f7dca84bbb2f9dc9"
+    },
+    {
+      "annotations": {},
+      "data_type": "predicate_match.v1",
+      "edge_id": "pae_0fab43983d17e085f27d2d3f",
+      "kind": "SATISFIES",
+      "source_node_id": "pan_488c3908c22e46e1eba4861b",
+      "target_node_id": "pan_30609e5ea7262fb8622967af"
+    },
+    {
+      "annotations": {},
+      "data_type": "detection_set.v1",
+      "edge_id": "pae_15366901a5134a07ca6e8bf0",
+      "kind": "DATA",
+      "source_node_id": "pan_3f821d933491a2fa3d4552bc",
+      "target_node_id": "pan_c7a81c0a4fa09202fdb38a84"
+    },
+    {
+      "annotations": {},
+      "data_type": "camera_calibration.v1",
+      "edge_id": "pae_17cf6c8d991b900e1a1c68c7",
+      "kind": "DATA",
+      "source_node_id": "pan_59fa30c53c4ff18a53311488",
+      "target_node_id": "pan_e7f6d3e8177150df20f9ba53"
+    },
+    {
+      "annotations": {},
+      "data_type": "raw_video_frames.v1",
+      "edge_id": "pae_1c170129cc30637a0728607b",
+      "kind": "DATA",
+      "source_node_id": "pan_80488c65356a2f8f99166be3",
+      "target_node_id": "pan_be62fb03cc09584a78d5e0ee"
+    },
+    {
+      "annotations": {},
+      "data_type": "track_set.v1",
+      "edge_id": "pae_1e184b87e3d52641f9154c1a",
+      "kind": "DATA",
+      "source_node_id": "pan_3955fb2c5a40241e858c1ffb",
+      "target_node_id": "pan_236cbc09d60a1e97d08fa8fa"
+    },
+    {
+      "annotations": {},
+      "data_type": "projected_track_set.v1",
+      "edge_id": "pae_207afe206a4ecf9cc9ae1f68",
+      "kind": "DATA",
+      "source_node_id": "pan_9132f7f7b3095315d96febef",
+      "target_node_id": "pan_be2dc8cb1578d2e6c7046f31"
+    },
+    {
+      "annotations": {},
+      "data_type": "image_crop_set.v1",
+      "edge_id": "pae_2807562a745c0a53ec5a88a7",
+      "kind": "DATA",
+      "source_node_id": "pan_3c4e31ac19fb059e4be30fcd",
+      "target_node_id": "pan_7be9aa5b411a46c1ab1411c7"
+    },
+    {
+      "annotations": {},
+      "data_type": "canonical_entity_map.v1",
+      "edge_id": "pae_2a75d44d0da08a9cf2c502f6",
+      "kind": "DATA",
+      "source_node_id": "pan_800d16d94fdcc2a6fe174833",
+      "target_node_id": "pan_e319d55bdf8fa988addfe2bf"
+    },
+    {
+      "annotations": {},
+      "data_type": "detection_set.v1",
+      "edge_id": "pae_2b47dbc8bcd320ece3beabe2",
+      "kind": "DATA",
+      "source_node_id": "pan_7a974d7544a6003bc212a5a0",
+      "target_node_id": "pan_d267989691f9a6f18d8ab023"
+    },
+    {
+      "annotations": {},
+      "data_type": "projected_track_set.v1",
+      "edge_id": "pae_2b99de9322d3418bb8300994",
+      "kind": "DATA",
+      "source_node_id": "pan_ed1586aa048de1458d37d135",
+      "target_node_id": "pan_3117080e707477e0aa599678"
+    },
+    {
+      "annotations": {},
+      "data_type": "raw_video_frames.v1",
+      "edge_id": "pae_2c9f3e8ea3f5a44b2c737120",
+      "kind": "DATA",
+      "source_node_id": "pan_477db23a2e9e6f609d7efb4f",
+      "target_node_id": "pan_07d0b98d1dcec1ed73eab18d"
+    },
+    {
+      "annotations": {},
+      "data_type": "detection_set.v1",
+      "edge_id": "pae_2dc103e1c752acefb5e83d01",
+      "kind": "DATA",
+      "source_node_id": "pan_34cfef732c44d80d1b6217bb",
+      "target_node_id": "pan_3955fb2c5a40241e858c1ffb"
+    },
+    {
+      "annotations": {},
+      "data_type": "camera_calibration.v1",
+      "edge_id": "pae_2f0a6e0cb39da149d5325059",
+      "kind": "DATA",
+      "source_node_id": "pan_e7b1128e4794c2ad4a98093c",
+      "target_node_id": "pan_bc001a96bb463f43ad669246"
+    },
+    {
+      "annotations": {},
+      "data_type": "projected_track_set.v1",
+      "edge_id": "pae_3052fe58bf0da439b9d2660d",
+      "kind": "DATA",
+      "source_node_id": "pan_817b3e9b531b038e8702c1d5",
+      "target_node_id": "pan_3117080e707477e0aa599678"
+    },
+    {
+      "annotations": {},
+      "data_type": "camera_calibration.v1",
+      "edge_id": "pae_31b863b8c81dbc2febf42630",
+      "kind": "DATA",
+      "source_node_id": "pan_81e56cef5953ffafb704e8bb",
+      "target_node_id": "pan_59fa30c53c4ff18a53311488"
+    },
+    {
+      "annotations": {},
+      "data_type": "detection_set.v1",
+      "edge_id": "pae_32bdc940db1e048945ad0a52",
+      "kind": "DATA",
+      "source_node_id": "pan_7ce2ac16dd81d04c05a68d86",
+      "target_node_id": "pan_34cfef732c44d80d1b6217bb"
+    },
+    {
+      "annotations": {},
+      "data_type": "track_set.v1",
+      "edge_id": "pae_339a3ada4c9b3b5a108c76af",
+      "kind": "DATA",
+      "source_node_id": "pan_3be10f687acfe930bf026cde",
+      "target_node_id": "pan_5c01914e2e10b44bc5ab2f7f"
+    },
+    {
+      "annotations": {},
+      "data_type": "track_set.v1",
+      "edge_id": "pae_35567e1a273e0777e05941af",
+      "kind": "DATA",
+      "source_node_id": "pan_8dc7c0cb63aa47c6318a78e2",
+      "target_node_id": "pan_e7f6d3e8177150df20f9ba53"
+    },
+    {
+      "annotations": {},
+      "data_type": "canonical_entity_map.v1",
+      "edge_id": "pae_41514826ca8e2337efcdbe3c",
+      "kind": "DATA",
+      "source_node_id": "pan_9aaa2462da517fe36777c600",
+      "target_node_id": "pan_d50620642d30413a05222186"
+    },
+    {
+      "annotations": {},
+      "data_type": "track_set.v1",
+      "edge_id": "pae_420511bf6839190aba2276f4",
+      "kind": "DATA",
+      "source_node_id": "pan_2e47664ae705ee6d9db2e6b3",
+      "target_node_id": "pan_5bc686fa93c46c9094dacd5e"
+    },
+    {
+      "annotations": {},
+      "data_type": "projected_track_set.v1",
+      "edge_id": "pae_465511a3610d04962b526df8",
+      "kind": "DATA",
+      "source_node_id": "pan_dcb35b70093c8f370d500ed6",
+      "target_node_id": "pan_5e6e1edcd1b18eee0f00b4b7"
+    },
+    {
+      "annotations": {},
+      "data_type": "detection_set.v1",
+      "edge_id": "pae_469b7a0036c517ad38fa8219",
+      "kind": "DATA",
+      "source_node_id": "pan_b72d4a90a701a46bbab33300",
+      "target_node_id": "pan_8e4d5de65815b5d5f447c3de"
+    },
+    {
+      "annotations": {},
+      "data_type": "vehicle_reid_embedding_set.v1",
+      "edge_id": "pae_48c76a633595f8bf2669d221",
+      "kind": "DATA",
+      "source_node_id": "pan_78cffffa81dcec5c40f7351d",
+      "target_node_id": "pan_9aaa2462da517fe36777c600"
+    },
+    {
+      "annotations": {},
+      "data_type": "camera_calibration.v1",
+      "edge_id": "pae_4a260e770eeba61e6b0f4e91",
+      "kind": "DATA",
+      "source_node_id": "pan_b920426812b344f47104dc74",
+      "target_node_id": "pan_9132f7f7b3095315d96febef"
+    },
+    {
+      "annotations": {},
+      "data_type": "raw_video_frames.v1",
+      "edge_id": "pae_4ec657ca8b071eb7afba0eb6",
+      "kind": "DATA",
+      "source_node_id": "pan_f1acf8a07f3e1e5ac2bb860b",
+      "target_node_id": "pan_3927802678885ebec499273d"
+    },
+    {
+      "annotations": {},
+      "data_type": "detection_set.v1",
+      "edge_id": "pae_4fd5a8a4544362d3d57355bf",
+      "kind": "DATA",
+      "source_node_id": "pan_fdef0ee2bf1af252d6c56228",
+      "target_node_id": "pan_8dc7c0cb63aa47c6318a78e2"
+    },
+    {
+      "annotations": {},
+      "data_type": "track_set.v1",
+      "edge_id": "pae_50bb362e8a4d435fb63725df",
+      "kind": "DATA",
+      "source_node_id": "pan_091e7eddfecd043338252e78",
+      "target_node_id": "pan_03192e701357d4e391370ad5"
+    },
+    {
+      "annotations": {},
+      "data_type": "camera_calibration.v1",
+      "edge_id": "pae_51003ddcd3c5fe964b1cadcd",
+      "kind": "DATA",
+      "source_node_id": "pan_4dbb4a01868f198d1f671a5a",
+      "target_node_id": "pan_5c01914e2e10b44bc5ab2f7f"
+    },
+    {
+      "annotations": {},
+      "data_type": "pair_trajectory.v1",
+      "edge_id": "pae_5537e1cb8414c7123e5cb730",
+      "kind": "PRODUCES",
+      "source_node_id": "pan_3117080e707477e0aa599678",
+      "target_node_id": "pan_245e1b342bc8aed9bc79a922"
+    },
+    {
+      "annotations": {},
+      "data_type": "detection_set.v1",
+      "edge_id": "pae_56a6200717bab129470ea657",
+      "kind": "DATA",
+      "source_node_id": "pan_6056441ef68bea41a0dba1e1",
+      "target_node_id": "pan_b5f85cc8aa93488052b67674"
+    },
+    {
+      "annotations": {},
+      "data_type": "raw_video_frames.v1",
+      "edge_id": "pae_6099dc7b70d3026ee782521f",
+      "kind": "DATA",
+      "source_node_id": "pan_9adac6140248417ac464e78a",
+      "target_node_id": "pan_c90de4386e83491a30ea90ab"
+    },
+    {
+      "annotations": {},
+      "data_type": "track_set.v1",
+      "edge_id": "pae_61d85d3a7499b92937f101c8",
+      "kind": "DATA",
+      "source_node_id": "pan_4db92db570bbb79b71d4fbab",
+      "target_node_id": "pan_dcf4ac79e15470aac46fde36"
+    },
+    {
+      "annotations": {},
+      "data_type": "projected_track_set.v1",
+      "edge_id": "pae_62249f82bd5da2465ebb91cf",
+      "kind": "DATA",
+      "source_node_id": "pan_ba6bfdc6c04bf87a545b8268",
+      "target_node_id": "pan_d2bf6cab40d543cebeb3de1a"
+    },
+    {
+      "annotations": {},
+      "data_type": "pair_trajectory.v1",
+      "edge_id": "pae_6403b706a0d917c4a94d2b4a",
+      "kind": "PRODUCES",
+      "source_node_id": "pan_b557bd79d0c2c98acaef222b",
+      "target_node_id": "pan_e303ef6ceabee1523043d558"
+    },
+    {
+      "annotations": {},
+      "data_type": "camera_calibration.v1",
+      "edge_id": "pae_6f4d8d644fc3b0ba70f8f3c5",
+      "kind": "DATA",
+      "source_node_id": "pan_d8f5d13901edd2289091c84b",
+      "target_node_id": "pan_b2770147f0f7c9bc13d19971"
+    },
+    {
+      "annotations": {},
+      "data_type": "image_crop_set.v1",
+      "edge_id": "pae_71ec288b8702922be6a79844",
+      "kind": "DATA",
+      "source_node_id": "pan_e64327852df4d2d271c701ec",
+      "target_node_id": "pan_376abd2f8f6bb28d705a1205"
+    },
+    {
+      "annotations": {},
+      "data_type": "raw_video_frames.v1",
+      "edge_id": "pae_7f8900f6c82ffeea36c57abf",
+      "kind": "DATA",
+      "source_node_id": "pan_43c10e63e3d9f8882457d357",
+      "target_node_id": "pan_6056441ef68bea41a0dba1e1"
+    },
+    {
+      "annotations": {},
+      "data_type": "projected_track_set.v1",
+      "edge_id": "pae_81c96aee2e3046ad3b17ea54",
+      "kind": "DATA",
+      "source_node_id": "pan_5c01914e2e10b44bc5ab2f7f",
+      "target_node_id": "pan_817b3e9b531b038e8702c1d5"
+    },
+    {
+      "annotations": {},
+      "data_type": "projected_track_set.v1",
+      "edge_id": "pae_82216355acd120bc08e24094",
+      "kind": "DATA",
+      "source_node_id": "pan_e7f6d3e8177150df20f9ba53",
+      "target_node_id": "pan_d50620642d30413a05222186"
+    },
+    {
+      "annotations": {},
+      "data_type": "projected_track_set.v1",
+      "edge_id": "pae_82875893e291b7e906a76851",
+      "kind": "DATA",
+      "source_node_id": "pan_975a28712de70ca89cba88d1",
+      "target_node_id": "pan_5e6e1edcd1b18eee0f00b4b7"
+    },
+    {
+      "annotations": {},
+      "data_type": "image_crop_set.v1",
+      "edge_id": "pae_8adb38efbd428182af7fbc56",
+      "kind": "DATA",
+      "source_node_id": "pan_649188b068ffa815e65d1d59",
+      "target_node_id": "pan_3c4e31ac19fb059e4be30fcd"
+    },
+    {
+      "annotations": {},
+      "data_type": "detection_set.v1",
+      "edge_id": "pae_8d4c5b2015f77e40bfa94afd",
+      "kind": "DATA",
+      "source_node_id": "pan_07d0b98d1dcec1ed73eab18d",
+      "target_node_id": "pan_015637f2554ffd4af1bea8ae"
+    },
+    {
+      "annotations": {},
+      "data_type": "image_crop_set.v1",
+      "edge_id": "pae_8f7bc8a17f473e46dd1c21f8",
+      "kind": "DATA",
+      "source_node_id": "pan_be62fb03cc09584a78d5e0ee",
+      "target_node_id": "pan_a3207962264de5e2bd7e8fae"
+    },
+    {
+      "annotations": {},
+      "data_type": "track_set.v1",
+      "edge_id": "pae_90c29ff6e0944d90c0c62f22",
+      "kind": "DATA",
+      "source_node_id": "pan_091e7eddfecd043338252e78",
+      "target_node_id": "pan_fd0e85dfed7ef9dd210c3f6b"
+    },
+    {
+      "annotations": {},
+      "data_type": "camera_calibration.v1",
+      "edge_id": "pae_91d6f07638bb53038a567811",
+      "kind": "DATA",
+      "source_node_id": "pan_bf828ec88521cce252ade72c",
+      "target_node_id": "pan_756d292bf7f1be63ccab29ef"
+    },
+    {
+      "annotations": {},
+      "data_type": "predicate_match.v1",
+      "edge_id": "pae_933f6941a29c5537a04a3416",
+      "kind": "SATISFIES",
+      "source_node_id": "pan_d50620642d30413a05222186",
+      "target_node_id": "pan_a6e8e475420c9500847e2e9c"
+    },
+    {
+      "annotations": {},
+      "data_type": "projected_track_set.v1",
+      "edge_id": "pae_955521a63f1a17906168ea91",
+      "kind": "DATA",
+      "source_node_id": "pan_756d292bf7f1be63ccab29ef",
+      "target_node_id": "pan_dcb35b70093c8f370d500ed6"
+    },
+    {
+      "annotations": {},
+      "data_type": "pair_trajectory.v1",
+      "edge_id": "pae_9564d5ac4e3857168e78fd89",
+      "kind": "PRODUCES",
+      "source_node_id": "pan_488c3908c22e46e1eba4861b",
+      "target_node_id": "pan_49a2a7479ec6e29fe2a34275"
+    },
+    {
+      "annotations": {},
+      "data_type": "projected_track_set.v1",
+      "edge_id": "pae_96d99586a31d470324b511c6",
+      "kind": "DATA",
+      "source_node_id": "pan_756d292bf7f1be63ccab29ef",
+      "target_node_id": "pan_975a28712de70ca89cba88d1"
+    },
+    {
+      "annotations": {},
+      "data_type": "track_set.v1",
+      "edge_id": "pae_974d515e5e454f1a8886becb",
+      "kind": "DATA",
+      "source_node_id": "pan_8dc7c0cb63aa47c6318a78e2",
+      "target_node_id": "pan_9a60d6c531525263d56f7041"
+    },
+    {
+      "annotations": {},
+      "data_type": "predicate_match.v1",
+      "edge_id": "pae_97540a857eda4463f50e7aa1",
+      "kind": "SATISFIES",
+      "source_node_id": "pan_b557bd79d0c2c98acaef222b",
+      "target_node_id": "pan_4d4c0b9552a01cfc3c38fc1f"
+    },
+    {
+      "annotations": {},
+      "data_type": "vehicle_reid_embedding_set.v1",
+      "edge_id": "pae_97c6ddd747b711bf908383fd",
+      "kind": "DATA",
+      "source_node_id": "pan_9582e031ac213e268888b736",
+      "target_node_id": "pan_800d16d94fdcc2a6fe174833"
+    },
+    {
+      "annotations": {},
+      "data_type": "detection_set.v1",
+      "edge_id": "pae_98957e5fd59713f041406d0a",
+      "kind": "DATA",
+      "source_node_id": "pan_c5c9e6ece7f077bb3269b2d0",
+      "target_node_id": "pan_fdef0ee2bf1af252d6c56228"
+    },
+    {
+      "annotations": {},
+      "data_type": "track_set.v1",
+      "edge_id": "pae_9cb184cb26bc59a5cf4527a0",
+      "kind": "DATA",
+      "source_node_id": "pan_9a60d6c531525263d56f7041",
+      "target_node_id": "pan_649188b068ffa815e65d1d59"
+    },
+    {
+      "annotations": {},
+      "data_type": "tracker_state_snapshot.v1",
+      "edge_id": "pae_9db2fc630b6f5c6e685b00fb",
+      "kind": "PRODUCES",
+      "source_node_id": "pan_7edb8fdda06d948c7a208db4",
+      "target_node_id": "pan_9a5ced58dcac49afe8a50f81"
+    },
+    {
+      "annotations": {},
+      "data_type": "detection_set.v1",
+      "edge_id": "pae_a1291dc9f49875396d0278d5",
+      "kind": "DATA",
+      "source_node_id": "pan_015637f2554ffd4af1bea8ae",
+      "target_node_id": "pan_cce86fd428f18f528bbdc74b"
+    },
+    {
+      "annotations": {},
+      "data_type": "camera_calibration.v1",
+      "edge_id": "pae_a2bc52d8014ca3daf685c841",
+      "kind": "DATA",
+      "source_node_id": "pan_aed8a31d0040873809a7dab1",
+      "target_node_id": "pan_236cbc09d60a1e97d08fa8fa"
+    },
+    {
+      "annotations": {},
+      "data_type": "track_set.v1",
+      "edge_id": "pae_a659bc00547ce24f200123a3",
+      "kind": "DATA",
+      "source_node_id": "pan_c7a81c0a4fa09202fdb38a84",
+      "target_node_id": "pan_756d292bf7f1be63ccab29ef"
+    },
+    {
+      "annotations": {},
+      "data_type": "camera_calibration.v1",
+      "edge_id": "pae_a98e9b3612715b27c9c6dc0d",
+      "kind": "DATA",
+      "source_node_id": "pan_67312f07fb78d0acdb0d1f16",
+      "target_node_id": "pan_4dbb4a01868f198d1f671a5a"
+    },
+    {
+      "annotations": {},
+      "data_type": "detection_set.v1",
+      "edge_id": "pae_aafdd552f9874d8e9d43f9da",
+      "kind": "DATA",
+      "source_node_id": "pan_8e4d5de65815b5d5f447c3de",
+      "target_node_id": "pan_4db92db570bbb79b71d4fbab"
+    },
+    {
+      "annotations": {},
+      "data_type": "raw_video_frames.v1",
+      "edge_id": "pae_acb5a4e11734d4be2395e8a9",
+      "kind": "DATA",
+      "source_node_id": "pan_f8ec8d4ba8532a1c84114413",
+      "target_node_id": "pan_c5c9e6ece7f077bb3269b2d0"
+    },
+    {
+      "annotations": {},
+      "data_type": "vehicle_reid_embedding_set.v1",
+      "edge_id": "pae_ae3515d979e36689b43580bc",
+      "kind": "DATA",
+      "source_node_id": "pan_7be9aa5b411a46c1ab1411c7",
+      "target_node_id": "pan_9aaa2462da517fe36777c600"
+    },
+    {
+      "annotations": {},
+      "data_type": "tracker_state_snapshot.v1",
+      "edge_id": "pae_ae9649dd13dbd0f4b63dc8ef",
+      "kind": "PRODUCES",
+      "source_node_id": "pan_3be10f687acfe930bf026cde",
+      "target_node_id": "pan_d42db8cfccb8deaef412f983"
+    },
+    {
+      "annotations": {},
+      "data_type": "projected_track_set.v1",
+      "edge_id": "pae_b25f711fa700a3bd3054bff2",
+      "kind": "DATA",
+      "source_node_id": "pan_236cbc09d60a1e97d08fa8fa",
+      "target_node_id": "pan_b557bd79d0c2c98acaef222b"
+    },
+    {
+      "annotations": {},
+      "data_type": "raw_video_frames.v1",
+      "edge_id": "pae_b29c94c65fa2dfc7b54b551b",
+      "kind": "DATA",
+      "source_node_id": "pan_5937786492b5fb9ffb887225",
+      "target_node_id": "pan_7ce2ac16dd81d04c05a68d86"
+    },
+    {
+      "annotations": {},
+      "data_type": "predicate_match.v1",
+      "edge_id": "pae_b36591bb505afcdf6c654621",
+      "kind": "SATISFIES",
+      "source_node_id": "pan_5e6e1edcd1b18eee0f00b4b7",
+      "target_node_id": "pan_c6917f68316e42209b7a1321"
+    },
+    {
+      "annotations": {},
+      "data_type": "projected_track_set.v1",
+      "edge_id": "pae_b44a25b44f43e62d1df621e3",
+      "kind": "DATA",
+      "source_node_id": "pan_bc001a96bb463f43ad669246",
+      "target_node_id": "pan_488c3908c22e46e1eba4861b"
+    },
+    {
+      "annotations": {},
+      "data_type": "projected_track_set.v1",
+      "edge_id": "pae_b70b31231dc84e4e769c4424",
+      "kind": "DATA",
+      "source_node_id": "pan_b2770147f0f7c9bc13d19971",
+      "target_node_id": "pan_d50620642d30413a05222186"
+    },
+    {
+      "annotations": {},
+      "data_type": "raw_video_frames.v1",
+      "edge_id": "pae_bb464b82881771a5e77d0db0",
+      "kind": "DATA",
+      "source_node_id": "pan_477db23a2e9e6f609d7efb4f",
+      "target_node_id": "pan_5bc686fa93c46c9094dacd5e"
+    },
+    {
+      "annotations": {},
+      "data_type": "camera_calibration.v1",
+      "edge_id": "pae_c11eb1a0cf9e329c858f696d",
+      "kind": "DATA",
+      "source_node_id": "pan_3c238439ccc9e7826007479f",
+      "target_node_id": "pan_da97fcd563cb062b3912a380"
+    },
+    {
+      "annotations": {},
+      "data_type": "detection_set.v1",
+      "edge_id": "pae_c1f048b210e06d87f9adcf0e",
+      "kind": "DATA",
+      "source_node_id": "pan_fdcab077c6b7b7e4b75077f7",
+      "target_node_id": "pan_7edb8fdda06d948c7a208db4"
+    },
+    {
+      "annotations": {},
+      "data_type": "route_graph.v1",
+      "edge_id": "pae_c63a57f7273aa6c6e3e97bca",
+      "kind": "DATA",
+      "source_node_id": "pan_988c144a0d7f10b083c442d7",
+      "target_node_id": "pan_d50620642d30413a05222186"
+    },
+    {
+      "annotations": {},
+      "data_type": "canonical_entity_map.v1",
+      "edge_id": "pae_c749aea2a54fe837389968d5",
+      "kind": "DATA",
+      "source_node_id": "pan_e319d55bdf8fa988addfe2bf",
+      "target_node_id": "pan_d2bf6cab40d543cebeb3de1a"
+    },
+    {
+      "annotations": {},
+      "data_type": "track_set.v1",
+      "edge_id": "pae_cb486c5a3e06452dea8a5993",
+      "kind": "DATA",
+      "source_node_id": "pan_cce86fd428f18f528bbdc74b",
+      "target_node_id": "pan_2e47664ae705ee6d9db2e6b3"
+    },
+    {
+      "annotations": {},
+      "data_type": "detection_set.v1",
+      "edge_id": "pae_cc538b49fc3475e5cce7d6d9",
+      "kind": "DATA",
+      "source_node_id": "pan_b5f85cc8aa93488052b67674",
+      "target_node_id": "pan_091e7eddfecd043338252e78"
+    },
+    {
+      "annotations": {},
+      "data_type": "image_crop_set.v1",
+      "edge_id": "pae_cd4bf38604db320f8ca4444f",
+      "kind": "DATA",
+      "source_node_id": "pan_376abd2f8f6bb28d705a1205",
+      "target_node_id": "pan_9582e031ac213e268888b736"
+    },
+    {
+      "annotations": {},
+      "data_type": "track_set.v1",
+      "edge_id": "pae_cdda46a889957501d2466f86",
+      "kind": "DATA",
+      "source_node_id": "pan_7edb8fdda06d948c7a208db4",
+      "target_node_id": "pan_bc001a96bb463f43ad669246"
+    },
+    {
+      "annotations": {},
+      "data_type": "detection_set.v1",
+      "edge_id": "pae_d0f3b27417a61659795a708c",
+      "kind": "DATA",
+      "source_node_id": "pan_d267989691f9a6f18d8ab023",
+      "target_node_id": "pan_3be10f687acfe930bf026cde"
+    },
+    {
+      "annotations": {},
+      "data_type": "track_set.v1",
+      "edge_id": "pae_d20d1c19c0a5db9e0af90651",
+      "kind": "DATA",
+      "source_node_id": "pan_dcf4ac79e15470aac46fde36",
+      "target_node_id": "pan_be62fb03cc09584a78d5e0ee"
+    },
+    {
+      "annotations": {},
+      "data_type": "track_set.v1",
+      "edge_id": "pae_d88e19b2266f749692273771",
+      "kind": "DATA",
+      "source_node_id": "pan_4db92db570bbb79b71d4fbab",
+      "target_node_id": "pan_b2770147f0f7c9bc13d19971"
+    },
+    {
+      "annotations": {},
+      "data_type": "projected_track_set.v1",
+      "edge_id": "pae_d999e3557086f17c9da1f807",
+      "kind": "DATA",
+      "source_node_id": "pan_be2dc8cb1578d2e6c7046f31",
+      "target_node_id": "pan_d2bf6cab40d543cebeb3de1a"
+    },
+    {
+      "annotations": {},
+      "data_type": "projected_track_set.v1",
+      "edge_id": "pae_dac2d77b659aef8dea25b603",
+      "kind": "DATA",
+      "source_node_id": "pan_fd0e85dfed7ef9dd210c3f6b",
+      "target_node_id": "pan_ba6bfdc6c04bf87a545b8268"
+    },
+    {
+      "annotations": {},
+      "data_type": "track_set.v1",
+      "edge_id": "pae_dbe8b4ebbde8a45ac0261163",
+      "kind": "DATA",
+      "source_node_id": "pan_03192e701357d4e391370ad5",
+      "target_node_id": "pan_e64327852df4d2d271c701ec"
+    },
+    {
+      "annotations": {},
+      "data_type": "vehicle_reid_embedding_set.v1",
+      "edge_id": "pae_dc3da7d263d381d154bd810a",
+      "kind": "DATA",
+      "source_node_id": "pan_a3207962264de5e2bd7e8fae",
+      "target_node_id": "pan_78cffffa81dcec5c40f7351d"
+    },
+    {
+      "annotations": {},
+      "data_type": "camera_calibration.v1",
+      "edge_id": "pae_dea5cad8b033644421e2c3a6",
+      "kind": "DATA",
+      "source_node_id": "pan_431b0ab39f771e9591a05c4a",
+      "target_node_id": "pan_aed8a31d0040873809a7dab1"
+    },
+    {
+      "annotations": {},
+      "data_type": "raw_video_frames.v1",
+      "edge_id": "pae_e38363ee1525da2081fb0901",
+      "kind": "DATA",
+      "source_node_id": "pan_80488c65356a2f8f99166be3",
+      "target_node_id": "pan_b72d4a90a701a46bbab33300"
+    },
+    {
+      "annotations": {},
+      "data_type": "predicate_match.v1",
+      "edge_id": "pae_e5f0c5d05b5ba77fd04c0a12",
+      "kind": "SATISFIES",
+      "source_node_id": "pan_d2bf6cab40d543cebeb3de1a",
+      "target_node_id": "pan_715596346a6ed9a0099a1cc5"
+    },
+    {
+      "annotations": {},
+      "data_type": "route_graph.v1",
+      "edge_id": "pae_eb521c098874e82aa4cddf17",
+      "kind": "DATA",
+      "source_node_id": "pan_0e047b82f7dca84bbb2f9dc9",
+      "target_node_id": "pan_d2bf6cab40d543cebeb3de1a"
+    },
+    {
+      "annotations": {},
+      "data_type": "track_set.v1",
+      "edge_id": "pae_ecb799577318ee533d08eef6",
+      "kind": "DATA",
+      "source_node_id": "pan_cce86fd428f18f528bbdc74b",
+      "target_node_id": "pan_9132f7f7b3095315d96febef"
+    },
+    {
+      "annotations": {},
+      "data_type": "detection_set.v1",
+      "edge_id": "pae_ee1cc42186efbc8685df5324",
+      "kind": "DATA",
+      "source_node_id": "pan_3927802678885ebec499273d",
+      "target_node_id": "pan_3f821d933491a2fa3d4552bc"
+    },
+    {
+      "annotations": {},
+      "data_type": "predicate_match.v1",
+      "edge_id": "pae_ee29e7aba0583ef45645311a",
+      "kind": "SATISFIES",
+      "source_node_id": "pan_3117080e707477e0aa599678",
+      "target_node_id": "pan_1fc3aaa23c6e8b5faff0dfe9"
+    },
+    {
+      "annotations": {},
+      "data_type": "vehicle_reid_embedding_set.v1",
+      "edge_id": "pae_ef01de41efc3f3a1a59bd793",
+      "kind": "DATA",
+      "source_node_id": "pan_4160fd5af8a9dda3ad396f31",
+      "target_node_id": "pan_800d16d94fdcc2a6fe174833"
+    },
+    {
+      "annotations": {},
+      "data_type": "camera_calibration.v1",
+      "edge_id": "pae_f2a94e7c04a474785bcb6fef",
+      "kind": "DATA",
+      "source_node_id": "pan_02403a8694c1da694ad3572d",
+      "target_node_id": "pan_d8f5d13901edd2289091c84b"
+    },
+    {
+      "annotations": {},
+      "data_type": "vehicle_reid_embedding_set.v1",
+      "edge_id": "pae_f3a6af375a84b108937446a8",
+      "kind": "DATA",
+      "source_node_id": "pan_76412575f5e26ec1002cad79",
+      "target_node_id": "pan_4160fd5af8a9dda3ad396f31"
+    },
+    {
+      "annotations": {},
+      "data_type": "camera_calibration.v1",
+      "edge_id": "pae_f7719a779f88a2447706f14f",
+      "kind": "DATA",
+      "source_node_id": "pan_1cd03d52ba0c5e744f791e77",
+      "target_node_id": "pan_b920426812b344f47104dc74"
+    },
+    {
+      "annotations": {},
+      "data_type": "projected_track_set.v1",
+      "edge_id": "pae_f895bc6aaf472c48069446de",
+      "kind": "DATA",
+      "source_node_id": "pan_5c01914e2e10b44bc5ab2f7f",
+      "target_node_id": "pan_ed1586aa048de1458d37d135"
+    },
+    {
+      "annotations": {},
+      "data_type": "camera_calibration.v1",
+      "edge_id": "pae_fa0545890d421e48a34c9d6d",
+      "kind": "DATA",
+      "source_node_id": "pan_98dc9737229fa2f2db8fcf0a",
+      "target_node_id": "pan_bf828ec88521cce252ade72c"
+    },
+    {
+      "annotations": {},
+      "data_type": "pair_trajectory.v1",
+      "edge_id": "pae_fa56dca58f5815666afd84f9",
+      "kind": "PRODUCES",
+      "source_node_id": "pan_5e6e1edcd1b18eee0f00b4b7",
+      "target_node_id": "pan_4ed14966f9893a0f0b0968fb"
+    },
+    {
+      "annotations": {},
+      "data_type": "detection_set.v1",
+      "edge_id": "pae_faa4ba7593f62d51dd3ed449",
+      "kind": "DATA",
+      "source_node_id": "pan_c90de4386e83491a30ea90ab",
+      "target_node_id": "pan_fdcab077c6b7b7e4b75077f7"
+    },
+    {
+      "annotations": {},
+      "data_type": "camera_calibration.v1",
+      "edge_id": "pae_fcaab14ecd92a19ae49e5b10",
+      "kind": "DATA",
+      "source_node_id": "pan_da97fcd563cb062b3912a380",
+      "target_node_id": "pan_fd0e85dfed7ef9dd210c3f6b"
+    },
+    {
+      "annotations": {},
+      "data_type": "camera_calibration.v1",
+      "edge_id": "pae_fefadfc8827450da1f955464",
+      "kind": "DATA",
+      "source_node_id": "pan_dea4b3cc71b4155c3eee6cb6",
+      "target_node_id": "pan_e7b1128e4794c2ad4a98093c"
+    }
+  ],
+  "graph_id": "physical_graph_1b44193008d8ad9ff08bc2a40fcacb89",
+  "nodes": [
+    {
+      "annotations": {
+        "bytes": 500000,
+        "estimated_ms": 36,
+        "path": [
+          "sensor_b",
+          "edge_1"
+        ],
+        "source_node_id": "sensor_b",
+        "target_node_id": "edge_1"
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "data_type": "detection_set.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "TRANSFER",
+      "label": "TRANSFER: detection_set.v1",
+      "node_id": "pan_015637f2554ffd4af1bea8ae"
+    },
+    {
+      "annotations": {
+        "bytes": 16000,
+        "expires_at": "2026-04-16T18:19:51Z",
+        "input_kind": "DEPLOYMENT_ARTIFACT"
+      },
+      "artifact_id": "019f9697-b32a-7fd5-8a37-5adfc8305f91",
+      "chain_id": "follows_cross_camera_reid",
+      "data_type": "camera_calibration.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_b",
+      "kind": "RETAINED_ARTIFACT",
+      "label": "calibration_a: camera_calibration.v1",
+      "node_id": "pan_02403a8694c1da694ad3572d",
+      "source_id": "camera_downstream"
+    },
+    {
+      "annotations": {
+        "bytes": 0,
+        "estimated_ms": 8,
+        "path": [
+          "edge_1",
+          "sensor_a"
+        ],
+        "source_node_id": "edge_1",
+        "target_node_id": "sensor_a"
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "data_type": "track_set.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_a",
+      "kind": "TRANSFER",
+      "label": "REMOTE_REFERENCE: track_set.v1",
+      "node_id": "pan_03192e701357d4e391370ad5"
+    },
+    {
+      "annotations": {
+        "execution_ms": 45,
+        "quality_score": 0.9,
+        "reused_provider_instance_id": null,
+        "sharing_key": "share_acf6481a6e104e3084a9ac900ac6b55c",
+        "startup_ms": 550
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_b",
+      "kind": "PROVIDER_OPERATION",
+      "label": "vision_object_detector_yolo @ sensor_b",
+      "node_id": "pan_07d0b98d1dcec1ed73eab18d",
+      "provider_id": "vision_object_detector_yolo",
+      "step_id": "detect_a"
+    },
+    {
+      "annotations": {
+        "execution_ms": 12,
+        "quality_score": 0.95,
+        "reused_provider_instance_id": null,
+        "sharing_key": "share_acf6481a6e104e3084a9ac900ac6b55c",
+        "startup_ms": 80
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "PROVIDER_OPERATION",
+      "label": "multi_object_tracker @ edge_1",
+      "node_id": "pan_091e7eddfecd043338252e78",
+      "provider_id": "multi_object_tracker",
+      "step_id": "track_b"
+    },
+    {
+      "annotations": {
+        "bytes": 128000,
+        "estimated_ms": 13,
+        "path": [
+          "edge_1",
+          "sensor_a"
+        ],
+        "source_node_id": "edge_1",
+        "target_node_id": "sensor_a"
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "data_type": "route_graph.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_a",
+      "kind": "TRANSFER",
+      "label": "TRANSFER: route_graph.v1",
+      "node_id": "pan_0e047b82f7dca84bbb2f9dc9"
+    },
+    {
+      "annotations": {
+        "bytes": 16000,
+        "expires_at": "2026-04-16T18:19:51Z",
+        "input_kind": "DEPLOYMENT_ARTIFACT"
+      },
+      "artifact_id": "019f9697-b32a-7fd5-8a37-5adfc8305f91",
+      "chain_id": "follows_cross_camera_reid",
+      "data_type": "camera_calibration.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_b",
+      "kind": "RETAINED_ARTIFACT",
+      "label": "calibration_a: camera_calibration.v1",
+      "node_id": "pan_1cd03d52ba0c5e744f791e77",
+      "source_id": "camera_downstream"
+    },
+    {
+      "annotations": {
+        "graph_node_id": "gn_d04a05cb424ce464f0e0e8ad"
+      },
+      "chain_id": "follows_local_with_tracker_resume",
+      "data_type": "predicate_match.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "kind": "CHECKPOINT_RESULT_SINK",
+      "label": "checkpoint 019f9697-b30b-792a-8b00-4ec120481e9a",
+      "node_id": "pan_1fc3aaa23c6e8b5faff0dfe9"
+    },
+    {
+      "annotations": {
+        "execution_ms": 5,
+        "quality_score": 1.0,
+        "reused_provider_instance_id": null,
+        "sharing_key": "share_acf6481a6e104e3084a9ac900ac6b55c",
+        "startup_ms": 20
+      },
+      "chain_id": "follows_local_tracks",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "PROVIDER_OPERATION",
+      "label": "camera_projection @ edge_1",
+      "node_id": "pan_236cbc09d60a1e97d08fa8fa",
+      "provider_id": "camera_projection",
+      "step_id": "project"
+    },
+    {
+      "annotations": {
+        "bytes": 128000,
+        "expires_at": "2026-04-16T18:19:51Z",
+        "input_kind": "DEPLOYMENT_ARTIFACT"
+      },
+      "artifact_id": "019f9697-b32a-7fd5-8a37-5adfc8305f92",
+      "chain_id": "follows_cross_camera_reid",
+      "data_type": "route_graph.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "RETAINED_ARTIFACT",
+      "label": "route_graph: route_graph.v1",
+      "node_id": "pan_23e8c4b32ad94073c57416c0"
+    },
+    {
+      "annotations": {
+        "desired": true,
+        "required": false
+      },
+      "chain_id": "follows_local_with_tracker_resume",
+      "data_type": "pair_trajectory.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "kind": "CONTINUATION_SINK",
+      "label": "retain pair_trajectory.v1",
+      "node_id": "pan_245e1b342bc8aed9bc79a922"
+    },
+    {
+      "annotations": {
+        "bytes": 250000,
+        "estimated_ms": 23,
+        "path": [
+          "edge_1",
+          "sensor_b"
+        ],
+        "source_node_id": "edge_1",
+        "target_node_id": "sensor_b"
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "data_type": "track_set.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_b",
+      "kind": "TRANSFER",
+      "label": "TRANSFER: track_set.v1",
+      "node_id": "pan_2e47664ae705ee6d9db2e6b3"
+    },
+    {
+      "annotations": {
+        "graph_node_id": "gn_d04a05cb424ce464f0e0e8ad"
+      },
+      "chain_id": "follows_local_with_tracker_resume",
+      "data_type": "predicate_match.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "kind": "CHECKPOINT_RESULT_SINK",
+      "label": "checkpoint 019f9697-b30b-792a-8b00-4ec120481e9a",
+      "node_id": "pan_30609e5ea7262fb8622967af"
+    },
+    {
+      "annotations": {
+        "execution_ms": 10,
+        "quality_score": 0.94,
+        "reused_provider_instance_id": null,
+        "sharing_key": "share_acf6481a6e104e3084a9ac900ac6b55c",
+        "startup_ms": 20
+      },
+      "chain_id": "follows_local_with_tracker_resume",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_a",
+      "kind": "PROVIDER_OPERATION",
+      "label": "follows_local_geometry @ sensor_a",
+      "node_id": "pan_3117080e707477e0aa599678",
+      "provider_id": "follows_local_geometry",
+      "step_id": "follows"
+    },
+    {
+      "annotations": {
+        "bytes": 500000,
+        "estimated_ms": 36,
+        "path": [
+          "sensor_b",
+          "edge_1"
+        ],
+        "source_node_id": "sensor_b",
+        "target_node_id": "edge_1"
+      },
+      "chain_id": "follows_local_tracks",
+      "data_type": "detection_set.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "TRANSFER",
+      "label": "TRANSFER: detection_set.v1",
+      "node_id": "pan_34cfef732c44d80d1b6217bb"
+    },
+    {
+      "annotations": {
+        "bytes": 5000000,
+        "estimated_ms": 208,
+        "path": [
+          "sensor_a",
+          "edge_1"
+        ],
+        "source_node_id": "sensor_a",
+        "target_node_id": "edge_1"
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "data_type": "image_crop_set.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "TRANSFER",
+      "label": "TRANSFER: image_crop_set.v1",
+      "node_id": "pan_376abd2f8f6bb28d705a1205"
+    },
+    {
+      "annotations": {
+        "execution_ms": 45,
+        "quality_score": 0.9,
+        "reused_provider_instance_id": null,
+        "sharing_key": "share_acf6481a6e104e3084a9ac900ac6b55c",
+        "startup_ms": 550
+      },
+      "chain_id": "follows_local_tracks",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_b",
+      "kind": "PROVIDER_OPERATION",
+      "label": "vision_object_detector_yolo @ sensor_b",
+      "node_id": "pan_3927802678885ebec499273d",
+      "provider_id": "vision_object_detector_yolo",
+      "step_id": "detect"
+    },
+    {
+      "annotations": {
+        "execution_ms": 12,
+        "quality_score": 0.95,
+        "reused_provider_instance_id": null,
+        "sharing_key": "share_acf6481a6e104e3084a9ac900ac6b55c",
+        "startup_ms": 80
+      },
+      "chain_id": "follows_local_tracks",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "PROVIDER_OPERATION",
+      "label": "multi_object_tracker @ edge_1",
+      "node_id": "pan_3955fb2c5a40241e858c1ffb",
+      "provider_id": "multi_object_tracker",
+      "step_id": "track"
+    },
+    {
+      "annotations": {
+        "execution_ms": 12,
+        "quality_score": 0.95,
+        "reused_provider_instance_id": null,
+        "sharing_key": "share_acf6481a6e104e3084a9ac900ac6b55c",
+        "startup_ms": 80
+      },
+      "chain_id": "follows_local_with_tracker_resume",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "PROVIDER_OPERATION",
+      "label": "multi_object_tracker @ edge_1",
+      "node_id": "pan_3be10f687acfe930bf026cde",
+      "provider_id": "multi_object_tracker",
+      "step_id": "track"
+    },
+    {
+      "annotations": {
+        "bytes": 16000,
+        "expires_at": "2026-04-16T18:19:51Z",
+        "input_kind": "DEPLOYMENT_ARTIFACT"
+      },
+      "artifact_id": "019f9697-b32a-7fd5-8a37-5adfc8305f90",
+      "chain_id": "follows_cross_camera_reid",
+      "data_type": "camera_calibration.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_a",
+      "kind": "RETAINED_ARTIFACT",
+      "label": "calibration_b: camera_calibration.v1",
+      "node_id": "pan_3c238439ccc9e7826007479f",
+      "source_id": "camera_mobile"
+    },
+    {
+      "annotations": {
+        "bytes": 5000000,
+        "estimated_ms": 208,
+        "path": [
+          "sensor_a",
+          "edge_1"
+        ],
+        "source_node_id": "sensor_a",
+        "target_node_id": "edge_1"
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "data_type": "image_crop_set.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "TRANSFER",
+      "label": "TRANSFER: image_crop_set.v1",
+      "node_id": "pan_3c4e31ac19fb059e4be30fcd"
+    },
+    {
+      "annotations": {
+        "bytes": 500000,
+        "estimated_ms": 36,
+        "path": [
+          "sensor_b",
+          "edge_1"
+        ],
+        "source_node_id": "sensor_b",
+        "target_node_id": "edge_1"
+      },
+      "chain_id": "follows_local_tracks",
+      "data_type": "detection_set.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "TRANSFER",
+      "label": "TRANSFER: detection_set.v1",
+      "node_id": "pan_3f821d933491a2fa3d4552bc"
+    },
+    {
+      "annotations": {
+        "bytes": 0,
+        "estimated_ms": 10,
+        "path": [
+          "sensor_b",
+          "edge_1"
+        ],
+        "source_node_id": "sensor_b",
+        "target_node_id": "edge_1"
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "data_type": "vehicle_reid_embedding_set.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "TRANSFER",
+      "label": "REMOTE_REFERENCE: vehicle_reid_embedding_set.v1",
+      "node_id": "pan_4160fd5af8a9dda3ad396f31"
+    },
+    {
+      "annotations": {
+        "bytes": 16000,
+        "expires_at": "2026-04-16T18:19:51Z",
+        "input_kind": "DEPLOYMENT_ARTIFACT"
+      },
+      "artifact_id": "019f9697-b32a-7fd5-8a37-5adfc8305f91",
+      "chain_id": "follows_local_tracks",
+      "data_type": "camera_calibration.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_b",
+      "kind": "RETAINED_ARTIFACT",
+      "label": "calibration: camera_calibration.v1",
+      "node_id": "pan_431b0ab39f771e9591a05c4a",
+      "source_id": "camera_downstream"
+    },
+    {
+      "annotations": {
+        "bytes": 20000000,
+        "expires_at": null,
+        "input_kind": "LIVE_SOURCE"
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "data_type": "raw_video_frames.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_a",
+      "kind": "LIVE_SOURCE",
+      "label": "video_b: raw_video_frames.v1",
+      "node_id": "pan_43c10e63e3d9f8882457d357",
+      "source_id": "camera_mobile"
+    },
+    {
+      "annotations": {
+        "bytes": 20000000,
+        "expires_at": null,
+        "input_kind": "LIVE_SOURCE"
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "data_type": "raw_video_frames.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_b",
+      "kind": "LIVE_SOURCE",
+      "label": "video_a: raw_video_frames.v1",
+      "node_id": "pan_477db23a2e9e6f609d7efb4f",
+      "source_id": "camera_downstream"
+    },
+    {
+      "annotations": {
+        "execution_ms": 10,
+        "quality_score": 0.94,
+        "reused_provider_instance_id": null,
+        "sharing_key": "share_acf6481a6e104e3084a9ac900ac6b55c",
+        "startup_ms": 20
+      },
+      "chain_id": "follows_local_with_tracker_resume",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "PROVIDER_OPERATION",
+      "label": "follows_local_geometry @ edge_1",
+      "node_id": "pan_488c3908c22e46e1eba4861b",
+      "provider_id": "follows_local_geometry",
+      "step_id": "follows"
+    },
+    {
+      "annotations": {
+        "desired": true,
+        "required": false
+      },
+      "chain_id": "follows_local_with_tracker_resume",
+      "data_type": "pair_trajectory.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "kind": "CONTINUATION_SINK",
+      "label": "retain pair_trajectory.v1",
+      "node_id": "pan_49a2a7479ec6e29fe2a34275"
+    },
+    {
+      "annotations": {
+        "graph_node_id": "gn_d04a05cb424ce464f0e0e8ad"
+      },
+      "chain_id": "follows_local_tracks",
+      "data_type": "predicate_match.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "kind": "CHECKPOINT_RESULT_SINK",
+      "label": "checkpoint 019f9697-b30b-792a-8b00-4ec120481e9a",
+      "node_id": "pan_4d4c0b9552a01cfc3c38fc1f"
+    },
+    {
+      "annotations": {
+        "execution_ms": 12,
+        "quality_score": 0.95,
+        "reused_provider_instance_id": null,
+        "sharing_key": "share_acf6481a6e104e3084a9ac900ac6b55c",
+        "startup_ms": 80
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "PROVIDER_OPERATION",
+      "label": "multi_object_tracker @ edge_1",
+      "node_id": "pan_4db92db570bbb79b71d4fbab",
+      "provider_id": "multi_object_tracker",
+      "step_id": "track_a"
+    },
+    {
+      "annotations": {
+        "bytes": 0,
+        "estimated_ms": 10,
+        "path": [
+          "sensor_b",
+          "edge_1"
+        ],
+        "source_node_id": "sensor_b",
+        "target_node_id": "edge_1"
+      },
+      "chain_id": "follows_local_with_tracker_resume",
+      "data_type": "camera_calibration.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "TRANSFER",
+      "label": "REMOTE_REFERENCE: camera_calibration.v1",
+      "node_id": "pan_4dbb4a01868f198d1f671a5a"
+    },
+    {
+      "annotations": {
+        "desired": true,
+        "required": false
+      },
+      "chain_id": "follows_local_tracks",
+      "data_type": "pair_trajectory.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "kind": "CONTINUATION_SINK",
+      "label": "retain pair_trajectory.v1",
+      "node_id": "pan_4ed14966f9893a0f0b0968fb"
+    },
+    {
+      "annotations": {
+        "bytes": 18000000,
+        "expires_at": "2026-04-16T18:19:51Z",
+        "input_kind": "RETAINED_ARTIFACT"
+      },
+      "artifact_id": "019f9697-b32a-7fd5-8a37-5adfc8305f94",
+      "chain_id": "follows_local_tracks",
+      "data_type": "raw_video_frames.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_b",
+      "kind": "RETAINED_ARTIFACT",
+      "label": "video: raw_video_frames.v1",
+      "node_id": "pan_5937786492b5fb9ffb887225",
+      "source_id": "camera_downstream"
+    },
+    {
+      "annotations": {
+        "bytes": 16000,
+        "estimated_ms": 8,
+        "path": [
+          "sensor_a",
+          "edge_1"
+        ],
+        "source_node_id": "sensor_a",
+        "target_node_id": "edge_1"
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "data_type": "camera_calibration.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "TRANSFER",
+      "label": "TRANSFER: camera_calibration.v1",
+      "node_id": "pan_59fa30c53c4ff18a53311488"
+    },
+    {
+      "annotations": {
+        "execution_ms": 18,
+        "quality_score": 0.98,
+        "reused_provider_instance_id": null,
+        "sharing_key": "share_acf6481a6e104e3084a9ac900ac6b55c",
+        "startup_ms": 25
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_b",
+      "kind": "PROVIDER_OPERATION",
+      "label": "track_crop_extractor @ sensor_b",
+      "node_id": "pan_5bc686fa93c46c9094dacd5e",
+      "provider_id": "track_crop_extractor",
+      "step_id": "crops_a"
+    },
+    {
+      "annotations": {
+        "execution_ms": 5,
+        "quality_score": 1.0,
+        "reused_provider_instance_id": null,
+        "sharing_key": "share_acf6481a6e104e3084a9ac900ac6b55c",
+        "startup_ms": 20
+      },
+      "chain_id": "follows_local_with_tracker_resume",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "PROVIDER_OPERATION",
+      "label": "camera_projection @ edge_1",
+      "node_id": "pan_5c01914e2e10b44bc5ab2f7f",
+      "provider_id": "camera_projection",
+      "step_id": "project"
+    },
+    {
+      "annotations": {
+        "execution_ms": 10,
+        "quality_score": 0.94,
+        "reused_provider_instance_id": null,
+        "sharing_key": "share_acf6481a6e104e3084a9ac900ac6b55c",
+        "startup_ms": 20
+      },
+      "chain_id": "follows_local_tracks",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_a",
+      "kind": "PROVIDER_OPERATION",
+      "label": "follows_local_geometry @ sensor_a",
+      "node_id": "pan_5e6e1edcd1b18eee0f00b4b7",
+      "provider_id": "follows_local_geometry",
+      "step_id": "follows"
+    },
+    {
+      "annotations": {
+        "execution_ms": 45,
+        "quality_score": 0.9,
+        "reused_provider_instance_id": null,
+        "sharing_key": "share_acf6481a6e104e3084a9ac900ac6b55c",
+        "startup_ms": 550
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_a",
+      "kind": "PROVIDER_OPERATION",
+      "label": "vision_object_detector_yolo @ sensor_a",
+      "node_id": "pan_6056441ef68bea41a0dba1e1",
+      "provider_id": "vision_object_detector_yolo",
+      "step_id": "detect_b"
+    },
+    {
+      "annotations": {
+        "execution_ms": 18,
+        "quality_score": 0.98,
+        "reused_provider_instance_id": null,
+        "sharing_key": "share_acf6481a6e104e3084a9ac900ac6b55c",
+        "startup_ms": 25
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_a",
+      "kind": "PROVIDER_OPERATION",
+      "label": "track_crop_extractor @ sensor_a",
+      "node_id": "pan_649188b068ffa815e65d1d59",
+      "provider_id": "track_crop_extractor",
+      "step_id": "crops_b"
+    },
+    {
+      "annotations": {
+        "bytes": 16000,
+        "expires_at": "2026-04-16T18:19:51Z",
+        "input_kind": "DEPLOYMENT_ARTIFACT"
+      },
+      "artifact_id": "019f9697-b32a-7fd5-8a37-5adfc8305f91",
+      "chain_id": "follows_local_with_tracker_resume",
+      "data_type": "camera_calibration.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_b",
+      "kind": "RETAINED_ARTIFACT",
+      "label": "calibration: camera_calibration.v1",
+      "node_id": "pan_67312f07fb78d0acdb0d1f16",
+      "source_id": "camera_downstream"
+    },
+    {
+      "annotations": {
+        "graph_node_id": "gn_d04a05cb424ce464f0e0e8ad"
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "data_type": "predicate_match.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "kind": "CHECKPOINT_RESULT_SINK",
+      "label": "checkpoint 019f9697-b30b-792a-8b00-4ec120481e9a",
+      "node_id": "pan_715596346a6ed9a0099a1cc5"
+    },
+    {
+      "annotations": {
+        "execution_ms": 5,
+        "quality_score": 1.0,
+        "reused_provider_instance_id": null,
+        "sharing_key": "share_acf6481a6e104e3084a9ac900ac6b55c",
+        "startup_ms": 20
+      },
+      "chain_id": "follows_local_tracks",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "PROVIDER_OPERATION",
+      "label": "camera_projection @ edge_1",
+      "node_id": "pan_756d292bf7f1be63ccab29ef",
+      "provider_id": "camera_projection",
+      "step_id": "project"
+    },
+    {
+      "annotations": {
+        "execution_ms": 35,
+        "quality_score": 0.88,
+        "reused_provider_instance_id": null,
+        "sharing_key": "share_acf6481a6e104e3084a9ac900ac6b55c",
+        "startup_ms": 300
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_b",
+      "kind": "PROVIDER_OPERATION",
+      "label": "vehicle_reid_descriptor @ sensor_b",
+      "node_id": "pan_76412575f5e26ec1002cad79",
+      "provider_id": "vehicle_reid_descriptor",
+      "step_id": "reid_a"
+    },
+    {
+      "annotations": {
+        "bytes": 0,
+        "estimated_ms": 10,
+        "path": [
+          "sensor_b",
+          "edge_1"
+        ],
+        "source_node_id": "sensor_b",
+        "target_node_id": "edge_1"
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "data_type": "vehicle_reid_embedding_set.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "TRANSFER",
+      "label": "REMOTE_REFERENCE: vehicle_reid_embedding_set.v1",
+      "node_id": "pan_78cffffa81dcec5c40f7351d"
+    },
+    {
+      "annotations": {
+        "execution_ms": 45,
+        "quality_score": 0.9,
+        "reused_provider_instance_id": null,
+        "sharing_key": "share_acf6481a6e104e3084a9ac900ac6b55c",
+        "startup_ms": 550
+      },
+      "chain_id": "follows_local_with_tracker_resume",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_b",
+      "kind": "PROVIDER_OPERATION",
+      "label": "vision_object_detector_yolo @ sensor_b",
+      "node_id": "pan_7a974d7544a6003bc212a5a0",
+      "provider_id": "vision_object_detector_yolo",
+      "step_id": "detect"
+    },
+    {
+      "annotations": {
+        "execution_ms": 35,
+        "quality_score": 0.88,
+        "reused_provider_instance_id": null,
+        "sharing_key": "share_acf6481a6e104e3084a9ac900ac6b55c",
+        "startup_ms": 300
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "PROVIDER_OPERATION",
+      "label": "vehicle_reid_descriptor @ edge_1",
+      "node_id": "pan_7be9aa5b411a46c1ab1411c7",
+      "provider_id": "vehicle_reid_descriptor",
+      "step_id": "reid_b"
+    },
+    {
+      "annotations": {
+        "execution_ms": 45,
+        "quality_score": 0.9,
+        "reused_provider_instance_id": null,
+        "sharing_key": "share_acf6481a6e104e3084a9ac900ac6b55c",
+        "startup_ms": 550
+      },
+      "chain_id": "follows_local_tracks",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_b",
+      "kind": "PROVIDER_OPERATION",
+      "label": "vision_object_detector_yolo @ sensor_b",
+      "node_id": "pan_7ce2ac16dd81d04c05a68d86",
+      "provider_id": "vision_object_detector_yolo",
+      "step_id": "detect"
+    },
+    {
+      "annotations": {
+        "execution_ms": 12,
+        "quality_score": 0.95,
+        "reused_provider_instance_id": null,
+        "sharing_key": "share_acf6481a6e104e3084a9ac900ac6b55c",
+        "startup_ms": 80
+      },
+      "chain_id": "follows_local_with_tracker_resume",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "PROVIDER_OPERATION",
+      "label": "multi_object_tracker @ edge_1",
+      "node_id": "pan_7edb8fdda06d948c7a208db4",
+      "provider_id": "multi_object_tracker",
+      "step_id": "track"
+    },
+    {
+      "annotations": {
+        "execution_ms": 20,
+        "quality_score": 0.86,
+        "reused_provider_instance_id": null,
+        "sharing_key": "share_acf6481a6e104e3084a9ac900ac6b55c",
+        "startup_ms": 50
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "PROVIDER_OPERATION",
+      "label": "cross_sensor_identity_association @ edge_1",
+      "node_id": "pan_800d16d94fdcc2a6fe174833",
+      "provider_id": "cross_sensor_identity_association",
+      "step_id": "associate"
+    },
+    {
+      "annotations": {
+        "bytes": 20000000,
+        "expires_at": null,
+        "input_kind": "LIVE_SOURCE"
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "data_type": "raw_video_frames.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_b",
+      "kind": "LIVE_SOURCE",
+      "label": "video_a: raw_video_frames.v1",
+      "node_id": "pan_80488c65356a2f8f99166be3",
+      "source_id": "camera_downstream"
+    },
+    {
+      "annotations": {
+        "bytes": 300000,
+        "estimated_ms": 20,
+        "path": [
+          "edge_1",
+          "sensor_a"
+        ],
+        "source_node_id": "edge_1",
+        "target_node_id": "sensor_a"
+      },
+      "chain_id": "follows_local_with_tracker_resume",
+      "data_type": "projected_track_set.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_a",
+      "kind": "TRANSFER",
+      "label": "TRANSFER: projected_track_set.v1",
+      "node_id": "pan_817b3e9b531b038e8702c1d5"
+    },
+    {
+      "annotations": {
+        "bytes": 16000,
+        "expires_at": "2026-04-16T18:19:51Z",
+        "input_kind": "DEPLOYMENT_ARTIFACT"
+      },
+      "artifact_id": "019f9697-b32a-7fd5-8a37-5adfc8305f90",
+      "chain_id": "follows_cross_camera_reid",
+      "data_type": "camera_calibration.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_a",
+      "kind": "RETAINED_ARTIFACT",
+      "label": "calibration_b: camera_calibration.v1",
+      "node_id": "pan_81e56cef5953ffafb704e8bb",
+      "source_id": "camera_mobile"
+    },
+    {
+      "annotations": {
+        "execution_ms": 12,
+        "quality_score": 0.95,
+        "reused_provider_instance_id": null,
+        "sharing_key": "share_acf6481a6e104e3084a9ac900ac6b55c",
+        "startup_ms": 80
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "PROVIDER_OPERATION",
+      "label": "multi_object_tracker @ edge_1",
+      "node_id": "pan_8dc7c0cb63aa47c6318a78e2",
+      "provider_id": "multi_object_tracker",
+      "step_id": "track_b"
+    },
+    {
+      "annotations": {
+        "bytes": 500000,
+        "estimated_ms": 36,
+        "path": [
+          "sensor_b",
+          "edge_1"
+        ],
+        "source_node_id": "sensor_b",
+        "target_node_id": "edge_1"
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "data_type": "detection_set.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "TRANSFER",
+      "label": "TRANSFER: detection_set.v1",
+      "node_id": "pan_8e4d5de65815b5d5f447c3de"
+    },
+    {
+      "annotations": {
+        "execution_ms": 5,
+        "quality_score": 1.0,
+        "reused_provider_instance_id": null,
+        "sharing_key": "share_acf6481a6e104e3084a9ac900ac6b55c",
+        "startup_ms": 20
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "PROVIDER_OPERATION",
+      "label": "camera_projection @ edge_1",
+      "node_id": "pan_9132f7f7b3095315d96febef",
+      "provider_id": "camera_projection",
+      "step_id": "project_a"
+    },
+    {
+      "annotations": {
+        "execution_ms": 35,
+        "quality_score": 0.88,
+        "reused_provider_instance_id": null,
+        "sharing_key": "share_acf6481a6e104e3084a9ac900ac6b55c",
+        "startup_ms": 300
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "PROVIDER_OPERATION",
+      "label": "vehicle_reid_descriptor @ edge_1",
+      "node_id": "pan_9582e031ac213e268888b736",
+      "provider_id": "vehicle_reid_descriptor",
+      "step_id": "reid_b"
+    },
+    {
+      "annotations": {
+        "bytes": 300000,
+        "estimated_ms": 20,
+        "path": [
+          "edge_1",
+          "sensor_a"
+        ],
+        "source_node_id": "edge_1",
+        "target_node_id": "sensor_a"
+      },
+      "chain_id": "follows_local_tracks",
+      "data_type": "projected_track_set.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_a",
+      "kind": "TRANSFER",
+      "label": "TRANSFER: projected_track_set.v1",
+      "node_id": "pan_975a28712de70ca89cba88d1"
+    },
+    {
+      "annotations": {
+        "bytes": 128000,
+        "expires_at": "2026-04-16T18:19:51Z",
+        "input_kind": "DEPLOYMENT_ARTIFACT"
+      },
+      "artifact_id": "019f9697-b32a-7fd5-8a37-5adfc8305f92",
+      "chain_id": "follows_cross_camera_reid",
+      "data_type": "route_graph.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "RETAINED_ARTIFACT",
+      "label": "route_graph: route_graph.v1",
+      "node_id": "pan_988c144a0d7f10b083c442d7"
+    },
+    {
+      "annotations": {
+        "bytes": 16000,
+        "expires_at": "2026-04-16T18:19:51Z",
+        "input_kind": "DEPLOYMENT_ARTIFACT"
+      },
+      "artifact_id": "019f9697-b32a-7fd5-8a37-5adfc8305f91",
+      "chain_id": "follows_local_tracks",
+      "data_type": "camera_calibration.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_b",
+      "kind": "RETAINED_ARTIFACT",
+      "label": "calibration: camera_calibration.v1",
+      "node_id": "pan_98dc9737229fa2f2db8fcf0a",
+      "source_id": "camera_downstream"
+    },
+    {
+      "annotations": {
+        "desired": true,
+        "required": false
+      },
+      "chain_id": "follows_local_with_tracker_resume",
+      "data_type": "tracker_state_snapshot.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "kind": "CONTINUATION_SINK",
+      "label": "retain tracker_state_snapshot.v1",
+      "node_id": "pan_9a5ced58dcac49afe8a50f81"
+    },
+    {
+      "annotations": {
+        "bytes": 0,
+        "estimated_ms": 8,
+        "path": [
+          "edge_1",
+          "sensor_a"
+        ],
+        "source_node_id": "edge_1",
+        "target_node_id": "sensor_a"
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "data_type": "track_set.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_a",
+      "kind": "TRANSFER",
+      "label": "REMOTE_REFERENCE: track_set.v1",
+      "node_id": "pan_9a60d6c531525263d56f7041"
+    },
+    {
+      "annotations": {
+        "execution_ms": 20,
+        "quality_score": 0.86,
+        "reused_provider_instance_id": null,
+        "sharing_key": "share_acf6481a6e104e3084a9ac900ac6b55c",
+        "startup_ms": 50
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "PROVIDER_OPERATION",
+      "label": "cross_sensor_identity_association @ edge_1",
+      "node_id": "pan_9aaa2462da517fe36777c600",
+      "provider_id": "cross_sensor_identity_association",
+      "step_id": "associate"
+    },
+    {
+      "annotations": {
+        "bytes": 18000000,
+        "expires_at": "2026-04-16T18:19:51Z",
+        "input_kind": "RETAINED_ARTIFACT"
+      },
+      "artifact_id": "019f9697-b32a-7fd5-8a37-5adfc8305f94",
+      "chain_id": "follows_local_with_tracker_resume",
+      "data_type": "raw_video_frames.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_b",
+      "kind": "RETAINED_ARTIFACT",
+      "label": "video: raw_video_frames.v1",
+      "node_id": "pan_9adac6140248417ac464e78a",
+      "source_id": "camera_downstream"
+    },
+    {
+      "annotations": {
+        "execution_ms": 35,
+        "quality_score": 0.88,
+        "reused_provider_instance_id": null,
+        "sharing_key": "share_acf6481a6e104e3084a9ac900ac6b55c",
+        "startup_ms": 300
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_b",
+      "kind": "PROVIDER_OPERATION",
+      "label": "vehicle_reid_descriptor @ sensor_b",
+      "node_id": "pan_a3207962264de5e2bd7e8fae",
+      "provider_id": "vehicle_reid_descriptor",
+      "step_id": "reid_a"
+    },
+    {
+      "annotations": {
+        "graph_node_id": "gn_d04a05cb424ce464f0e0e8ad"
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "data_type": "predicate_match.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "kind": "CHECKPOINT_RESULT_SINK",
+      "label": "checkpoint 019f9697-b30b-792a-8b00-4ec120481e9a",
+      "node_id": "pan_a6e8e475420c9500847e2e9c"
+    },
+    {
+      "annotations": {
+        "bytes": 18000000,
+        "expires_at": "2026-04-16T18:19:51Z",
+        "input_kind": "RETAINED_ARTIFACT"
+      },
+      "artifact_id": "019f9697-b32a-7fd5-8a37-5adfc8305f94",
+      "chain_id": "follows_local_with_tracker_resume",
+      "data_type": "raw_video_frames.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_b",
+      "kind": "RETAINED_ARTIFACT",
+      "label": "video: raw_video_frames.v1",
+      "node_id": "pan_a8a4473e2b16037516f10eff",
+      "source_id": "camera_downstream"
+    },
+    {
+      "annotations": {
+        "bytes": 0,
+        "estimated_ms": 10,
+        "path": [
+          "sensor_b",
+          "edge_1"
+        ],
+        "source_node_id": "sensor_b",
+        "target_node_id": "edge_1"
+      },
+      "chain_id": "follows_local_tracks",
+      "data_type": "camera_calibration.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "TRANSFER",
+      "label": "REMOTE_REFERENCE: camera_calibration.v1",
+      "node_id": "pan_aed8a31d0040873809a7dab1"
+    },
+    {
+      "annotations": {
+        "execution_ms": 5,
+        "quality_score": 1.0,
+        "reused_provider_instance_id": null,
+        "sharing_key": "share_acf6481a6e104e3084a9ac900ac6b55c",
+        "startup_ms": 20
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "PROVIDER_OPERATION",
+      "label": "camera_projection @ edge_1",
+      "node_id": "pan_b2770147f0f7c9bc13d19971",
+      "provider_id": "camera_projection",
+      "step_id": "project_a"
+    },
+    {
+      "annotations": {
+        "execution_ms": 10,
+        "quality_score": 0.94,
+        "reused_provider_instance_id": null,
+        "sharing_key": "share_acf6481a6e104e3084a9ac900ac6b55c",
+        "startup_ms": 20
+      },
+      "chain_id": "follows_local_tracks",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "PROVIDER_OPERATION",
+      "label": "follows_local_geometry @ edge_1",
+      "node_id": "pan_b557bd79d0c2c98acaef222b",
+      "provider_id": "follows_local_geometry",
+      "step_id": "follows"
+    },
+    {
+      "annotations": {
+        "bytes": 500000,
+        "estimated_ms": 28,
+        "path": [
+          "sensor_a",
+          "edge_1"
+        ],
+        "source_node_id": "sensor_a",
+        "target_node_id": "edge_1"
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "data_type": "detection_set.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "TRANSFER",
+      "label": "TRANSFER: detection_set.v1",
+      "node_id": "pan_b5f85cc8aa93488052b67674"
+    },
+    {
+      "annotations": {
+        "execution_ms": 45,
+        "quality_score": 0.9,
+        "reused_provider_instance_id": null,
+        "sharing_key": "share_acf6481a6e104e3084a9ac900ac6b55c",
+        "startup_ms": 550
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_b",
+      "kind": "PROVIDER_OPERATION",
+      "label": "vision_object_detector_yolo @ sensor_b",
+      "node_id": "pan_b72d4a90a701a46bbab33300",
+      "provider_id": "vision_object_detector_yolo",
+      "step_id": "detect_a"
+    },
+    {
+      "annotations": {
+        "bytes": 16000,
+        "estimated_ms": 10,
+        "path": [
+          "sensor_b",
+          "edge_1"
+        ],
+        "source_node_id": "sensor_b",
+        "target_node_id": "edge_1"
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "data_type": "camera_calibration.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "TRANSFER",
+      "label": "TRANSFER: camera_calibration.v1",
+      "node_id": "pan_b920426812b344f47104dc74"
+    },
+    {
+      "annotations": {
+        "bytes": 300000,
+        "estimated_ms": 20,
+        "path": [
+          "edge_1",
+          "sensor_a"
+        ],
+        "source_node_id": "edge_1",
+        "target_node_id": "sensor_a"
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "data_type": "projected_track_set.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_a",
+      "kind": "TRANSFER",
+      "label": "TRANSFER: projected_track_set.v1",
+      "node_id": "pan_ba6bfdc6c04bf87a545b8268"
+    },
+    {
+      "annotations": {
+        "execution_ms": 5,
+        "quality_score": 1.0,
+        "reused_provider_instance_id": null,
+        "sharing_key": "share_acf6481a6e104e3084a9ac900ac6b55c",
+        "startup_ms": 20
+      },
+      "chain_id": "follows_local_with_tracker_resume",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "PROVIDER_OPERATION",
+      "label": "camera_projection @ edge_1",
+      "node_id": "pan_bc001a96bb463f43ad669246",
+      "provider_id": "camera_projection",
+      "step_id": "project"
+    },
+    {
+      "annotations": {
+        "bytes": 300000,
+        "estimated_ms": 20,
+        "path": [
+          "edge_1",
+          "sensor_a"
+        ],
+        "source_node_id": "edge_1",
+        "target_node_id": "sensor_a"
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "data_type": "projected_track_set.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_a",
+      "kind": "TRANSFER",
+      "label": "TRANSFER: projected_track_set.v1",
+      "node_id": "pan_be2dc8cb1578d2e6c7046f31"
+    },
+    {
+      "annotations": {
+        "execution_ms": 18,
+        "quality_score": 0.98,
+        "reused_provider_instance_id": null,
+        "sharing_key": "share_acf6481a6e104e3084a9ac900ac6b55c",
+        "startup_ms": 25
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_b",
+      "kind": "PROVIDER_OPERATION",
+      "label": "track_crop_extractor @ sensor_b",
+      "node_id": "pan_be62fb03cc09584a78d5e0ee",
+      "provider_id": "track_crop_extractor",
+      "step_id": "crops_a"
+    },
+    {
+      "annotations": {
+        "bytes": 0,
+        "estimated_ms": 10,
+        "path": [
+          "sensor_b",
+          "edge_1"
+        ],
+        "source_node_id": "sensor_b",
+        "target_node_id": "edge_1"
+      },
+      "chain_id": "follows_local_tracks",
+      "data_type": "camera_calibration.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "TRANSFER",
+      "label": "REMOTE_REFERENCE: camera_calibration.v1",
+      "node_id": "pan_bf828ec88521cce252ade72c"
+    },
+    {
+      "annotations": {
+        "execution_ms": 45,
+        "quality_score": 0.9,
+        "reused_provider_instance_id": null,
+        "sharing_key": "share_acf6481a6e104e3084a9ac900ac6b55c",
+        "startup_ms": 550
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_a",
+      "kind": "PROVIDER_OPERATION",
+      "label": "vision_object_detector_yolo @ sensor_a",
+      "node_id": "pan_c5c9e6ece7f077bb3269b2d0",
+      "provider_id": "vision_object_detector_yolo",
+      "step_id": "detect_b"
+    },
+    {
+      "annotations": {
+        "graph_node_id": "gn_d04a05cb424ce464f0e0e8ad"
+      },
+      "chain_id": "follows_local_tracks",
+      "data_type": "predicate_match.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "kind": "CHECKPOINT_RESULT_SINK",
+      "label": "checkpoint 019f9697-b30b-792a-8b00-4ec120481e9a",
+      "node_id": "pan_c6917f68316e42209b7a1321"
+    },
+    {
+      "annotations": {
+        "execution_ms": 12,
+        "quality_score": 0.95,
+        "reused_provider_instance_id": null,
+        "sharing_key": "share_acf6481a6e104e3084a9ac900ac6b55c",
+        "startup_ms": 80
+      },
+      "chain_id": "follows_local_tracks",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "PROVIDER_OPERATION",
+      "label": "multi_object_tracker @ edge_1",
+      "node_id": "pan_c7a81c0a4fa09202fdb38a84",
+      "provider_id": "multi_object_tracker",
+      "step_id": "track"
+    },
+    {
+      "annotations": {
+        "execution_ms": 45,
+        "quality_score": 0.9,
+        "reused_provider_instance_id": null,
+        "sharing_key": "share_acf6481a6e104e3084a9ac900ac6b55c",
+        "startup_ms": 550
+      },
+      "chain_id": "follows_local_with_tracker_resume",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_b",
+      "kind": "PROVIDER_OPERATION",
+      "label": "vision_object_detector_yolo @ sensor_b",
+      "node_id": "pan_c90de4386e83491a30ea90ab",
+      "provider_id": "vision_object_detector_yolo",
+      "step_id": "detect"
+    },
+    {
+      "annotations": {
+        "execution_ms": 12,
+        "quality_score": 0.95,
+        "reused_provider_instance_id": null,
+        "sharing_key": "share_acf6481a6e104e3084a9ac900ac6b55c",
+        "startup_ms": 80
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "PROVIDER_OPERATION",
+      "label": "multi_object_tracker @ edge_1",
+      "node_id": "pan_cce86fd428f18f528bbdc74b",
+      "provider_id": "multi_object_tracker",
+      "step_id": "track_a"
+    },
+    {
+      "annotations": {
+        "bytes": 500000,
+        "estimated_ms": 36,
+        "path": [
+          "sensor_b",
+          "edge_1"
+        ],
+        "source_node_id": "sensor_b",
+        "target_node_id": "edge_1"
+      },
+      "chain_id": "follows_local_with_tracker_resume",
+      "data_type": "detection_set.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "TRANSFER",
+      "label": "TRANSFER: detection_set.v1",
+      "node_id": "pan_d267989691f9a6f18d8ab023"
+    },
+    {
+      "annotations": {
+        "execution_ms": 15,
+        "quality_score": 0.89,
+        "reused_provider_instance_id": null,
+        "sharing_key": "share_acf6481a6e104e3084a9ac900ac6b55c",
+        "startup_ms": 30
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_a",
+      "kind": "PROVIDER_OPERATION",
+      "label": "follows_cross_sensor @ sensor_a",
+      "node_id": "pan_d2bf6cab40d543cebeb3de1a",
+      "provider_id": "follows_cross_sensor",
+      "step_id": "follows"
+    },
+    {
+      "annotations": {
+        "desired": true,
+        "required": false
+      },
+      "chain_id": "follows_local_with_tracker_resume",
+      "data_type": "tracker_state_snapshot.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "kind": "CONTINUATION_SINK",
+      "label": "retain tracker_state_snapshot.v1",
+      "node_id": "pan_d42db8cfccb8deaef412f983"
+    },
+    {
+      "annotations": {
+        "execution_ms": 15,
+        "quality_score": 0.89,
+        "reused_provider_instance_id": null,
+        "sharing_key": "share_acf6481a6e104e3084a9ac900ac6b55c",
+        "startup_ms": 30
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "PROVIDER_OPERATION",
+      "label": "follows_cross_sensor @ edge_1",
+      "node_id": "pan_d50620642d30413a05222186",
+      "provider_id": "follows_cross_sensor",
+      "step_id": "follows"
+    },
+    {
+      "annotations": {
+        "bytes": 16000,
+        "estimated_ms": 10,
+        "path": [
+          "sensor_b",
+          "edge_1"
+        ],
+        "source_node_id": "sensor_b",
+        "target_node_id": "edge_1"
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "data_type": "camera_calibration.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "TRANSFER",
+      "label": "TRANSFER: camera_calibration.v1",
+      "node_id": "pan_d8f5d13901edd2289091c84b"
+    },
+    {
+      "annotations": {
+        "bytes": 16000,
+        "estimated_ms": 8,
+        "path": [
+          "sensor_a",
+          "edge_1"
+        ],
+        "source_node_id": "sensor_a",
+        "target_node_id": "edge_1"
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "data_type": "camera_calibration.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "TRANSFER",
+      "label": "TRANSFER: camera_calibration.v1",
+      "node_id": "pan_da97fcd563cb062b3912a380"
+    },
+    {
+      "annotations": {
+        "bytes": 300000,
+        "estimated_ms": 20,
+        "path": [
+          "edge_1",
+          "sensor_a"
+        ],
+        "source_node_id": "edge_1",
+        "target_node_id": "sensor_a"
+      },
+      "chain_id": "follows_local_tracks",
+      "data_type": "projected_track_set.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_a",
+      "kind": "TRANSFER",
+      "label": "TRANSFER: projected_track_set.v1",
+      "node_id": "pan_dcb35b70093c8f370d500ed6"
+    },
+    {
+      "annotations": {
+        "bytes": 250000,
+        "estimated_ms": 23,
+        "path": [
+          "edge_1",
+          "sensor_b"
+        ],
+        "source_node_id": "edge_1",
+        "target_node_id": "sensor_b"
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "data_type": "track_set.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_b",
+      "kind": "TRANSFER",
+      "label": "TRANSFER: track_set.v1",
+      "node_id": "pan_dcf4ac79e15470aac46fde36"
+    },
+    {
+      "annotations": {
+        "bytes": 16000,
+        "expires_at": "2026-04-16T18:19:51Z",
+        "input_kind": "DEPLOYMENT_ARTIFACT"
+      },
+      "artifact_id": "019f9697-b32a-7fd5-8a37-5adfc8305f91",
+      "chain_id": "follows_local_with_tracker_resume",
+      "data_type": "camera_calibration.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_b",
+      "kind": "RETAINED_ARTIFACT",
+      "label": "calibration: camera_calibration.v1",
+      "node_id": "pan_dea4b3cc71b4155c3eee6cb6",
+      "source_id": "camera_downstream"
+    },
+    {
+      "annotations": {
+        "desired": true,
+        "required": false
+      },
+      "chain_id": "follows_local_tracks",
+      "data_type": "pair_trajectory.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "kind": "CONTINUATION_SINK",
+      "label": "retain pair_trajectory.v1",
+      "node_id": "pan_e303ef6ceabee1523043d558"
+    },
+    {
+      "annotations": {
+        "bytes": 16000,
+        "estimated_ms": 8,
+        "path": [
+          "edge_1",
+          "sensor_a"
+        ],
+        "source_node_id": "edge_1",
+        "target_node_id": "sensor_a"
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "data_type": "canonical_entity_map.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_a",
+      "kind": "TRANSFER",
+      "label": "TRANSFER: canonical_entity_map.v1",
+      "node_id": "pan_e319d55bdf8fa988addfe2bf"
+    },
+    {
+      "annotations": {
+        "execution_ms": 18,
+        "quality_score": 0.98,
+        "reused_provider_instance_id": null,
+        "sharing_key": "share_acf6481a6e104e3084a9ac900ac6b55c",
+        "startup_ms": 25
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_a",
+      "kind": "PROVIDER_OPERATION",
+      "label": "track_crop_extractor @ sensor_a",
+      "node_id": "pan_e64327852df4d2d271c701ec",
+      "provider_id": "track_crop_extractor",
+      "step_id": "crops_b"
+    },
+    {
+      "annotations": {
+        "bytes": 0,
+        "estimated_ms": 10,
+        "path": [
+          "sensor_b",
+          "edge_1"
+        ],
+        "source_node_id": "sensor_b",
+        "target_node_id": "edge_1"
+      },
+      "chain_id": "follows_local_with_tracker_resume",
+      "data_type": "camera_calibration.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "TRANSFER",
+      "label": "REMOTE_REFERENCE: camera_calibration.v1",
+      "node_id": "pan_e7b1128e4794c2ad4a98093c"
+    },
+    {
+      "annotations": {
+        "execution_ms": 5,
+        "quality_score": 1.0,
+        "reused_provider_instance_id": null,
+        "sharing_key": "share_acf6481a6e104e3084a9ac900ac6b55c",
+        "startup_ms": 20
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "PROVIDER_OPERATION",
+      "label": "camera_projection @ edge_1",
+      "node_id": "pan_e7f6d3e8177150df20f9ba53",
+      "provider_id": "camera_projection",
+      "step_id": "project_b"
+    },
+    {
+      "annotations": {
+        "bytes": 300000,
+        "estimated_ms": 20,
+        "path": [
+          "edge_1",
+          "sensor_a"
+        ],
+        "source_node_id": "edge_1",
+        "target_node_id": "sensor_a"
+      },
+      "chain_id": "follows_local_with_tracker_resume",
+      "data_type": "projected_track_set.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_a",
+      "kind": "TRANSFER",
+      "label": "TRANSFER: projected_track_set.v1",
+      "node_id": "pan_ed1586aa048de1458d37d135"
+    },
+    {
+      "annotations": {
+        "bytes": 18000000,
+        "expires_at": "2026-04-16T18:19:51Z",
+        "input_kind": "RETAINED_ARTIFACT"
+      },
+      "artifact_id": "019f9697-b32a-7fd5-8a37-5adfc8305f94",
+      "chain_id": "follows_local_tracks",
+      "data_type": "raw_video_frames.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_b",
+      "kind": "RETAINED_ARTIFACT",
+      "label": "video: raw_video_frames.v1",
+      "node_id": "pan_f1acf8a07f3e1e5ac2bb860b",
+      "source_id": "camera_downstream"
+    },
+    {
+      "annotations": {
+        "bytes": 20000000,
+        "expires_at": null,
+        "input_kind": "LIVE_SOURCE"
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "data_type": "raw_video_frames.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "sensor_a",
+      "kind": "LIVE_SOURCE",
+      "label": "video_b: raw_video_frames.v1",
+      "node_id": "pan_f8ec8d4ba8532a1c84114413",
+      "source_id": "camera_mobile"
+    },
+    {
+      "annotations": {
+        "execution_ms": 5,
+        "quality_score": 1.0,
+        "reused_provider_instance_id": null,
+        "sharing_key": "share_acf6481a6e104e3084a9ac900ac6b55c",
+        "startup_ms": 20
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "PROVIDER_OPERATION",
+      "label": "camera_projection @ edge_1",
+      "node_id": "pan_fd0e85dfed7ef9dd210c3f6b",
+      "provider_id": "camera_projection",
+      "step_id": "project_b"
+    },
+    {
+      "annotations": {
+        "bytes": 500000,
+        "estimated_ms": 36,
+        "path": [
+          "sensor_b",
+          "edge_1"
+        ],
+        "source_node_id": "sensor_b",
+        "target_node_id": "edge_1"
+      },
+      "chain_id": "follows_local_with_tracker_resume",
+      "data_type": "detection_set.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "TRANSFER",
+      "label": "TRANSFER: detection_set.v1",
+      "node_id": "pan_fdcab077c6b7b7e4b75077f7"
+    },
+    {
+      "annotations": {
+        "bytes": 500000,
+        "estimated_ms": 28,
+        "path": [
+          "sensor_a",
+          "edge_1"
+        ],
+        "source_node_id": "sensor_a",
+        "target_node_id": "edge_1"
+      },
+      "chain_id": "follows_cross_camera_reid",
+      "data_type": "detection_set.v1",
+      "demand_id": "019f9697-b30b-792a-8b00-4ec120481e9c",
+      "execution_node_id": "edge_1",
+      "kind": "TRANSFER",
+      "label": "TRANSFER: detection_set.v1",
+      "node_id": "pan_fdef0ee2bf1af252d6c56228"
+    }
+  ],
+  "pruned": []
+}

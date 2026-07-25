@@ -1,0 +1,81 @@
+{
+  "buffer_expires_at": "2026-04-14T18:20:51Z",
+  "created_at": "2026-04-14T18:19:51Z",
+  "demand": {
+    "acceptable_output_types": [
+      "predicate_match.v1"
+    ],
+    "binding_policy": {
+      "fork_unit": "CANONICAL_BINDING_TUPLE",
+      "forkable_roles": [],
+      "role_modes": {}
+    },
+    "bound_roles": {
+      "zone": "store"
+    },
+    "cancellation_scope": "BRANCH",
+    "checkpoint_id": "019f96c3-f30d-73c2-b35e-6c32eea27e8f",
+    "continuation_requirements": [],
+    "deadline": {
+      "latest_useful_completion": "2026-04-14T18:20:01Z"
+    },
+    "demand_id": "019f96c3-f30e-77ba-a6c4-cfed87cd16c5",
+    "desired_continuation_types": [],
+    "eligible_regions": [],
+    "eligible_source_ids": [
+      "microphone_store"
+    ],
+    "event_time_interval": {
+      "end": "2026-04-14T18:19:42Z",
+      "start": "2026-04-14T18:19:41Z"
+    },
+    "frontier_id": "019f96c3-f30d-73c2-b35e-6c32eea27e8e",
+    "graph_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "graph_node_id": "audio_branch",
+    "hard_constraints": {
+      "allowed_node_ids": [
+        "sensor_a"
+      ],
+      "allowed_regions": [],
+      "raw_data_must_remain_local": true,
+      "required_access_modes": []
+    },
+    "hypothesis_id": "019f96c3-f30b-7807-a4d1-013304a9baa1",
+    "hypothesis_version": 1,
+    "lateness_policy": {
+      "allowed_lateness_ms": 0
+    },
+    "request_id": "fixture_a",
+    "required_capabilities": [],
+    "required_input_artifact_types": [
+      "audio_segment.v1"
+    ],
+    "schema_version": "fable.predicate_demand.v1",
+    "semantic_predicate": {
+      "parameters": {
+        "label": "gunshot"
+      },
+      "predicate_id": "AUDIO_EVENT",
+      "result_kind": "INSTANT_MATCH",
+      "roles": [
+        {
+          "entity_type": "zone",
+          "role_name": "zone",
+          "variable": "store"
+        }
+      ]
+    },
+    "sharing_key": "share_7f015227d5131c3607df391511c80fbe",
+    "unbound_roles": []
+  },
+  "historical_id": "historical_769c530cb27e1a74ce658c88871f84e3",
+  "historical_interval": {
+    "end": "2026-04-14T18:19:42Z",
+    "start": "2026-04-14T18:19:41Z"
+  },
+  "original_demand_id": "019f96c3-f30d-73c2-b35e-6c32eea27e90",
+  "reason": "fixture retrospective trigger",
+  "retained_input_type": "audio_segment.v1",
+  "source_id": "microphone_store",
+  "status": "CREATED"
+}

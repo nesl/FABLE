@@ -15061,3 +15061,5 @@
 {"category": "other", "payload_bytes": 5, "qos": 0, "retain": false, "topic": "/dvpg_gq_orin_11/yolo/collect_status", "ts": 1783709268.422982}
 {"category": "debug", "payload_bytes": 1369, "qos": 0, "retain": false, "topic": "/debug/dvpg_gq_orin_11/analytics/yolo/status", "ts": 1783709268.6822119}
 {"category": "debug", "payload_bytes": 528, "qos": 0, "retain": false, "topic": "/debug/dvpg_gq_orin_11/audio_detector/status", "ts": 1783709268.8623128}
+{"category": "control", "payload_bytes": 0, "qos": 0, "retain": false, "topic": "/replay/config", "ts": 1784821056.3141606}
+{"category": "control", "payload_bytes": 0, "qos": 0, "retain": false, "topic": "/replay/sync", "ts": 1784821056.3152316}

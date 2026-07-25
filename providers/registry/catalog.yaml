@@ -1,0 +1,1555 @@
+schema_version: fable.provider_catalog.v1
+providers:
+  yolo_vehicle_fast_640:
+    description: Fast 640px vehicle-only YOLO variant for standing shared detection.
+    execution_capabilities:
+      accepted_input_access:
+      - local
+      - remote_reference
+      - transferred
+      modes:
+      - live
+      - retrospective
+      supports_shared_execution: true
+    implements:
+      predicates:
+      - OBJECT_PRESENT
+    parameters:
+      class_allowlist:
+        type: list[string]
+      confidence_threshold:
+        maximum: 1.0
+        minimum: 0.0
+        type: number
+      image_size:
+        type: integer
+        minimum: 1
+        default: 640
+      maximum_rate_hz:
+        type: number
+        minimum: 0.1
+        default: 10.0
+    ports:
+      inputs:
+      - name: frames
+        purpose: evidence
+        required: true
+        type: raw_video_frames.v1
+      outputs:
+      - name: detections
+        purpose: reusable_evidence
+        type: detection_set.v1
+    provider_family: yolo_object_detector
+  yolo_vehicle_balanced_960:
+    description: Higher-resolution vehicle YOLO variant for difficult views.
+    execution_capabilities:
+      accepted_input_access:
+      - local
+      - remote_reference
+      - transferred
+      modes:
+      - live
+      - retrospective
+      supports_shared_execution: true
+    implements:
+      predicates:
+      - OBJECT_PRESENT
+    parameters:
+      class_allowlist:
+        type: list[string]
+      confidence_threshold:
+        maximum: 1.0
+        minimum: 0.0
+        type: number
+      image_size:
+        type: integer
+        minimum: 1
+        default: 960
+      maximum_rate_hz:
+        type: number
+        minimum: 0.1
+        default: 5.0
+    ports:
+      inputs:
+      - name: frames
+        purpose: evidence
+        required: true
+        type: raw_video_frames.v1
+      outputs:
+      - name: detections
+        purpose: reusable_evidence
+        type: detection_set.v1
+    provider_family: yolo_object_detector
+  yolo_full_context_960:
+    description: Full-class context YOLO variant when later branches may require non-vehicle objects.
+    execution_capabilities:
+      accepted_input_access:
+      - local
+      - remote_reference
+      - transferred
+      modes:
+      - live
+      - retrospective
+      supports_shared_execution: true
+    implements:
+      predicates:
+      - OBJECT_PRESENT
+    parameters:
+      class_allowlist:
+        type: list[string]
+      confidence_threshold:
+        maximum: 1.0
+        minimum: 0.0
+        type: number
+      image_size:
+        type: integer
+        minimum: 1
+        default: 960
+      maximum_rate_hz:
+        type: number
+        minimum: 0.1
+        default: 2.0
+    ports:
+      inputs:
+      - name: frames
+        purpose: evidence
+        required: true
+        type: raw_video_frames.v1
+      outputs:
+      - name: detections
+        purpose: reusable_evidence
+        type: detection_set.v1
+    provider_family: yolo_object_detector
+  multi_object_tracker:
+    description: Roboflow ByteTrack or SORT over detection_set.v1. Recovery replays retained detections; no arbitrary checkpoint import/export is claimed.
+    implements:
+      predicates:
+      - TRACKS
+    ports:
+      inputs:
+      - name: detections
+        type: detection_set.v1
+        required: true
+        purpose: evidence
+      outputs:
+      - name: tracks
+        type: track_set.v1
+        purpose: reusable_evidence
+      - name: track_summary
+        type: track_summary.v1
+        purpose: continuation
+    execution_capabilities:
+      modes:
+      - live
+      - retrospective
+      supports_shared_execution: true
+      accepted_input_access:
+      - local
+      - remote_reference
+      - transferred
+      state_operations: []
+    parameters:
+      algorithm:
+        type: string
+        enum:
+        - bytetrack
+        - sort
+  camera_projection:
+    description: Project sensor-local tracks into a named world or route-relative coordinate frame.
+    implements:
+      predicates:
+      - PROJECT_TRACKS
+    ports:
+      inputs:
+      - name: tracks
+        type: track_set.v1
+        required: true
+        purpose: evidence
+      - name: calibration
+        type: camera_calibration.v1
+        required: true
+        purpose: deployment_metadata
+      outputs:
+      - name: projected_tracks
+        type: projected_track_set.v1
+        purpose: reusable_evidence
+    execution_capabilities:
+      modes:
+      - live
+      - retrospective
+      supports_shared_execution: true
+      accepted_input_access:
+      - local
+      - remote_reference
+      - transferred
+  track_crop_extractor:
+    description: Select quality-filtered crops for bound tracks from retained or live video.
+    implements:
+      predicates:
+      - EXTRACT_CROPS
+    ports:
+      inputs:
+      - name: frames
+        type: raw_video_frames.v1
+        required: true
+        purpose: evidence
+      - name: tracks
+        type: track_set.v1
+        required: true
+        purpose: evidence
+      outputs:
+      - name: crops
+        type: image_crop_set.v1
+        purpose: reusable_evidence
+    execution_capabilities:
+      modes:
+      - live
+      - retrospective
+      supports_shared_execution: true
+      accepted_input_access:
+      - local
+      - remote_reference
+      - transferred
+  vehicle_reid_descriptor:
+    description: Produce model-versioned vehicle identity embeddings from track crops.
+    implements:
+      predicates:
+      - VEHICLE_DESCRIPTOR
+    ports:
+      inputs:
+      - name: crops
+        type: image_crop_set.v1
+        required: true
+        purpose: evidence
+      outputs:
+      - name: embeddings
+        type: vehicle_reid_embedding_set.v1
+        purpose: reusable_evidence
+    execution_capabilities:
+      modes:
+      - live
+      - retrospective
+      supports_shared_execution: true
+      accepted_input_access:
+      - local
+      - remote_reference
+      - transferred
+  cross_sensor_identity_association:
+    description: Associate local tracks across sensors using compatible ReID embeddings and temporal or route gating.
+    implements:
+      predicates:
+      - SAME_ENTITY
+    ports:
+      inputs:
+      - name: left_embeddings
+        type: vehicle_reid_embedding_set.v1
+        required: true
+        purpose: evidence
+      - name: right_embeddings
+        type: vehicle_reid_embedding_set.v1
+        required: true
+        purpose: evidence
+      outputs:
+      - name: entity_map
+        type: canonical_entity_map.v1
+        purpose: reusable_evidence
+    compatibility_groups:
+    - ports:
+      - left_embeddings
+      - right_embeddings
+      require_same_runtime_keys:
+      - model_id
+      - model_version
+      - preprocessing_id
+      - dimension
+      - normalization
+      - distance_metric
+    execution_capabilities:
+      modes:
+      - live
+      - retrospective
+      supports_shared_execution: true
+      accepted_input_access:
+      - local
+      - remote_reference
+      - transferred
+  follows_local_geometry:
+    description: Evaluate sustained following from time-aligned tracks in a common coordinate frame.
+    implements:
+      predicates:
+      - FOLLOWS
+      role_capabilities:
+        leader:
+        - consume
+        - validate
+        follower:
+        - introduce
+        - validate
+    ports:
+      inputs:
+      - name: leader_tracks
+        type: projected_track_set.v1
+        required: true
+        purpose: evidence
+      - name: follower_tracks
+        type: projected_track_set.v1
+        required: true
+        purpose: evidence
+      - name: previous_pair_history
+        type: pair_trajectory.v1
+        required: false
+        purpose: continuation
+      outputs:
+      - name: result
+        type: predicate_match.v1
+        purpose: result
+      - name: pair_history
+        type: pair_trajectory.v1
+        purpose: reusable_evidence
+    parameters:
+      maximum_gap_m:
+        type: number
+        minimum: 0
+      minimum_duration_s:
+        type: number
+        minimum: 0
+    execution_capabilities:
+      modes:
+      - live
+      - retrospective
+      supports_shared_execution: false
+      accepted_input_access:
+      - local
+      - remote_reference
+      - transferred
+  follows_cross_sensor:
+    description: Evaluate cross-sensor following from canonical identity associations, projected tracks, and a route graph.
+    implements:
+      predicates:
+      - FOLLOWS
+      role_capabilities:
+        leader:
+        - consume
+        - validate
+        follower:
+        - introduce
+        - validate
+    ports:
+      inputs:
+      - name: entity_map
+        type: canonical_entity_map.v1
+        required: true
+        purpose: evidence
+      - name: leader_tracks
+        type: projected_track_set.v1
+        required: true
+        purpose: evidence
+      - name: follower_tracks
+        type: projected_track_set.v1
+        required: true
+        purpose: evidence
+      - name: route_graph
+        type: route_graph.v1
+        required: true
+        purpose: deployment_metadata
+      outputs:
+      - name: result
+        type: predicate_match.v1
+        purpose: result
+    execution_capabilities:
+      modes:
+      - live
+      - retrospective
+      supports_shared_execution: false
+      accepted_input_access:
+      - local
+      - remote_reference
+      - transferred
+  audio_event_classifier:
+    description: Classify configured audio event labels over live or retained audio.
+    implements:
+      predicates:
+      - AUDIO_EVENT
+    ports:
+      inputs:
+      - name: audio
+        type: audio_segment.v1
+        required: true
+        purpose: evidence
+      outputs:
+      - name: events
+        type: audio_event_set.v1
+        purpose: reusable_evidence
+      - name: result
+        type: predicate_match.v1
+        purpose: result
+    execution_capabilities:
+      modes:
+      - live
+      - retrospective
+      supports_shared_execution: true
+      accepted_input_access:
+      - local
+      - remote_reference
+      - transferred
+  openclip_visual_descriptor:
+    description: Produce general-purpose OpenCLIP visual embeddings; not identity-calibrated by default.
+    implements:
+      predicates:
+      - GENERAL_VISUAL_DESCRIPTOR
+    ports:
+      inputs:
+      - name: crops
+        type: image_crop_set.v1
+        required: true
+        purpose: evidence
+      outputs:
+      - name: embeddings
+        type: general_visual_embedding_set.v1
+        purpose: reusable_evidence
+    execution_capabilities:
+      modes:
+      - live
+      - retrospective
+      supports_shared_execution: true
+      accepted_input_access:
+      - local
+      - remote_reference
+      - transferred
+  zone_membership_evaluator:
+    description: Evaluate whether projected tracks are inside a configured zone.
+    implements:
+      predicates:
+      - INSIDE
+    ports:
+      inputs:
+      - name: tracks
+        type: projected_track_set.v1
+        required: true
+        purpose: evidence
+      - name: zone
+        type: route_graph.v1
+        required: true
+        purpose: deployment_metadata
+      outputs:
+      - name: result
+        type: predicate_match.v1
+        purpose: result
+    execution_capabilities:
+      modes:
+      - live
+      - retrospective
+      supports_shared_execution: true
+      accepted_input_access:
+      - local
+      - remote_reference
+      - transferred
+  zone_transition_evaluator:
+    description: Emit ENTRIES/EXITS from zone-membership transitions.
+    implements:
+      predicates:
+      - ENTERS
+      - EXITS
+    ports:
+      inputs:
+      - name: tracks
+        type: projected_track_set.v1
+        required: true
+        purpose: evidence
+      - name: zone
+        type: route_graph.v1
+        required: true
+        purpose: deployment_metadata
+      outputs:
+      - name: result
+        type: predicate_match.v1
+        purpose: result
+    execution_capabilities:
+      modes:
+      - live
+      - retrospective
+      supports_shared_execution: true
+      accepted_input_access:
+      - local
+      - remote_reference
+      - transferred
+  pass_reference_evaluator:
+    description: Emit PASSES when a scoped track crosses a directed reference line.
+    implements:
+      predicates:
+      - PASSES
+    ports:
+      inputs:
+      - name: tracks
+        type: projected_track_set.v1
+        required: true
+        purpose: evidence
+      - name: reference
+        type: route_graph.v1
+        required: true
+        purpose: deployment_metadata
+      outputs:
+      - name: result
+        type: predicate_match.v1
+        purpose: result
+    execution_capabilities:
+      modes:
+      - live
+      - retrospective
+      supports_shared_execution: true
+      accepted_input_access:
+      - local
+      - remote_reference
+      - transferred
+  motion_state_evaluator:
+    description: Emit MOVING or STOPPED from compact track history.
+    implements:
+      predicates:
+      - MOVING
+      - STOPPED
+    ports:
+      inputs:
+      - name: tracks
+        type: projected_track_set.v1
+        required: true
+        purpose: evidence
+      outputs:
+      - name: result
+        type: predicate_match.v1
+        purpose: result
+    execution_capabilities:
+      modes:
+      - live
+      - retrospective
+      supports_shared_execution: true
+      accepted_input_access:
+      - local
+      - remote_reference
+      - transferred
+  pairwise_distance_evaluator:
+    description: Evaluate pairwise world/route distance.
+    implements:
+      predicates:
+      - DISTANCE_LT
+    ports:
+      inputs:
+      - name: left_tracks
+        type: projected_track_set.v1
+        required: true
+        purpose: evidence
+      - name: right_tracks
+        type: projected_track_set.v1
+        required: true
+        purpose: evidence
+      outputs:
+      - name: result
+        type: predicate_match.v1
+        purpose: result
+    execution_capabilities:
+      modes:
+      - live
+      - retrospective
+      supports_shared_execution: true
+      accepted_input_access:
+      - local
+      - remote_reference
+      - transferred
+  relative_order_evaluator:
+    description: Evaluate route-relative leader/follower ordering.
+    implements:
+      predicates:
+      - BEHIND
+    ports:
+      inputs:
+      - name: left_tracks
+        type: projected_track_set.v1
+        required: true
+        purpose: evidence
+      - name: right_tracks
+        type: projected_track_set.v1
+        required: true
+        purpose: evidence
+      outputs:
+      - name: result
+        type: predicate_match.v1
+        purpose: result
+    execution_capabilities:
+      modes:
+      - live
+      - retrospective
+      supports_shared_execution: true
+      accepted_input_access:
+      - local
+      - remote_reference
+      - transferred
+  route_map_matcher:
+    description: Map projected tracks to route-relative progress.
+    implements:
+      predicates:
+      - ON_ROUTE
+    ports:
+      inputs:
+      - name: tracks
+        type: projected_track_set.v1
+        required: true
+        purpose: evidence
+      - name: route_graph
+        type: route_graph.v1
+        required: true
+        purpose: deployment_metadata
+      outputs:
+      - name: result
+        type: predicate_match.v1
+        purpose: result
+    execution_capabilities:
+      modes:
+      - live
+      - retrospective
+      supports_shared_execution: true
+      accepted_input_access:
+      - local
+      - remote_reference
+      - transferred
+  dwell_evaluator:
+    description: Emit dwell after an entity remains in a zone for a configured duration.
+    implements:
+      predicates:
+      - DWELLS
+    ports:
+      inputs:
+      - name: tracks
+        type: projected_track_set.v1
+        required: true
+        purpose: evidence
+      - name: zone
+        type: route_graph.v1
+        required: true
+        purpose: deployment_metadata
+      outputs:
+      - name: result
+        type: predicate_match.v1
+        purpose: result
+    execution_capabilities:
+      modes:
+      - live
+      - retrospective
+      supports_shared_execution: true
+      accepted_input_access:
+      - local
+      - remote_reference
+      - transferred
+  track_summary_route_evaluator:
+    description: Consume compact track summaries for downstream route/timing reasoning without restarting the tracker.
+    implements:
+      predicates:
+      - ON_ROUTE_SUMMARY
+    ports:
+      inputs:
+      - name: track_summary
+        type: track_summary.v1
+        required: true
+        purpose: continuation
+      - name: route_graph
+        type: route_graph.v1
+        required: true
+        purpose: deployment_metadata
+      outputs:
+      - name: result
+        type: predicate_match.v1
+        purpose: result
+    execution_capabilities:
+      modes:
+      - live
+      - retrospective
+      supports_shared_execution: true
+      accepted_input_access:
+      - local
+      - remote_reference
+      - transferred
+  gcc_phat_audio_localizer:
+    description: Estimate event-time audio bearing/zone from a calibrated microphone array using GCC-PHAT.
+    implements:
+      predicates:
+      - AUDIO_LOCALIZATION
+    ports:
+      inputs:
+      - name: audio
+        type: audio_segment.v1
+        required: true
+        purpose: evidence
+      - name: array_geometry
+        type: microphone_array_geometry.v1
+        required: true
+        purpose: deployment_metadata
+      outputs:
+      - name: localization
+        type: audio_localization.v1
+        required: true
+        purpose: reusable_evidence
+    execution_capabilities:
+      modes: &id001
+      - live
+      - retrospective
+      supports_shared_execution: true
+      accepted_input_access: &id002
+      - local
+      - remote_reference
+      - transferred
+    provider_family: audio_localization
+  audio_visual_association:
+    description: Associate a localized audio event with temporally and angularly compatible visual entities without declaring causal identity.
+    implements:
+      predicates:
+      - AUDIO_VISUAL_ASSOCIATION
+      role_capabilities:
+        location:
+        - consume
+        - validate
+        person:
+        - introduce
+        - validate
+    ports:
+      inputs:
+      - name: events
+        type: audio_event_set.v1
+        required: true
+        purpose: evidence
+      - name: localization
+        type: audio_localization.v1
+        required: true
+        purpose: evidence
+      - name: visual_bearings
+        type: visual_bearing_set.v1
+        required: true
+        purpose: evidence
+      outputs:
+      - name: associations
+        type: audio_visual_association_set.v1
+        required: true
+        purpose: reusable_evidence
+      - name: result
+        type: predicate_match.v1
+        required: true
+        purpose: result
+    execution_capabilities:
+      modes: *id001
+      supports_shared_execution: false
+      accepted_input_access: *id002
+    provider_family: audio_visual_association
+  voice_activity_detector:
+    description: Detect bounded speech intervals from live or retained audio; does not expose content.
+    implements:
+      predicates:
+      - SPEECH_ACTIVITY
+    ports:
+      inputs:
+      - name: audio
+        type: audio_segment.v1
+        required: true
+        purpose: evidence
+      outputs:
+      - name: segments
+        type: speech_segment_set.v1
+        required: true
+        purpose: reusable_evidence
+    execution_capabilities:
+      modes: *id001
+      supports_shared_execution: true
+      accepted_input_access: *id002
+    provider_family: voice_activity
+  speaker_embedding_provider:
+    description: Produce model-versioned speaker embeddings only for VAD-selected speech intervals.
+    implements:
+      predicates:
+      - SPEAKER_DESCRIPTOR
+    ports:
+      inputs:
+      - name: audio
+        type: audio_segment.v1
+        required: true
+        purpose: evidence
+      - name: segments
+        type: speech_segment_set.v1
+        required: true
+        purpose: evidence
+      outputs:
+      - name: embeddings
+        type: speaker_embedding_set.v1
+        required: true
+        purpose: reusable_evidence
+    execution_capabilities:
+      modes: *id001
+      supports_shared_execution: true
+      accepted_input_access: *id002
+    provider_family: speaker_embedding
+  speaker_diarization_provider:
+    description: Cluster compatible speaker embeddings into event-time speaker turns.
+    implements:
+      predicates:
+      - SPEAKER_TURNS
+    ports:
+      inputs:
+      - name: segments
+        type: speech_segment_set.v1
+        required: true
+        purpose: evidence
+      - name: embeddings
+        type: speaker_embedding_set.v1
+        required: true
+        purpose: evidence
+      outputs:
+      - name: turns
+        type: speaker_turn_set.v1
+        required: true
+        purpose: reusable_evidence
+    execution_capabilities:
+      modes: *id001
+      supports_shared_execution: true
+      accepted_input_access: *id002
+    provider_family: speaker_diarization
+  keyword_or_asr_provider:
+    description: Run ASR or keyword spotting only when the semantic predicate explicitly requires speech content.
+    implements:
+      predicates:
+      - SPEECH_CONTENT
+    ports:
+      inputs:
+      - name: audio
+        type: audio_segment.v1
+        required: true
+        purpose: evidence
+      - name: turns
+        type: speaker_turn_set.v1
+        required: true
+        purpose: evidence
+      outputs:
+      - name: transcript_events
+        type: transcript_event_set.v1
+        required: true
+        purpose: reusable_evidence
+    execution_capabilities:
+      modes: *id001
+      supports_shared_execution: false
+      accepted_input_access: *id002
+    provider_family: speech_content
+  conversation_provider:
+    description: Combine person proximity with VAD/diarization; consume transcripts only when required terms are authored.
+    implements:
+      predicates:
+      - CONVERSATION
+      role_capabilities:
+        participant_a:
+        - introduce
+        - validate
+        participant_b:
+        - introduce
+        - validate
+    ports:
+      inputs:
+      - name: person_tracks
+        type: projected_track_set.v1
+        required: true
+        purpose: evidence
+      - name: turns
+        type: speaker_turn_set.v1
+        required: true
+        purpose: evidence
+      - name: transcript_events
+        type: transcript_event_set.v1
+        required: false
+        purpose: evidence
+      outputs:
+      - name: result
+        type: predicate_match.v1
+        required: true
+        purpose: result
+    execution_capabilities:
+      modes: *id001
+      supports_shared_execution: false
+      accepted_input_access: *id002
+    provider_family: conversation
+    parameters:
+      maximum_distance_m:
+        type: number
+        minimum: 0
+      minimum_duration_s:
+        type: number
+        minimum: 0
+      required_terms:
+        type: list[string]
+  person_vehicle_relation_provider:
+    description: Infer DISEMBARKS/BOARDS from stopped-vehicle context, person appearance/disappearance, proximity, separation, and vehicle departure.
+    implements:
+      predicates:
+      - DISEMBARKS
+      - BOARDS
+      role_capabilities:
+        person:
+        - introduce
+        - validate
+        vehicle:
+        - consume
+        - validate
+    ports:
+      inputs:
+      - name: tracks
+        type: projected_track_set.v1
+        required: true
+        purpose: evidence
+      outputs:
+      - name: result
+        type: predicate_match.v1
+        required: true
+        purpose: result
+    execution_capabilities:
+      modes: *id001
+      supports_shared_execution: false
+      accepted_input_access: *id002
+    provider_family: person_vehicle_relation
+  package_detector:
+    description: High-resolution package-like object detector or full-context detection filter.
+    implements:
+      predicates:
+      - PACKAGE_PRESENT
+    ports:
+      inputs:
+      - name: frames
+        type: raw_video_frames.v1
+        required: true
+        purpose: evidence
+      outputs:
+      - name: detections
+        type: detection_set.v1
+        required: true
+        purpose: reusable_evidence
+    execution_capabilities:
+      modes: *id001
+      supports_shared_execution: true
+      accepted_input_access: *id002
+    provider_family: package_detection
+  interaction_evidence_analyzer:
+    description: Use selected high-resolution frames and aligned person/package/vehicle tracks to score handoff interactions.
+    implements:
+      predicates:
+      - TRANSFER_INTERACTION
+    ports:
+      inputs:
+      - name: frames
+        type: raw_video_frames.v1
+        required: true
+        purpose: evidence
+      - name: context_tracks
+        type: track_set.v1
+        required: true
+        purpose: evidence
+      - name: package_tracks
+        type: track_set.v1
+        required: true
+        purpose: evidence
+      outputs:
+      - name: evidence
+        type: interaction_evidence_set.v1
+        required: true
+        purpose: reusable_evidence
+    execution_capabilities:
+      modes: *id001
+      supports_shared_execution: false
+      accepted_input_access: *id002
+    provider_family: transfer_interaction
+  object_transfer_reasoner:
+    description: Resolve a stable package custody change and emit TRANSFER plus compact custody continuation state.
+    implements:
+      predicates:
+      - TRANSFER
+      role_capabilities:
+        object:
+        - introduce
+        - validate
+        source:
+        - consume
+        - validate
+        destination:
+        - introduce
+        - validate
+    ports:
+      inputs:
+      - name: context_tracks
+        type: track_set.v1
+        required: true
+        purpose: evidence
+      - name: package_tracks
+        type: track_set.v1
+        required: true
+        purpose: evidence
+      - name: interaction_evidence
+        type: interaction_evidence_set.v1
+        required: true
+        purpose: evidence
+      - name: previous_custody
+        type: custody_state.v1
+        required: false
+        purpose: continuation
+      outputs:
+      - name: result
+        type: predicate_match.v1
+        required: true
+        purpose: result
+      - name: custody
+        type: custody_state.v1
+        required: true
+        purpose: continuation
+    execution_capabilities:
+      modes: *id001
+      supports_shared_execution: false
+      accepted_input_access: *id002
+    provider_family: package_transfer
+  historical_vehicle_interval_matcher:
+    description: Match and bind a vehicle in a retained pre-trigger interval; outputs compact track continuation.
+    implements:
+      predicates:
+      - VEHICLE_PRESENT_BEFORE
+      role_capabilities:
+        vehicle:
+        - introduce
+        - validate
+        location:
+        - consume
+        - validate
+    ports:
+      inputs:
+      - name: tracks
+        type: track_set.v1
+        required: true
+        purpose: evidence
+      outputs:
+      - name: result
+        type: predicate_match.v1
+        purpose: result
+      - name: track_summary
+        type: track_summary.v1
+        purpose: continuation
+    execution_capabilities:
+      modes:
+      - retrospective
+      supports_shared_execution: false
+      accepted_input_access:
+      - local
+      - remote_reference
+      - transferred
+    provider_family: historical_vehicle_recovery
+chains:
+  follows_local_tracks:
+    capabilities:
+    - tracking
+    - vehicle_identity
+    - relative_motion
+    description: YOLO detection, tracking, projection, and same-coordinate-frame following.
+    external_inputs:
+      video:
+        type: raw_video_frames.v1
+      calibration:
+        type: camera_calibration.v1
+    steps:
+    - id: detect
+      provider: yolo_vehicle_fast_640
+      bind:
+        frames: external.video
+    - id: track
+      provider: multi_object_tracker
+      bind:
+        detections: detect.detections
+    - id: project
+      provider: camera_projection
+      bind:
+        tracks: track.tracks
+        calibration: external.calibration
+    - id: follows
+      provider: follows_local_geometry
+      bind:
+        leader_tracks: project.projected_tracks
+        follower_tracks: project.projected_tracks
+    outputs:
+      result: follows.result
+      continuation: follows.pair_history
+  follows_cross_camera_reid:
+    capabilities:
+    - tracking
+    - vehicle_identity
+    - cross_sensor_identity
+    - relative_motion
+    description: Detect and track in two cameras, derive ReID embeddings, associate identities, and evaluate route-compatible following.
+    external_inputs:
+      video_a:
+        type: raw_video_frames.v1
+      video_b:
+        type: raw_video_frames.v1
+      calibration_a:
+        type: camera_calibration.v1
+      calibration_b:
+        type: camera_calibration.v1
+      route_graph:
+        type: route_graph.v1
+    steps:
+    - id: detect_a
+      provider: yolo_vehicle_fast_640
+      bind:
+        frames: external.video_a
+    - id: track_a
+      provider: multi_object_tracker
+      bind:
+        detections: detect_a.detections
+    - id: crops_a
+      provider: track_crop_extractor
+      bind:
+        frames: external.video_a
+        tracks: track_a.tracks
+    - id: reid_a
+      provider: vehicle_reid_descriptor
+      bind:
+        crops: crops_a.crops
+    - id: project_a
+      provider: camera_projection
+      bind:
+        tracks: track_a.tracks
+        calibration: external.calibration_a
+    - id: detect_b
+      provider: yolo_vehicle_fast_640
+      bind:
+        frames: external.video_b
+    - id: track_b
+      provider: multi_object_tracker
+      bind:
+        detections: detect_b.detections
+    - id: crops_b
+      provider: track_crop_extractor
+      bind:
+        frames: external.video_b
+        tracks: track_b.tracks
+    - id: reid_b
+      provider: vehicle_reid_descriptor
+      bind:
+        crops: crops_b.crops
+    - id: project_b
+      provider: camera_projection
+      bind:
+        tracks: track_b.tracks
+        calibration: external.calibration_b
+    - id: associate
+      provider: cross_sensor_identity_association
+      bind:
+        left_embeddings: reid_a.embeddings
+        right_embeddings: reid_b.embeddings
+    - id: follows
+      provider: follows_cross_sensor
+      bind:
+        entity_map: associate.entity_map
+        leader_tracks: project_a.projected_tracks
+        follower_tracks: project_b.projected_tracks
+        route_graph: external.route_graph
+    outputs:
+      result: follows.result
+  detect_audio_event:
+    capabilities:
+    - audio_event_classification
+    description: Classify a configured sound such as a gunshot or alarm.
+    external_inputs:
+      audio:
+        type: audio_segment.v1
+    steps:
+    - id: classify
+      provider: audio_event_classifier
+      bind:
+        audio: external.audio
+    outputs:
+      result: classify.result
+      events: classify.events
+  follows_local_from_retained_detections:
+    capabilities:
+    - tracking
+    - vehicle_identity
+    - relative_motion
+    - retrospective
+    description: Replay retained detection_set.v1 through a fresh tracker, then project and evaluate same-camera FOLLOWS.
+    external_inputs:
+      detections:
+        type: detection_set.v1
+      calibration:
+        type: camera_calibration.v1
+    steps:
+    - id: track
+      provider: multi_object_tracker
+      bind:
+        detections: external.detections
+    - id: project
+      provider: camera_projection
+      bind:
+        tracks: track.tracks
+        calibration: external.calibration
+    - id: follows
+      provider: follows_local_geometry
+      bind:
+        leader_tracks: project.projected_tracks
+        follower_tracks: project.projected_tracks
+    outputs:
+      result: follows.result
+      track_summary: track.track_summary
+      continuation: follows.pair_history
+  passes_live_vehicle:
+    capabilities:
+    - tracking
+    - reference_geometry
+    description: Shared vehicle detection and tracking followed by projection and directed line crossing.
+    external_inputs:
+      video:
+        type: raw_video_frames.v1
+      calibration:
+        type: camera_calibration.v1
+      reference:
+        type: route_graph.v1
+    steps:
+    - id: detect
+      provider: yolo_vehicle_fast_640
+      bind:
+        frames: external.video
+    - id: track
+      provider: multi_object_tracker
+      bind:
+        detections: detect.detections
+    - id: project
+      provider: camera_projection
+      bind:
+        tracks: track.tracks
+        calibration: external.calibration
+    - id: passes
+      provider: pass_reference_evaluator
+      bind:
+        tracks: project.projected_tracks
+        reference: external.reference
+    outputs:
+      result: passes.result
+      track_summary: track.track_summary
+  stopped_live_vehicle:
+    capabilities:
+    - tracking
+    - motion_state
+    description: Shared vehicle detection and tracking followed by local motion-state evaluation.
+    external_inputs:
+      video:
+        type: raw_video_frames.v1
+      calibration:
+        type: camera_calibration.v1
+    steps:
+    - id: detect
+      provider: yolo_vehicle_fast_640
+      bind:
+        frames: external.video
+    - id: track
+      provider: multi_object_tracker
+      bind:
+        detections: detect.detections
+    - id: project
+      provider: camera_projection
+      bind:
+        tracks: track.tracks
+        calibration: external.calibration
+    - id: motion
+      provider: motion_state_evaluator
+      bind:
+        tracks: project.projected_tracks
+    outputs:
+      result: motion.result
+      track_summary: track.track_summary
+  describe_vehicle_general_visual:
+    capabilities:
+    - general_visual_embedding
+    description: Extract OpenCLIP-like general visual embeddings without claiming canonical identity.
+    external_inputs:
+      video:
+        type: raw_video_frames.v1
+      tracks:
+        type: track_set.v1
+    steps:
+    - id: crops
+      provider: track_crop_extractor
+      bind:
+        frames: external.video
+        tracks: external.tracks
+    - id: describe
+      provider: openclip_visual_descriptor
+      bind:
+        crops: crops.crops
+    outputs:
+      result: describe.embeddings
+  audio_event_with_localization:
+    capabilities:
+    - audio_event_classification
+    - audio_localization
+    description: Classify a gunshot/alarm and retain a compact localized audio artifact.
+    external_inputs:
+      audio:
+        type: audio_segment.v1
+      array_geometry:
+        type: microphone_array_geometry.v1
+    steps:
+    - id: classify
+      provider: audio_event_classifier
+      bind:
+        audio: external.audio
+    - id: localize
+      provider: gcc_phat_audio_localizer
+      bind:
+        audio: external.audio
+        array_geometry: external.array_geometry
+    outputs:
+      result: classify.result
+      events: classify.events
+      localization: localize.localization
+  audio_event_visual_association:
+    capabilities:
+    - audio_event_classification
+    - audio_localization
+    - audio_visual_association
+    description: Classify and localize an audio event, then associate it with compatible visual bearings.
+    external_inputs:
+      audio:
+        type: audio_segment.v1
+      array_geometry:
+        type: microphone_array_geometry.v1
+      visual_bearings:
+        type: visual_bearing_set.v1
+    steps:
+    - id: classify
+      provider: audio_event_classifier
+      bind:
+        audio: external.audio
+    - id: localize
+      provider: gcc_phat_audio_localizer
+      bind:
+        audio: external.audio
+        array_geometry: external.array_geometry
+    - id: associate
+      provider: audio_visual_association
+      bind:
+        events: classify.events
+        localization: localize.localization
+        visual_bearings: external.visual_bearings
+    outputs:
+      result: classify.result
+      events: classify.events
+      localization: localize.localization
+      associations: associate.associations
+  person_vehicle_transition:
+    capabilities:
+    - person_detection
+    - vehicle_detection
+    - tracking
+    - person_vehicle_relation
+    description: Full-context detection and tracking followed by DISEMBARKS/BOARDS relation reasoning.
+    external_inputs:
+      video:
+        type: raw_video_frames.v1
+      calibration:
+        type: camera_calibration.v1
+    steps:
+    - id: detect
+      provider: yolo_full_context_960
+      bind:
+        frames: external.video
+    - id: track
+      provider: multi_object_tracker
+      bind:
+        detections: detect.detections
+    - id: project
+      provider: camera_projection
+      bind:
+        tracks: track.tracks
+        calibration: external.calibration
+    - id: relate
+      provider: person_vehicle_relation_provider
+      bind:
+        tracks: project.projected_tracks
+    outputs:
+      result: relate.result
+      track_summary: track.track_summary
+  conversation_proximity_diarization:
+    capabilities:
+    - person_detection
+    - tracking
+    - voice_activity
+    - speaker_diarization
+    - conversation
+    description: Track proximate people and combine VAD plus diarization without computing speech content.
+    external_inputs:
+      video:
+        type: raw_video_frames.v1
+      audio:
+        type: audio_segment.v1
+      calibration:
+        type: camera_calibration.v1
+    steps:
+    - id: detect
+      provider: yolo_full_context_960
+      bind:
+        frames: external.video
+    - id: track
+      provider: multi_object_tracker
+      bind:
+        detections: detect.detections
+    - id: project
+      provider: camera_projection
+      bind:
+        tracks: track.tracks
+        calibration: external.calibration
+    - id: vad
+      provider: voice_activity_detector
+      bind:
+        audio: external.audio
+    - id: speaker_embed
+      provider: speaker_embedding_provider
+      bind:
+        audio: external.audio
+        segments: vad.segments
+    - id: diarize
+      provider: speaker_diarization_provider
+      bind:
+        segments: vad.segments
+        embeddings: speaker_embed.embeddings
+    - id: conversation
+      provider: conversation_provider
+      bind:
+        person_tracks: project.projected_tracks
+        turns: diarize.turns
+    outputs:
+      result: conversation.result
+      turns: diarize.turns
+      track_summary: track.track_summary
+  conversation_with_required_content:
+    capabilities:
+    - person_detection
+    - tracking
+    - voice_activity
+    - speaker_diarization
+    - speech_content
+    - conversation
+    description: Conversation chain that adds ASR/keyword work only for an authored required-terms predicate.
+    external_inputs:
+      video:
+        type: raw_video_frames.v1
+      audio:
+        type: audio_segment.v1
+      calibration:
+        type: camera_calibration.v1
+    steps:
+    - id: detect
+      provider: yolo_full_context_960
+      bind:
+        frames: external.video
+    - id: track
+      provider: multi_object_tracker
+      bind:
+        detections: detect.detections
+    - id: project
+      provider: camera_projection
+      bind:
+        tracks: track.tracks
+        calibration: external.calibration
+    - id: vad
+      provider: voice_activity_detector
+      bind:
+        audio: external.audio
+    - id: speaker_embed
+      provider: speaker_embedding_provider
+      bind:
+        audio: external.audio
+        segments: vad.segments
+    - id: diarize
+      provider: speaker_diarization_provider
+      bind:
+        segments: vad.segments
+        embeddings: speaker_embed.embeddings
+    - id: asr
+      provider: keyword_or_asr_provider
+      bind:
+        audio: external.audio
+        turns: diarize.turns
+    - id: conversation
+      provider: conversation_provider
+      bind:
+        person_tracks: project.projected_tracks
+        turns: diarize.turns
+        transcript_events: asr.transcript_events
+    outputs:
+      result: conversation.result
+      turns: diarize.turns
+      transcript_events: asr.transcript_events
+      track_summary: track.track_summary
+  package_transfer_high_resolution:
+    capabilities:
+    - person_detection
+    - vehicle_detection
+    - package_detection
+    - tracking
+    - high_resolution_interaction
+    - custody_reasoning
+    description: Switch to full-context/high-resolution package analysis, resolve a custody change, and retain compact custody state.
+    external_inputs:
+      video:
+        type: raw_video_frames.v1
+    steps:
+    - id: context_detect
+      provider: yolo_full_context_960
+      bind:
+        frames: external.video
+    - id: context_track
+      provider: multi_object_tracker
+      bind:
+        detections: context_detect.detections
+    - id: package_detect
+      provider: package_detector
+      bind:
+        frames: external.video
+    - id: package_track
+      provider: multi_object_tracker
+      bind:
+        detections: package_detect.detections
+    - id: analyze
+      provider: interaction_evidence_analyzer
+      bind:
+        frames: external.video
+        context_tracks: context_track.tracks
+        package_tracks: package_track.tracks
+    - id: transfer
+      provider: object_transfer_reasoner
+      bind:
+        context_tracks: context_track.tracks
+        package_tracks: package_track.tracks
+        interaction_evidence: analyze.evidence
+    outputs:
+      result: transfer.result
+      custody: transfer.custody
+      track_summary: context_track.track_summary
+  recover_vehicle_before_audio_event:
+    capabilities:
+    - tracking
+    - vehicle_identity
+    - retrospective
+    description: Replay a retained pre-trigger video interval to bind a vehicle and preserve compact track history.
+    external_inputs:
+      video:
+        type: raw_video_frames.v1
+    steps:
+    - id: detect
+      provider: yolo_vehicle_balanced_960
+      bind:
+        frames: external.video
+    - id: track
+      provider: multi_object_tracker
+      bind:
+        detections: detect.detections
+    - id: match
+      provider: historical_vehicle_interval_matcher
+      bind:
+        tracks: track.tracks
+    outputs:
+      result: match.result
+      track_summary: match.track_summary

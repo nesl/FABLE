@@ -1,0 +1,55 @@
+{
+  "schema_version": "fable.execution_plan.v1",
+  "plan_id": "019f967d-bc04-7b7c-91f4-84eb1b64ba13",
+  "label_id": "label_2383c7730e4968bad49e0a9fd75f7c23",
+  "checkpoint_id": "019f967d-bbec-7094-8760-aa924e0b91a4",
+  "demand_ids": [
+    "019f967d-bbec-7094-8760-aa924e0b91a6"
+  ],
+  "steps": [
+    {
+      "step_id": "step_follows_cross_sensor",
+      "provider_id": "follows_cross_sensor",
+      "node_id": "edge_1",
+      "input_artifact_ids": [
+        "019f967d-bbec-7094-8760-aa924e0b91a7"
+      ],
+      "input_data_types": [
+        "canonical_entity_map.v1",
+        "projected_track_set.v1",
+        "route_graph.v1"
+      ],
+      "output_data_types": [
+        "predicate_match.v1",
+        "pair_trajectory.v1"
+      ],
+      "parameters": [
+        [
+          "maximum_gap_m",
+          15.0
+        ],
+        [
+          "minimum_duration_s",
+          3.0
+        ]
+      ],
+      "depends_on_step_ids": [],
+      "estimated_startup_ms": 40,
+      "estimated_execution_ms": 70,
+      "estimated_transfer_ms": 15,
+      "estimated_transfer_bytes": 8192
+    }
+  ],
+  "reservations": [
+    {
+      "node_id": "edge_1",
+      "cpu_cores": 1.0,
+      "memory_mb": 512,
+      "gpu_memory_mb": 0,
+      "network_bytes": 8192
+    }
+  ],
+  "status": "ADMITTED",
+  "created_at": "2026-04-14T18:19:52Z",
+  "expires_at": "2026-04-14T18:20:06Z"
+}

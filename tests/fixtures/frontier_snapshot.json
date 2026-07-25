@@ -1,0 +1,16 @@
+{
+  "schema_version": "fable.frontier_snapshot.v1",
+  "frontier_id": "019f967d-bbec-7094-8760-aa924e0b91a5",
+  "request_id": "request_convoy_demo",
+  "graph_hash": "sha256:c1bad14edecac263da5da07049ce70a00d3c482f2e4be6f675ac376c1b2840e5",
+  "hypothesis_id": "019f967d-bbec-7094-8760-aa924e0b91a3",
+  "hypothesis_version": 0,
+  "enabled_node_ids": [
+    "gn_d04a05cb424ce464f0e0e8ad"
+  ],
+  "checkpoint_ids": [
+    "019f967d-bbec-7094-8760-aa924e0b91a4"
+  ],
+  "derived_at": "2026-07-24T23:37:30.348124Z",
+  "source_watermarks": {}
+}

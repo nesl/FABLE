@@ -38,6 +38,7 @@ function normalizedPayload(value) {
 }
 
 function topicKind(topic) {
+  if (topic.startsWith("fable/v1/")) return "ce";
   if (topic.startsWith("/replay/")) return "replay";
   if (topic.includes("/analytics/yolo/bbox") || topic.includes("/analytics/yolo/annotated/compressed")) return "yolo";
   if (topic.includes("/audio_detector/detections") || topic.includes("/audio_detector/status")) return "audio";

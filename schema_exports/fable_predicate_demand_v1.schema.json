@@ -1,0 +1,457 @@
+{
+  "$defs": {
+    "ArtifactAccessMode": {
+      "enum": [
+        "LOCAL",
+        "REMOTE_REFERENCE",
+        "TRANSFERRED",
+        "INLINE"
+      ],
+      "title": "ArtifactAccessMode",
+      "type": "string"
+    },
+    "BindingCapability": {
+      "enum": [
+        "CONSUME",
+        "INTRODUCE",
+        "VALIDATE",
+        "INTRODUCE_OR_VALIDATE",
+        "OBSERVE_ONLY",
+        "AGGREGATE"
+      ],
+      "title": "BindingCapability",
+      "type": "string"
+    },
+    "CancellationScope": {
+      "enum": [
+        "BRANCH",
+        "HYPOTHESIS",
+        "TASK"
+      ],
+      "title": "CancellationScope",
+      "type": "string"
+    },
+    "ContinuationRequirement": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_type": {
+          "minLength": 1,
+          "title": "Artifact Type",
+          "type": "string"
+        },
+        "compatible_consumer_families": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Compatible Consumer Families",
+          "type": "array"
+        },
+        "required_bindings": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Bindings",
+          "type": "array"
+        },
+        "required_until": {
+          "format": "date-time",
+          "title": "Required Until",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_type",
+        "required_until"
+      ],
+      "title": "ContinuationRequirement",
+      "type": "object"
+    },
+    "DataMovementConstraints": {
+      "additionalProperties": false,
+      "properties": {
+        "allowed_node_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Node Ids",
+          "type": "array"
+        },
+        "allowed_regions": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Regions",
+          "type": "array"
+        },
+        "maximum_transfer_bytes": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maximum Transfer Bytes"
+        },
+        "raw_data_must_remain_local": {
+          "default": true,
+          "title": "Raw Data Must Remain Local",
+          "type": "boolean"
+        },
+        "required_access_modes": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ArtifactAccessMode"
+          },
+          "title": "Required Access Modes",
+          "type": "array"
+        }
+      },
+      "title": "DataMovementConstraints",
+      "type": "object"
+    },
+    "DeadlineSpec": {
+      "additionalProperties": false,
+      "description": "Processing-time usefulness boundary for one demand or hypothesis.",
+      "properties": {
+        "latest_start": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Latest Start"
+        },
+        "latest_useful_completion": {
+          "format": "date-time",
+          "title": "Latest Useful Completion",
+          "type": "string"
+        }
+      },
+      "required": [
+        "latest_useful_completion"
+      ],
+      "title": "DeadlineSpec",
+      "type": "object"
+    },
+    "DemandBindingPolicy": {
+      "additionalProperties": false,
+      "description": "How one specialized demand may consume, validate, or introduce bindings.",
+      "properties": {
+        "fork_unit": {
+          "default": "CANONICAL_BINDING_TUPLE",
+          "minLength": 1,
+          "title": "Fork Unit",
+          "type": "string"
+        },
+        "forkable_roles": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Forkable Roles",
+          "type": "array"
+        },
+        "role_modes": {
+          "additionalProperties": {
+            "$ref": "#/$defs/BindingCapability"
+          },
+          "title": "Role Modes",
+          "type": "object"
+        }
+      },
+      "title": "DemandBindingPolicy",
+      "type": "object"
+    },
+    "EventTimeInterval": {
+      "additionalProperties": false,
+      "description": "Closed event-time interval.\n\nInstantaneous observations use ``start == end``. All timestamps are\nnormalized to UTC at validation time.",
+      "properties": {
+        "end": {
+          "format": "date-time",
+          "title": "End",
+          "type": "string"
+        },
+        "start": {
+          "format": "date-time",
+          "title": "Start",
+          "type": "string"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "title": "EventTimeInterval",
+      "type": "object"
+    },
+    "JsonValue": {},
+    "LatenessPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "allowed_lateness_ms": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Allowed Lateness Ms",
+          "type": "integer"
+        }
+      },
+      "title": "LatenessPolicy",
+      "type": "object"
+    },
+    "PredicateRole": {
+      "additionalProperties": false,
+      "properties": {
+        "entity_type": {
+          "minLength": 1,
+          "title": "Entity Type",
+          "type": "string"
+        },
+        "role_name": {
+          "minLength": 1,
+          "title": "Role Name",
+          "type": "string"
+        },
+        "variable": {
+          "minLength": 1,
+          "title": "Variable",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role_name",
+        "variable",
+        "entity_type"
+      ],
+      "title": "PredicateRole",
+      "type": "object"
+    },
+    "ResultKind": {
+      "enum": [
+        "INSTANT_MATCH",
+        "INTERVAL_MATCH",
+        "STATE_OBSERVATION",
+        "GROUP_MATCH",
+        "ARTIFACT_ONLY"
+      ],
+      "title": "ResultKind",
+      "type": "string"
+    },
+    "SemanticPredicate": {
+      "additionalProperties": false,
+      "description": "Provider-independent semantic condition.",
+      "properties": {
+        "parameters": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Parameters",
+          "type": "object"
+        },
+        "predicate_id": {
+          "minLength": 1,
+          "title": "Predicate Id",
+          "type": "string"
+        },
+        "result_kind": {
+          "$ref": "#/$defs/ResultKind"
+        },
+        "roles": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/PredicateRole"
+          },
+          "title": "Roles",
+          "type": "array"
+        }
+      },
+      "required": [
+        "predicate_id",
+        "result_kind"
+      ],
+      "title": "SemanticPredicate",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The provider-independent scheduling boundary.\n\nThere is intentionally no provider, model, image, container, or selected\nnode field in this schema. Those choices belong to physical alternatives.",
+  "properties": {
+    "acceptable_output_types": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Acceptable Output Types",
+      "type": "array"
+    },
+    "binding_policy": {
+      "$ref": "#/$defs/DemandBindingPolicy"
+    },
+    "bound_roles": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Bound Roles",
+      "type": "object"
+    },
+    "cancellation_scope": {
+      "$ref": "#/$defs/CancellationScope",
+      "default": "BRANCH"
+    },
+    "checkpoint_id": {
+      "format": "uuid7",
+      "title": "Checkpoint Id",
+      "type": "string"
+    },
+    "continuation_requirements": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ContinuationRequirement"
+      },
+      "title": "Continuation Requirements",
+      "type": "array"
+    },
+    "deadline": {
+      "$ref": "#/$defs/DeadlineSpec"
+    },
+    "demand_id": {
+      "format": "uuid7",
+      "title": "Demand Id",
+      "type": "string"
+    },
+    "desired_continuation_types": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Desired Continuation Types",
+      "type": "array"
+    },
+    "eligible_regions": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Eligible Regions",
+      "type": "array"
+    },
+    "eligible_source_ids": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Eligible Source Ids",
+      "type": "array"
+    },
+    "event_time_interval": {
+      "$ref": "#/$defs/EventTimeInterval"
+    },
+    "frontier_id": {
+      "format": "uuid7",
+      "title": "Frontier Id",
+      "type": "string"
+    },
+    "graph_hash": {
+      "minLength": 1,
+      "title": "Graph Hash",
+      "type": "string"
+    },
+    "graph_node_id": {
+      "minLength": 1,
+      "title": "Graph Node Id",
+      "type": "string"
+    },
+    "hard_constraints": {
+      "$ref": "#/$defs/DataMovementConstraints"
+    },
+    "hypothesis_id": {
+      "format": "uuid7",
+      "title": "Hypothesis Id",
+      "type": "string"
+    },
+    "hypothesis_version": {
+      "minimum": 0,
+      "title": "Hypothesis Version",
+      "type": "integer"
+    },
+    "lateness_policy": {
+      "$ref": "#/$defs/LatenessPolicy"
+    },
+    "request_id": {
+      "minLength": 1,
+      "title": "Request Id",
+      "type": "string"
+    },
+    "required_capabilities": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Required Capabilities",
+      "type": "array"
+    },
+    "required_input_artifact_types": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Required Input Artifact Types",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "fable.predicate_demand.v1",
+      "default": "fable.predicate_demand.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "semantic_predicate": {
+      "$ref": "#/$defs/SemanticPredicate"
+    },
+    "sharing_key": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sharing Key"
+    },
+    "unbound_roles": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Unbound Roles",
+      "type": "array"
+    }
+  },
+  "required": [
+    "request_id",
+    "graph_hash",
+    "hypothesis_id",
+    "hypothesis_version",
+    "frontier_id",
+    "checkpoint_id",
+    "graph_node_id",
+    "semantic_predicate",
+    "event_time_interval",
+    "deadline",
+    "acceptable_output_types"
+  ],
+  "title": "PredicateDemand",
+  "type": "object"
+}

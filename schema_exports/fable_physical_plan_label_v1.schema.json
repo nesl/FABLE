@@ -1,0 +1,244 @@
+{
+  "$defs": {
+    "JsonValue": {},
+    "PlanCost": {
+      "additionalProperties": false,
+      "properties": {
+        "deadline_slack_ms": {
+          "title": "Deadline Slack Ms",
+          "type": "integer"
+        },
+        "predicted_completion_ms": {
+          "minimum": 0,
+          "title": "Predicted Completion Ms",
+          "type": "integer"
+        },
+        "resource_cost_units": {
+          "minimum": 0,
+          "title": "Resource Cost Units",
+          "type": "number"
+        },
+        "startup_cost_ms": {
+          "minimum": 0,
+          "title": "Startup Cost Ms",
+          "type": "integer"
+        },
+        "transfer_bytes": {
+          "minimum": 0,
+          "title": "Transfer Bytes",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "predicted_completion_ms",
+        "deadline_slack_ms",
+        "startup_cost_ms",
+        "resource_cost_units",
+        "transfer_bytes"
+      ],
+      "title": "PlanCost",
+      "type": "object"
+    },
+    "PlanStep": {
+      "additionalProperties": false,
+      "properties": {
+        "depends_on_step_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Depends On Step Ids",
+          "type": "array"
+        },
+        "estimated_execution_ms": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Estimated Execution Ms",
+          "type": "integer"
+        },
+        "estimated_startup_ms": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Estimated Startup Ms",
+          "type": "integer"
+        },
+        "estimated_transfer_bytes": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Estimated Transfer Bytes",
+          "type": "integer"
+        },
+        "estimated_transfer_ms": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Estimated Transfer Ms",
+          "type": "integer"
+        },
+        "input_artifact_ids": {
+          "default": [],
+          "items": {
+            "format": "uuid7",
+            "type": "string"
+          },
+          "title": "Input Artifact Ids",
+          "type": "array"
+        },
+        "input_data_types": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Input Data Types",
+          "type": "array"
+        },
+        "node_id": {
+          "minLength": 1,
+          "title": "Node Id",
+          "type": "string"
+        },
+        "output_data_types": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Output Data Types",
+          "type": "array"
+        },
+        "parameters": {
+          "default": [],
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "$ref": "#/$defs/JsonValue"
+              }
+            ],
+            "type": "array"
+          },
+          "title": "Parameters",
+          "type": "array"
+        },
+        "provider_id": {
+          "minLength": 1,
+          "title": "Provider Id",
+          "type": "string"
+        },
+        "step_id": {
+          "minLength": 1,
+          "title": "Step Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "step_id",
+        "provider_id",
+        "node_id"
+      ],
+      "title": "PlanStep",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "checkpoint_id": {
+      "format": "uuid7",
+      "title": "Checkpoint Id",
+      "type": "string"
+    },
+    "continuation_output_types": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Continuation Output Types",
+      "type": "array"
+    },
+    "cost": {
+      "$ref": "#/$defs/PlanCost"
+    },
+    "covered_demand_ids": {
+      "items": {
+        "format": "uuid7",
+        "type": "string"
+      },
+      "title": "Covered Demand Ids",
+      "type": "array"
+    },
+    "feasibility_reasons": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Feasibility Reasons",
+      "type": "array"
+    },
+    "hard_constraints_satisfied": {
+      "title": "Hard Constraints Satisfied",
+      "type": "boolean"
+    },
+    "input_artifact_ids": {
+      "default": [],
+      "items": {
+        "format": "uuid7",
+        "type": "string"
+      },
+      "title": "Input Artifact Ids",
+      "type": "array"
+    },
+    "label_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Label Id"
+    },
+    "parent_label_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Parent Label Id"
+    },
+    "quality_floor_satisfied": {
+      "title": "Quality Floor Satisfied",
+      "type": "boolean"
+    },
+    "schema_version": {
+      "const": "fable.physical_plan_label.v1",
+      "default": "fable.physical_plan_label.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "steps": {
+      "items": {
+        "$ref": "#/$defs/PlanStep"
+      },
+      "title": "Steps",
+      "type": "array"
+    }
+  },
+  "required": [
+    "checkpoint_id",
+    "covered_demand_ids",
+    "steps",
+    "cost",
+    "hard_constraints_satisfied",
+    "quality_floor_satisfied"
+  ],
+  "title": "PhysicalPlanLabel",
+  "type": "object"
+}
