@@ -1,9 +1,0 @@
-{
-  "name": "smoke_fixed_latency",
-  "description": "Deterministic high-latency profile for NetWaggle smoke tests. One-way orin11->gateway path is roughly 100 ms; ping RTT should be roughly 200 ms plus overhead.",
-  "links": [
-    {"from": "s_orin11", "to": "s_edge", "delay": "50ms", "bw": 100, "loss": 0},
-    {"from": "s_orin12", "to": "s_edge", "delay": "50ms", "bw": 100, "loss": 0},
-    {"from": "s_edge", "to": "s_cloud", "delay": "50ms", "bw": 100, "loss": 0}
-  ]
-}

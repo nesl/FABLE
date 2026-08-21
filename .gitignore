@@ -1,5 +1,52 @@
-iobt-minimal-ce-replay/venv
-iobt-minimal-ce-replay/generated
-runs
+# Python environments and generated package metadata
+/.venv/
+/venv/
+/iobt-minimal-ce-replay/venv/
+*.egg-info/
+/build/
+/dist/
+
+# Python, test, type-checker, and coverage caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Generated runtime and experiment data
+/runs/
+/evaluation/results/
+/debug/
+/debug.local-migration-backup/
+/iobt-minimal-ce-replay/generated/
+
+# Machine-specific storage migration record. config/storage.yaml is portable
+# through the FABLE_STORAGE_ROOT environment override and remains versioned.
+/config/storage_migration_*.yaml
+
+# Model binaries are provisioned separately; keep manifests and metadata.
+*.pt
+*.pth
+*.onnx
+*.engine
+*.weights
+
+# Local research inputs, generated answers, and assembled result reports
+/paper.pdf
+/answers/
+/final/
+
+# Local process output
+*.log
+*.pid
+
+# Editor, environment, OS, and trash files
+.env
+.env.*
+!.env.example
+.DS_Store
 .Trash*
-venv
+*~
