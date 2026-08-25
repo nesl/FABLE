@@ -36,6 +36,43 @@ def test_event_matching_reports_timely_binding_accuracy() -> None:
     assert metrics.role_binding_accuracy == 1.0
 
 
+def test_event_matching_accepts_configured_boundary_tolerance() -> None:
+    truth = GroundTruthEvent(
+        event_id="gt-1",
+        event_family="robbery",
+        start_time=BASE_TIME,
+        end_time=BASE_TIME + timedelta(seconds=10),
+    )
+    result = ComplexEventResult(
+        run_id="run",
+        baseline_id=BaselineId.FABLE,
+        trace_id="trace",
+        request_id="request",
+        event_time=BASE_TIME + timedelta(seconds=11),
+        monotonic_timestamp_ns=1,
+        result_id="result-1",
+        event_family="robbery",
+        event_start_time=BASE_TIME + timedelta(seconds=11),
+        event_end_time=BASE_TIME + timedelta(seconds=12),
+        emitted_at=BASE_TIME + timedelta(seconds=12),
+    )
+    strict = evaluate_event_results((truth,), (result,))
+    tolerant = evaluate_event_results(
+        (truth,), (result,), temporal_boundary_tolerance_seconds=1.0
+    )
+    assert strict.true_positives == 0
+    assert tolerant.true_positives == 1
+
+
+def test_event_matching_rejects_negative_boundary_tolerance() -> None:
+    try:
+        evaluate_event_results((), (), temporal_boundary_tolerance_seconds=-0.1)
+    except ValueError as exc:
+        assert "non-negative" in str(exc)
+    else:
+        raise AssertionError("negative tolerance must be rejected")
+
+
 def _episode(**updates):
     values = dict(
         run_id="run",

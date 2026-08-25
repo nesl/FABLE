@@ -7,6 +7,7 @@ require CUDA, Ultralytics, Roboflow Trackers, PyTorch, or OpenCLIP.
 from .association import CrossSensorIdentityAssociator
 from .descriptors import (
     DeterministicDescriptorProvider,
+    FastReidEntityDescriptor,
     OpenClipVisualDescriptor,
     TorchScriptVehicleReIDDescriptor,
 )
@@ -17,6 +18,7 @@ from .geometry import (
     MotionStateEvaluator,
     PairwiseDistanceEvaluator,
     PassReferenceEvaluator,
+    TrackLifecycleExitEvaluator,
     ReferenceLine,
     RelativeOrderEvaluator,
     RouteMapMatcher,
@@ -55,12 +57,14 @@ __all__ = [
     "EntityAssociation",
     "EntityAssociationSet",
     "FollowsLocalGeometryEvaluator",
+    "FastReidEntityDescriptor",
     "JsonlDetectionStore",
     "LegacyReplayYoloAdapter",
     "MotionStateEvaluator",
     "OpenClipVisualDescriptor",
     "PairwiseDistanceEvaluator",
     "PassReferenceEvaluator",
+    "TrackLifecycleExitEvaluator",
     "Point2D",
     "PredicateObservation",
     "ReferenceLine",

@@ -13,7 +13,7 @@ from fable.common.provider_catalog import (
     provider_contract_from_catalog_entry,
 )
 from fable.common.schemas import ArtifactRef, PredicateDemand, ProviderContract, ProviderPort
-from providers.tools.chain_validator import ChainValidator
+from fable.catalog.chain_validator import ChainValidator
 
 from .models import (
     ChainExternalInput,
@@ -84,7 +84,7 @@ class ProviderRegistry:
             raise ProviderRegistryError("provide profiles or profiles_path, not both")
         resolved_profiles: Iterable[ProviderResourceProfile]
         if profiles_path is not None:
-            from providers.vehicle.profiling import load_profile_records
+            from fable.catalog.profiles import load_profile_records
 
             resolved_profiles = tuple(
                 record.to_planner_profile()
@@ -341,54 +341,10 @@ def _chain_from_raw(
     )
 
 
-def default_provider_profiles() -> tuple[ProviderResourceProfile, ...]:
-    """Deterministic placeholders until measured Phase-9 profiles replace them."""
 
-    values = {
-        "yolo_vehicle_fast_640": (420, 32, 0.8, 640, 1024, 0.84),
-        "yolo_vehicle_balanced_960": (600, 58, 1.0, 896, 1792, 0.91),
-        "yolo_full_context_960": (620, 65, 1.0, 960, 1792, 0.90),
-        "multi_object_tracker": (80, 12, 0.8, 384, 0, 0.95),
-        "camera_projection": (20, 5, 0.2, 96, 0, 1.0),
-        "track_crop_extractor": (25, 18, 0.4, 192, 0, 0.98),
-        "vehicle_reid_descriptor": (300, 35, 0.8, 512, 1024, 0.88),
-        "openclip_visual_descriptor": (420, 48, 0.8, 640, 1280, 0.72),
-        "cross_sensor_identity_association": (50, 20, 0.6, 256, 0, 0.86),
-        "zone_membership_evaluator": (5, 2, 0.1, 64, 0, 0.99),
-        "zone_transition_evaluator": (5, 2, 0.1, 64, 0, 0.99),
-        "pass_reference_evaluator": (5, 2, 0.1, 64, 0, 0.99),
-        "motion_state_evaluator": (5, 3, 0.1, 64, 0, 0.97),
-        "pairwise_distance_evaluator": (5, 2, 0.1, 64, 0, 0.99),
-        "relative_order_evaluator": (5, 2, 0.1, 64, 0, 0.99),
-        "route_map_matcher": (10, 4, 0.2, 96, 0, 0.98),
-        "track_summary_route_evaluator": (8, 3, 0.1, 64, 0, 0.96),
-        "dwell_evaluator": (5, 2, 0.1, 64, 0, 0.99),
-        "follows_local_geometry": (20, 10, 0.3, 128, 0, 0.94),
-        "follows_cross_sensor": (30, 15, 0.4, 160, 0, 0.89),
-        "audio_event_classifier": (240, 30, 0.6, 384, 512, 0.90),
-        "gcc_phat_audio_localizer": (25, 8, 0.25, 128, 0, 0.86),
-        "audio_visual_association": (20, 7, 0.25, 128, 0, 0.82),
-        "voice_activity_detector": (45, 6, 0.25, 128, 0, 0.93),
-        "speaker_embedding_provider": (260, 24, 0.6, 384, 512, 0.86),
-        "speaker_diarization_provider": (35, 12, 0.4, 256, 0, 0.84),
-        "keyword_or_asr_provider": (480, 95, 1.0, 1024, 1536, 0.88),
-        "conversation_provider": (18, 9, 0.3, 160, 0, 0.85),
-        "person_vehicle_relation_provider": (12, 6, 0.25, 128, 0, 0.88),
-        "package_detector": (620, 70, 1.0, 960, 1792, 0.82),
-        "interaction_evidence_analyzer": (250, 45, 0.8, 512, 1024, 0.84),
-        "object_transfer_reasoner": (18, 8, 0.3, 160, 0, 0.87),
-        "historical_vehicle_interval_matcher": (15, 8, 0.3, 160, 0, 0.88),
-    }
-    return tuple(
-        ProviderResourceProfile(
-            provider_id=provider_id,
-            node_class="*",
-            startup_ms=startup,
-            execution_ms=execution,
-            cpu_cores=cpu,
-            memory_mb=memory,
-            gpu_memory_mb=gpu,
-            quality_score=quality,
-        )
-        for provider_id, (startup, execution, cpu, memory, gpu, quality) in values.items()
-    )
+def default_provider_profiles() -> tuple[ProviderResourceProfile, ...]:
+    """Load deterministic fallback profiles from the packaged catalog data."""
+
+    from fable.catalog.profiles import default_planner_profiles
+
+    return default_planner_profiles()

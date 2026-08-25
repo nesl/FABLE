@@ -83,7 +83,7 @@ class ZoneMembershipEvaluator:
     provider_version = "1"
 
     def evaluate(self, track: TrackObservation, zone: VehicleZone) -> PredicateObservation:
-        point = _track_point(track)
+        point = _track_point(track, zone.coordinate_frame_id)
         _require_frame(point, zone.coordinate_frame_id)
         truth = point_in_polygon(point, zone.polygon)
         interval = EventTimeInterval(start=track.event_time, end=track.event_time)
@@ -110,7 +110,7 @@ class ZoneTransitionEvaluator:
         self._membership: dict[tuple[str, str], tuple[bool, datetime]] = {}
 
     def update(self, track: TrackObservation, zone: VehicleZone) -> PredicateObservation | None:
-        point = _track_point(track)
+        point = _track_point(track, zone.coordinate_frame_id)
         _require_frame(point, zone.coordinate_frame_id)
         inside = point_in_polygon(point, zone.polygon)
         key = (track.scoped_track_id, zone.zone_id)
@@ -143,8 +143,8 @@ class PassReferenceEvaluator:
         self._previous: dict[tuple[str, str], tuple[float, datetime]] = {}
 
     def update(self, track: TrackObservation, reference: ReferenceLine) -> PredicateObservation | None:
-        point = _track_point(track)
         frame_id = reference.start.coordinate_frame_id
+        point = _track_point(track, frame_id)
         _require_frame(point, frame_id)
         side = signed_line_side(point, reference)
         key = (track.scoped_track_id, reference.reference_id)
@@ -176,6 +176,132 @@ class PassReferenceEvaluator:
             supporting_artifact_types=("track_set.v1",),
             measurements={"crossing_direction": crossing_direction},
         )
+
+
+class TrackLifecycleExitEvaluator:
+    """Finalize uncalibrated image-space traversals after detector absence.
+
+    This is the executable contract used by replay profiles that have no
+    surveyed line or world calibration. A PASSES observation requires motion
+    of at least one representative bounding-box width; mere appearance is not
+    enough. EXITS records the corresponding detector-backed disappearance.
+    """
+
+    provider_id = "track_lifecycle_exit_evaluator"
+    provider_version = "1"
+
+    def __init__(
+        self,
+        *,
+        absence_seconds: float = 0.5,
+        minimum_displacement_box_widths: float = 0.5,
+    ) -> None:
+        self.absence = timedelta(seconds=absence_seconds)
+        self.minimum_displacement_box_widths = minimum_displacement_box_widths
+        self._tracks: dict[str, tuple[TrackObservation, TrackObservation]] = {}
+        self._finalized: set[str] = set()
+
+    def update(self, track_set: TrackSet) -> tuple[PredicateObservation, ...]:
+        detected_ids: set[str] = set()
+        for track in track_set.tracks:
+            # ByteTrack may retain a prediction briefly after its corresponding
+            # YOLO box disappears. Only detector-matched rows extend lifetime.
+            if not str(track.attributes.get("matched_detection_id") or ""):
+                continue
+            detected_ids.add(track.scoped_track_id)
+            # ByteTrack's numeric IDs are session-local slots and may be reused
+            # after a track has disappeared.  A detector-backed reappearance is
+            # a new visit, not an extension of the already-finalized traversal.
+            if track.scoped_track_id in self._finalized:
+                self._finalized.remove(track.scoped_track_id)
+                self._tracks[track.scoped_track_id] = (track, track)
+                continue
+            existing = self._tracks.get(track.scoped_track_id)
+            self._tracks[track.scoped_track_id] = (
+                existing[0] if existing else track,
+                track,
+            )
+
+        outputs: list[PredicateObservation] = []
+        for scoped_id, (first, last) in tuple(self._tracks.items()):
+            if scoped_id in detected_ids or scoped_id in self._finalized:
+                continue
+            if track_set.event_time - last.event_time < self.absence:
+                continue
+            self._finalized.add(scoped_id)
+            interval = EventTimeInterval(start=first.event_time, end=last.event_time)
+            reference = f"camera_fov:{last.source_id}"
+            exit_bindings = {"vehicle": scoped_id, "zone": reference}
+            outputs.append(
+                PredicateObservation(
+                    occurrence_id=occurrence_id(
+                        "EXITS", exit_bindings, interval, self.provider_id
+                    ),
+                    predicate_id="EXITS",
+                    truth=True,
+                    confidence=min(first.confidence, last.confidence),
+                    event_time_interval=interval,
+                    bindings=exit_bindings,
+                    source_ids=(last.source_id,),
+                    provider_id=self.provider_id,
+                    provider_version=self.provider_version,
+                    supporting_artifact_types=("track_set.v1",),
+                    measurements={
+                        "absence_seconds": self.absence.total_seconds(),
+                        "evidence_mode": "detector_backed_track_lifecycle",
+                    },
+                )
+            )
+            dx = last.bbox.center[0] - first.bbox.center[0]
+            dy = last.bbox.center[1] - first.bbox.center[1]
+            displacement = hypot(dx, dy)
+            representative_width = max(
+                1.0, (first.bbox.width + last.bbox.width) / 2.0
+            )
+            displacement_widths = displacement / representative_width
+            if displacement_widths < self.minimum_displacement_box_widths:
+                continue
+            pass_bindings = {"vehicle": scoped_id, "reference": reference}
+            outputs.append(
+                PredicateObservation(
+                    occurrence_id=occurrence_id(
+                        "PASSES", pass_bindings, interval, self.provider_id
+                    ),
+                    predicate_id="PASSES",
+                    truth=True,
+                    confidence=min(first.confidence, last.confidence),
+                    event_time_interval=interval,
+                    bindings=pass_bindings,
+                    source_ids=(last.source_id,),
+                    provider_id=self.provider_id,
+                    provider_version=self.provider_version,
+                    supporting_artifact_types=("track_set.v1",),
+                    measurements={
+                        "displacement_px": displacement,
+                        "displacement_box_widths": displacement_widths,
+                        "evidence_mode": "image_space_uncalibrated",
+                        "reference_kind": "camera_field_of_view",
+                    },
+                )
+            )
+        return tuple(outputs)
+
+    def flush(self) -> tuple[PredicateObservation, ...]:
+        """Finalize detector-backed tracks when the replay reaches hard EOF."""
+        if not self._tracks:
+            return ()
+        event_time = max(last.event_time for _first, last in self._tracks.values())
+        # Advance by exactly the configured absence interval so the ordinary
+        # disappearance path remains the single source of lifecycle semantics.
+        empty = TrackSet(
+            source_id=next(iter(self._tracks.values()))[1].source_id,
+            tracker_family="replay_eof",
+            tracker_version="1",
+            tracker_session_id=next(iter(self._tracks.values()))[1].tracker_session_id,
+            event_time=event_time + self.absence,
+            tracks=(),
+        )
+        return self.update(empty)
 
 
 class MotionStateEvaluator:
@@ -238,8 +364,21 @@ class MotionStateEvaluator:
         elapsed = (end.event_time - start.event_time).total_seconds()
         if elapsed < self.minimum_window_s:
             return None
-        left = _track_point(start)
-        right = _track_point(end)
+        # A legacy replay stream can contain depth/world coordinates on some
+        # detections and image-only boxes on adjacent detections. Select a
+        # representation shared by both endpoints instead of independently
+        # preferring world coordinates and then rejecting a mixed-frame pair.
+        if (
+            start.world_point is not None
+            and end.world_point is not None
+            and start.world_point.coordinate_frame_id
+            == end.world_point.coordinate_frame_id
+        ):
+            frame_id = start.world_point.coordinate_frame_id
+        else:
+            frame_id = f"image:{end.source_id}"
+        left = _track_point(start, frame_id)
+        right = _track_point(end, frame_id)
         _require_same_frame(left, right)
         speed = hypot(right.x - left.x, right.y - left.y) / elapsed
         moving = speed >= self.moving_threshold_mps
@@ -262,10 +401,32 @@ class PairwiseDistanceEvaluator:
         *,
         maximum_distance_m: float,
     ) -> PredicateObservation:
-        left_point = _track_point(left)
-        right_point = _track_point(right)
+        if (
+            left.world_point is not None
+            and right.world_point is not None
+            and left.world_point.coordinate_frame_id
+            == right.world_point.coordinate_frame_id
+        ):
+            frame_id = left.world_point.coordinate_frame_id
+            left_point = _track_point(left, frame_id)
+            right_point = _track_point(right, frame_id)
+            distance = hypot(right_point.x - left_point.x, right_point.y - left_point.y)
+            evidence_mode = "world_geometry"
+        else:
+            # Uncalibrated mobile recordings have image boxes but no surveyed
+            # camera geometry. Normalize center separation by apparent vehicle
+            # size and use a conservative four-metre vehicle-width proxy.
+            frame_id = f"image:{left.source_id}"
+            left_point = _track_point(left, frame_id)
+            right_point = _track_point(right, frame_id)
+            mean_width = max((left.bbox.width + right.bbox.width) / 2.0, 1.0)
+            distance = (
+                hypot(right_point.x - left_point.x, right_point.y - left_point.y)
+                / mean_width
+                * 4.0
+            )
+            evidence_mode = "image_space_vehicle_width_proxy"
         _require_same_frame(left_point, right_point)
-        distance = hypot(right_point.x - left_point.x, right_point.y - left_point.y)
         timestamp = max(left.event_time, right.event_time)
         interval = EventTimeInterval(start=timestamp, end=timestamp)
         bindings = {"left": left.scoped_track_id, "right": right.scoped_track_id}
@@ -279,7 +440,11 @@ class PairwiseDistanceEvaluator:
             source_ids=tuple(sorted({left.source_id, right.source_id})),
             provider_id=self.provider_id,
             provider_version=self.provider_version,
-            measurements={"distance_m": distance, "maximum_distance_m": maximum_distance_m},
+            measurements={
+                "distance_m": distance,
+                "maximum_distance_m": maximum_distance_m,
+                "evidence_mode": evidence_mode,
+            },
         )
 
 
@@ -323,14 +488,15 @@ class RouteMapMatcher:
     provider_version = "1"
 
     def match(self, track: TrackObservation, routes: Iterable[RoutePolyline]) -> TrackObservation:
-        point = _track_point(track)
+        route_rows = tuple(routes)
+        if not route_rows:
+            raise InvalidProviderInput("at least one route is required")
+        point = _track_point(track, route_rows[0].coordinate_frame_id)
         candidates: list[tuple[float, float, RoutePolyline]] = []
-        for route in routes:
+        for route in route_rows:
             _require_frame(point, route.coordinate_frame_id)
             distance, progress = project_point_to_polyline(point, route.points)
             candidates.append((distance, progress, route))
-        if not candidates:
-            raise InvalidProviderInput("at least one route is required")
         distance, progress, route = min(candidates, key=lambda item: (item[0], item[2].route_id))
         return track.model_copy(
             update={
@@ -356,7 +522,7 @@ class DwellEvaluator:
         *,
         minimum_duration_s: float,
     ) -> PredicateObservation | None:
-        point = _track_point(track)
+        point = _track_point(track, zone.coordinate_frame_id)
         _require_frame(point, zone.coordinate_frame_id)
         key = (track.scoped_track_id, zone.zone_id)
         inside = point_in_polygon(point, zone.polygon)
@@ -435,11 +601,29 @@ def project_point_to_polyline(
     return best_distance, best_progress
 
 
-def _track_point(track: TrackObservation) -> Point2D:
-    if track.world_point is not None:
+def _track_point(
+    track: TrackObservation,
+    expected_frame_id: str | None = None,
+) -> Point2D:
+    """Select the track representation compatible with the requested geometry.
+
+    A replay detection may legitimately carry both a camera-local bounding box
+    and a calibrated/world point.  Geometry evaluators must select between
+    those representations based on their contract instead of always preferring
+    the world point and then rejecting valid image-space geometry.
+    """
+    if (
+        track.world_point is not None
+        and (expected_frame_id is None or track.world_point.coordinate_frame_id == expected_frame_id)
+    ):
         return track.world_point
     x, y = track.bbox.center
-    return Point2D(x=x, y=y, coordinate_frame_id=f"image:{track.source_id}")
+    image_point = Point2D(x=x, y=y, coordinate_frame_id=f"image:{track.source_id}")
+    if expected_frame_id is None or image_point.coordinate_frame_id == expected_frame_id:
+        return image_point
+    # Preserve the most informative available representation so the existing
+    # frame check raises a typed compatibility error with useful metadata.
+    return track.world_point or image_point
 
 
 def _require_frame(point: Point2D, frame_id: str) -> None:

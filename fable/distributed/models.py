@@ -23,6 +23,8 @@ from fable.common.schemas import (
     PredicateResult,
     ProviderLease,
     ResourceReservation,
+    RuntimeLinkUpdate,
+    RuntimeNodeUpdate,
 )
 from fable.common.time import EventTimeInterval, ensure_utc, utc_now
 from fable.scheduling.models import PlanCandidate
@@ -38,6 +40,10 @@ class MessageKind(StrEnum):
     ARTIFACT_ANNOUNCEMENT = "ARTIFACT_ANNOUNCEMENT"
     PLAN_DISPATCH_REQUEST = "PLAN_DISPATCH_REQUEST"
     PLAN_DISPATCH_RESPONSE = "PLAN_DISPATCH_RESPONSE"
+    EVENT_REQUEST = "EVENT_REQUEST"
+    EVENT_REQUEST_RESPONSE = "EVENT_REQUEST_RESPONSE"
+    RUNTIME_DISTURBANCE_REQUEST = "RUNTIME_DISTURBANCE_REQUEST"
+    RUNTIME_DISTURBANCE_ACK = "RUNTIME_DISTURBANCE_ACK"
     FAULT_COMMAND = "FAULT_COMMAND"
 
 
@@ -45,6 +51,14 @@ class AckStatus(StrEnum):
     ACCEPTED = "ACCEPTED"
     DUPLICATE = "DUPLICATE"
     REJECTED = "REJECTED"
+
+
+class ExecutionProfile(StrEnum):
+    """How strictly the deployed runtime treats physical implementations."""
+
+    DEVELOPMENT = "development"
+    PLUMBING = "plumbing"
+    REAL = "real"
 
 
 class RuntimeMode(StrEnum):
@@ -66,6 +80,7 @@ class ReplayOutputAdapter(StrEnum):
     YOLO_OBJECT_PRESENT = "YOLO_OBJECT_PRESENT"
     VEHICLE_PREDICATE = "VEHICLE_PREDICATE"
     MULTIMODAL_PREDICATE = "MULTIMODAL_PREDICATE"
+    IDENTITY_ASSOCIATION = "IDENTITY_ASSOCIATION"
 
 
 class AgentProviderStatus(StrEnum):
@@ -132,6 +147,11 @@ class ProviderRuntimeSpec(FableModel):
     provider_contract_version: int = Field(ge=1)
     node_id: str = Field(min_length=1)
     mode: RuntimeMode
+    # Multiple logical providers may be capabilities of one warm physical worker.
+    # ``worker_id`` identifies that shared process/container on this node; resource
+    # accounting is then charged once using ``worker_resource_limits``.
+    worker_id: str | None = None
+    worker_resource_limits: ResourceLimits | None = None
     image: str | None = None
     container_name: str | None = None
     command: tuple[str, ...] = ()
@@ -141,8 +161,21 @@ class ProviderRuntimeSpec(FableModel):
     working_dir: str | None = None
     entrypoint: tuple[str, ...] = ()
     labels: dict[str, str] = Field(default_factory=dict)
+    # Stable device identifiers assigned by the evaluation bundle.  Keeping
+    # these in the typed runtime contract lets agents enforce GPU placement
+    # without passing an unvalidated Docker-specific environment fragment.
+    gpu_device_ids: tuple[str, ...] = ()
     stop_adopted_when_idle: bool = False
     output_topics: tuple[str, ...] = ()
+    # Explicit broker-backed intermediate dataflow. Keys are typed artifact
+    # names and values are exact MQTT topics. These declarations are distinct
+    # from ``output_topics`` above, which are observed by the node agent to
+    # adapt a provider's terminal predicate result.
+    artifact_topic_inputs: dict[str, str] = Field(default_factory=dict)
+    artifact_topic_outputs: dict[str, str] = Field(default_factory=dict)
+    # Cross-node topic transfer is permitted only for runtimes that explicitly
+    # name the same broker/transport scope.
+    artifact_broker_scope_id: str | None = None
     output_adapter: ReplayOutputAdapter = ReplayOutputAdapter.NONE
     output_label_aliases: dict[str, tuple[str, ...]] = Field(default_factory=dict)
     readiness: ReadinessProbe = Field(default_factory=ReadinessProbe)
@@ -281,6 +314,12 @@ class ArtifactAnnouncement(VersionedModel):
     node_id: str = Field(min_length=1)
     session_id: str = Field(min_length=1)
     artifact: ArtifactRef
+    # Optional physical-plan provenance allows the distributed executor to release
+    # downstream steps only when an upstream artifact really exists.
+    plan_id: UUID | None = None
+    step_id: str | None = None
+    provider_instance_id: str | None = None
+    lease_id: UUID | None = None
     durable_local_write: bool = True
     emitted_at: datetime = Field(default_factory=utc_now)
 
@@ -307,10 +346,209 @@ class ReliablePredicateResult(VersionedModel):
         return ensure_utc(value)
 
 
+class ReplayReadiness(VersionedModel):
+    """Typed replay-service readiness announcement.
+
+    ``generation`` distinguishes a newly started process from retained or late
+    readiness messages emitted by an older replay instance.
+    """
+
+    SCHEMA_VERSION: ClassVar[str] = "fable.replay_readiness.v1"
+    schema_version: Literal["fable.replay_readiness.v1"] = SCHEMA_VERSION
+    # Replay processes historically use UUID4; correlation requires uniqueness,
+    # not the time-ordering guarantee imposed on durable controller commands.
+    message_id: UUID = Field(default_factory=uuid7)
+    node_id: str = Field(min_length=1)
+    service_id: str = Field(min_length=1)
+    process_instance_id: str = Field(min_length=1)
+    generation: int = Field(ge=0)
+    ready: bool
+    reason: str = ""
+    state: str = ""
+    replay_id: str | None = None
+    scenario: str | None = None
+    observed_at: datetime = Field(default_factory=utc_now)
+    metadata: dict[str, JSONValue] = Field(default_factory=dict)
+
+    @field_validator("observed_at")
+    @classmethod
+    def _normalize_observed_at(cls, value: datetime) -> datetime:
+        return ensure_utc(value)
+
+
+class ResourceKind(StrEnum):
+    NETWORK = "NETWORK"
+    NETWORK_PROFILE = "NETWORK_PROFILE"
+    LINK_STATE = "LINK_STATE"
+    COMPUTE = "COMPUTE"
+    GPU = "GPU"
+    NODE = "NODE"
+
+
+class ResourceChange(VersionedModel):
+    """Evaluator-to-controller notification for one scoped disturbance epoch."""
+
+    SCHEMA_VERSION: ClassVar[str] = "fable.resource_change.v1"
+    schema_version: Literal["fable.resource_change.v1"] = SCHEMA_VERSION
+    message_id: UUID7 = Field(default_factory=uuid7)
+    run_id: str = Field(min_length=1)
+    condition: str = Field(min_length=1)
+    action: str = Field(min_length=1)
+    condition_epoch: int = Field(ge=0)
+    target_id: str | None = None
+    resource_kind: ResourceKind
+    observed_at: datetime = Field(default_factory=utc_now)
+    metadata: dict[str, JSONValue] = Field(default_factory=dict)
+
+    @field_validator("observed_at")
+    @classmethod
+    def _normalize_change_time(cls, value: datetime) -> datetime:
+        return ensure_utc(value)
+
+    @model_validator(mode="after")
+    def _validate_link_target(self) -> Self:
+        if self.resource_kind == ResourceKind.LINK_STATE:
+            if not self.target_id or not self.target_id.startswith("link:"):
+                raise ValueError("LINK_STATE target must be a canonical sensor link")
+            parts = self.target_id.split(":")
+            if len(parts) != 3 or not all(parts):
+                raise ValueError("LINK_STATE target must be a canonical sensor link")
+        return self
+
+
+class ResourceChangeAck(VersionedModel):
+    SCHEMA_VERSION: ClassVar[str] = "fable.resource_change_ack.v1"
+    schema_version: Literal["fable.resource_change_ack.v1"] = SCHEMA_VERSION
+    message_id: UUID7 = Field(default_factory=uuid7)
+    request_message_id: UUID
+    run_id: str = Field(min_length=1)
+    condition_epoch: int = Field(ge=0)
+    accepted: bool
+    adaptation_status: str = Field(min_length=1)
+    reason: str = ""
+    observed_at: datetime = Field(default_factory=utc_now)
+    metadata: dict[str, JSONValue] = Field(default_factory=dict)
+
+    @field_validator("observed_at")
+    @classmethod
+    def _normalize_ack_time(cls, value: datetime) -> datetime:
+        return ensure_utc(value)
+
+
 class ReliableNodeHeartbeat(VersionedModel):
     SCHEMA_VERSION: ClassVar[str] = "fable.reliable_node_heartbeat.v1"
     schema_version: Literal["fable.reliable_node_heartbeat.v1"] = SCHEMA_VERSION
     heartbeat: NodeHeartbeat
+
+
+class EventRequestSubmission(VersionedModel):
+    """Normal external API for starting a FABLE complex-event request.
+
+    The caller supplies event semantics and request-level policy, not a physical
+    execution plan.  The deployed controller owns compilation, frontier planning,
+    admission, and replanning.
+    """
+
+    SCHEMA_VERSION: ClassVar[str] = "fable.event_request_submission.v1"
+    schema_version: Literal["fable.event_request_submission.v1"] = SCHEMA_VERSION
+    message_id: UUID7 = Field(default_factory=uuid7)
+    submitter_id: str = Field(min_length=1)
+    request_id: str = Field(default_factory=lambda: str(uuid7()), min_length=1)
+    # Evaluation-controlled static policies need the stable trace/placement
+    # keys in order to enforce an authored physical contract.  They are audit
+    # and policy-selection metadata; FABLE's normal planner ignores them.
+    trace_id: str = ""
+    baseline_placement_id: str = ""
+    family_id: str = Field(min_length=1)
+    parameters: dict[str, JSONValue] = Field(default_factory=dict)
+    event_time_window: EventTimeInterval | None = None
+    hypothesis_horizon_ms: int = Field(default=300_000, ge=1)
+    deadline_offset_ms: int = Field(default=300_000, ge=1)
+    raw_data_must_remain_local: bool = True
+    allowed_node_ids: tuple[str, ...] = ()
+    allowed_regions: tuple[str, ...] = ()
+    maximum_transfer_bytes: int | None = Field(default=None, ge=0)
+    planning_policy_id: str = Field(default="FABLE", min_length=1)
+    # A source-discovery frontier may yield several independent bindings. The
+    # deployed controller keeps that frontier leased until this bounded pool
+    # is full; one camera result must not cancel every sibling camera watch.
+    max_seed_hypotheses: int = Field(default=1, ge=1, le=32)
+    seed_admission_strategy: Literal[
+        "first_distinct", "reference_diverse", "reference_bounded"
+    ] = "first_distinct"
+    submitted_at: datetime = Field(default_factory=utc_now)
+
+    @field_validator("submitted_at")
+    @classmethod
+    def _normalize_event_request_time(cls, value: datetime) -> datetime:
+        return ensure_utc(value)
+
+
+class EventRequestResponse(VersionedModel):
+    SCHEMA_VERSION: ClassVar[str] = "fable.event_request_response.v1"
+    schema_version: Literal["fable.event_request_response.v1"] = SCHEMA_VERSION
+    message_id: UUID7 = Field(default_factory=uuid7)
+    request_message_id: UUID7
+    request_id: str = Field(min_length=1)
+    accepted: bool
+    hypothesis_ids: tuple[UUID7, ...] = ()
+    admitted_plan_ids: tuple[UUID7, ...] = ()
+    command_message_ids: tuple[UUID7, ...] = ()
+    reason: str = ""
+    emitted_at: datetime = Field(default_factory=utc_now)
+
+    @field_validator("emitted_at")
+    @classmethod
+    def _normalize_event_response_time(cls, value: datetime) -> datetime:
+        return ensure_utc(value)
+
+
+class RuntimeDisturbanceRequest(VersionedModel):
+    """Typed control-plane request for one E4/runtime operating disturbance."""
+
+    SCHEMA_VERSION: ClassVar[str] = "fable.runtime_disturbance_request.v1"
+    schema_version: Literal["fable.runtime_disturbance_request.v1"] = SCHEMA_VERSION
+    message_id: UUID7 = Field(default_factory=uuid7)
+    submitter_id: str = Field(min_length=1)
+    disturbance_id: str = Field(default_factory=lambda: str(uuid7()), min_length=1)
+    node_updates: tuple[RuntimeNodeUpdate, ...] = ()
+    link_updates: tuple[RuntimeLinkUpdate, ...] = ()
+    reason: str = "evaluation/runtime disturbance"
+    submitted_at: datetime = Field(default_factory=utc_now)
+
+    @field_validator("submitted_at")
+    @classmethod
+    def _normalize_disturbance_time(cls, value: datetime) -> datetime:
+        return ensure_utc(value)
+
+    @model_validator(mode="after")
+    def _require_updates(self) -> Self:
+        if not self.node_updates and not self.link_updates:
+            raise ValueError("runtime disturbance requires at least one node or link update")
+        return self
+
+
+class RuntimeDisturbanceAck(VersionedModel):
+    """Acknowledges the authoritative deployment epoch after a disturbance."""
+
+    SCHEMA_VERSION: ClassVar[str] = "fable.runtime_disturbance_ack.v1"
+    schema_version: Literal["fable.runtime_disturbance_ack.v1"] = SCHEMA_VERSION
+    message_id: UUID7 = Field(default_factory=uuid7)
+    request_message_id: UUID7
+    disturbance_id: str = Field(min_length=1)
+    accepted: bool
+    changed: bool = False
+    previous_resource_epoch: int = Field(default=0, ge=0)
+    resource_epoch: int = Field(default=0, ge=0)
+    affected_demand_ids: tuple[UUID7, ...] = ()
+    replanned_request_ids: tuple[str, ...] = ()
+    reason: str = ""
+    emitted_at: datetime = Field(default_factory=utc_now)
+
+    @field_validator("emitted_at")
+    @classmethod
+    def _normalize_disturbance_ack_time(cls, value: datetime) -> datetime:
+        return ensure_utc(value)
 
 
 class PlanDispatchRequest(VersionedModel):

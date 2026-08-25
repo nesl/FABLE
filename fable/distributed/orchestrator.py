@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable
 from datetime import datetime
+import json
 import logging
 import threading
+import time
 from typing import Any
 from uuid import UUID
 
@@ -41,6 +43,7 @@ from .models import (
     ResourceLimits,
 )
 from .outbox import SQLiteProcessedLedger
+from .plan_execution import PlanExecutionTracker
 from .persistence import StateStore
 from .reconciliation import EventEmissionLedger, RuntimeReconciler
 from .topics import (
@@ -61,6 +64,8 @@ from .transport import ReliableMessenger, Transport
 LOGGER = logging.getLogger(__name__)
 ResultCallback = Callable[[PredicateResult], Any]
 ReplanCallback = Callable[[str, tuple[UUID, ...], str], Any]
+HeartbeatCallback = Callable[[NodeHeartbeat], Any]
+ArtifactCallback = Callable[[ArtifactAnnouncement], Any]
 
 
 class ExecutionDispatcher:
@@ -80,6 +85,9 @@ class ExecutionDispatcher:
         self.runtime_resolver = runtime_resolver
         self.messenger = messenger
         self.store = store
+        self.execution = PlanExecutionTracker(runtime_resolver)
+        self._candidates: dict[UUID, PlanCandidate] = {}
+        self._runtime_overrides: dict[UUID, dict[str, ProviderRuntimeSpec]] = {}
 
     def dispatch_candidate(
         self,
@@ -87,8 +95,44 @@ class ExecutionDispatcher:
         *,
         runtime_overrides: dict[str, ProviderRuntimeSpec] | None = None,
     ) -> tuple[ActivateProviderCommand, ...]:
-        runtime_overrides = runtime_overrides or {}
-        intents = self.lifecycle.preview_candidate(candidate)
+        """Dispatch only dependency-ready physical plan steps.
+
+        Logical steps hosted by one physical worker are co-activated. Cross-worker
+        dependencies remain pending until ``complete_step`` is called by a result or
+        artifact announcement.
+        """
+
+        overrides = dict(runtime_overrides or {})
+        self._candidates[candidate.plan.plan_id] = candidate
+        self._runtime_overrides[candidate.plan.plan_id] = overrides
+        ready_step_ids = self.execution.register(candidate)
+        self._persist_execution_state(candidate.plan.plan_id)
+        return self._dispatch_steps(candidate, ready_step_ids, overrides)
+
+    def complete_step(self, plan_id: UUID, step_id: str) -> tuple[ActivateProviderCommand, ...]:
+        ready = self.execution.complete_step(plan_id, step_id)
+        self._persist_execution_state(plan_id)
+        candidate = self._candidates.get(plan_id)
+        if candidate is None or not ready:
+            return ()
+        return self._dispatch_steps(
+            candidate,
+            ready,
+            self._runtime_overrides.get(plan_id, {}),
+        )
+
+    def _dispatch_steps(
+        self,
+        candidate: PlanCandidate,
+        step_ids: Iterable[str],
+        runtime_overrides: dict[str, ProviderRuntimeSpec],
+    ) -> tuple[ActivateProviderCommand, ...]:
+        selected = set(step_ids)
+        intents = tuple(
+            intent
+            for intent in self.lifecycle.preview_candidate(candidate)
+            if intent.plan_step.step_id in selected
+        )
         commands: list[ActivateProviderCommand] = []
         for intent in intents:
             managed = self._managed_lease(
@@ -98,11 +142,11 @@ class ExecutionDispatcher:
             )
             instance = self.lifecycle.instances[managed.lease.provider_instance_id]
             override = runtime_overrides.get(
-                f"{intent.placement.node_id}/{intent.placement.provider_id}"
-            ) or runtime_overrides.get(intent.placement.provider_id)
+                f"{intent.plan_step.node_id}/{intent.plan_step.provider_id}"
+            ) or runtime_overrides.get(intent.plan_step.provider_id)
             runtime = self.runtime_resolver.resolve(
-                node_id=intent.placement.node_id,
-                provider_id=intent.placement.provider_id,
+                node_id=intent.plan_step.node_id,
+                provider_id=intent.plan_step.provider_id,
                 override=override,
             )
             demand = next(
@@ -111,7 +155,7 @@ class ExecutionDispatcher:
             command = ActivateProviderCommand(
                 attempt_id=managed.lease.attempt_id,
                 orchestrator_id=self.orchestrator_id,
-                node_id=intent.placement.node_id,
+                node_id=intent.plan_step.node_id,
                 provider_instance_id=managed.lease.provider_instance_id,
                 lease=managed.lease,
                 demand=demand,
@@ -122,8 +166,8 @@ class ExecutionDispatcher:
                 result_topic=result_topic(
                     demand.request_id, demand.semantic_predicate.predicate_id
                 ),
-                artifact_topic=artifact_topic(intent.placement.node_id),
-                provider_status_topic=f"fable/v1/status/{intent.placement.node_id}/provider",
+                artifact_topic=artifact_topic(intent.plan_step.node_id),
+                provider_status_topic=f"fable/v1/status/{intent.plan_step.node_id}/provider",
                 application_ack_topic=ack_topic(self.orchestrator_id),
                 issued_hypothesis_version=demand.hypothesis_version,
             )
@@ -148,11 +192,17 @@ class ExecutionDispatcher:
                         "provider_id": command.runtime.provider_id,
                         "lease_id": str(command.lease.lease_id),
                         "demand_id": str(command.demand.demand_id),
+                        "step_id": command.plan_step.step_id,
                     },
                 )
             )
             commands.append(command)
         return tuple(commands)
+
+    def _persist_execution_state(self, plan_id: UUID) -> None:
+        snapshot = self.execution.snapshot(plan_id)
+        if snapshot is not None:
+            self.store.put("plan_execution", str(plan_id), snapshot)
 
     def send_cancel(
         self,
@@ -181,13 +231,48 @@ class ExecutionDispatcher:
         )
         return command
 
+    def send_identity_demand_cancel(
+        self,
+        *,
+        request_id: str,
+        demand_id: UUID,
+        reason: str,
+    ) -> None:
+        """Cancel semantic identity work even after its physical lease ended.
+
+        Identity comparisons can retain bounded crop/retry state after a short
+        physical provider invocation has released its lease.  Consequently
+        this control message is keyed by the semantic demand rather than by a
+        provider instance.
+        """
+
+        payload = json.dumps(
+            {
+                "schema_version": "fable.identity_comparison_cancellation.v1",
+                "request_id": request_id,
+                "demand_id": str(demand_id),
+                "reason": reason,
+            },
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+        self.messenger.transport.publish(
+            "/fable/identity/cancellations",
+            payload,
+            qos=1,
+            retain=False,
+        )
+
     def persist_candidate_state(self, candidate: PlanCandidate) -> None:
         self.store.put("plans", str(candidate.plan.plan_id), self.lifecycle.plans[candidate.plan.plan_id])
         for demand in candidate.demands:
             self.store.put("demands", str(demand.demand_id), demand)
-        for instance in self.lifecycle.instances.values():
+        # Heartbeat-driven replanning and result-driven cancellation can run
+        # concurrently. Persist immutable snapshots rather than iterating the
+        # live dictionaries while another callback mutates them.
+        for instance in tuple(self.lifecycle.instances.values()):
             self.store.put("provider_instances", instance.provider_instance_id, instance)
-        for lease in self.lifecycle.leases.values():
+        for lease in tuple(self.lifecycle.leases.values()):
             self.store.put("leases", str(lease.lease.lease_id), lease)
 
     def _managed_lease(
@@ -235,6 +320,8 @@ class DistributedOrchestrator:
         heartbeat_monitor: HeartbeatMonitor | None = None,
         on_result: ResultCallback | None = None,
         on_replan_required: ReplanCallback | None = None,
+        on_heartbeat: HeartbeatCallback | None = None,
+        on_artifact: ArtifactCallback | None = None,
         monitor_interval: float = 1.0,
     ) -> None:
         self.orchestrator_id = orchestrator_id
@@ -248,6 +335,8 @@ class DistributedOrchestrator:
         self.heartbeats = heartbeat_monitor or HeartbeatMonitor()
         self.on_result = on_result
         self.on_replan_required = on_replan_required
+        self.on_heartbeat = on_heartbeat
+        self.on_artifact = on_artifact
         self.monitor_interval = monitor_interval
         self.dispatcher = ExecutionDispatcher(
             orchestrator_id=orchestrator_id,
@@ -422,6 +511,20 @@ class DistributedOrchestrator:
         )
 
     def _on_result_message(self, topic: str, payload: bytes) -> None:
+        started = time.monotonic()
+        try:
+            self._process_result_message(topic, payload)
+        finally:
+            elapsed_ms = (time.monotonic() - started) * 1000.0
+            if elapsed_ms >= 250.0:
+                LOGGER.warning(
+                    "diagnostic slow result callback topic=%s elapsed_ms=%.1f payload_bytes=%d",
+                    topic,
+                    elapsed_ms,
+                    len(payload),
+                )
+
+    def _process_result_message(self, topic: str, payload: bytes) -> None:
         try:
             wrapper = decode_model(payload, ReliablePredicateResult)
         except Exception:
@@ -479,6 +582,14 @@ class DistributedOrchestrator:
                 },
             )
         )
+        managed_matches = [
+            item
+            for item in self.lifecycle.leases.values()
+            if item.lease.provider_instance_id == wrapper.provider_instance_id
+            and item.lease.demand_id == wrapper.result.demand_id
+        ]
+        for managed in managed_matches:
+            self.dispatcher.complete_step(managed.lease.plan_id, managed.step_id)
         if self.on_result is not None:
             self.on_result(wrapper.result)
         self._send_ack(
@@ -593,6 +704,10 @@ class DistributedOrchestrator:
                 payload={"artifact_type": announcement.artifact.artifact_type},
             )
         )
+        if announcement.plan_id is not None and announcement.step_id is not None:
+            self.dispatcher.complete_step(announcement.plan_id, announcement.step_id)
+        if self.on_artifact is not None:
+            self.on_artifact(announcement)
         self._send_ack(
             target_id=announcement.node_id,
             acked_message_id=announcement.message_id,
@@ -606,6 +721,28 @@ class DistributedOrchestrator:
         except Exception:
             LOGGER.exception("invalid node heartbeat topic=%s", topic)
             return
+        received_at = utc_now()
+        ingress_lag_ms = max(
+            0.0,
+            (received_at - ensure_utc(heartbeat.sent_at)).total_seconds() * 1000.0,
+        )
+        if ingress_lag_ms >= 2000.0:
+            LOGGER.warning(
+                "diagnostic delayed heartbeat node=%s sequence=%s sent_at=%s "
+                "received_at=%s ingress_lag_ms=%.1f declared=%s",
+                heartbeat.node_id,
+                heartbeat.sequence,
+                heartbeat.sent_at.isoformat(),
+                received_at.isoformat(),
+                ingress_lag_ms,
+                heartbeat.availability.value,
+            )
+        if heartbeat.node_id not in self.lifecycle.capacity.deployment.nodes:
+            LOGGER.debug(
+                "ignoring heartbeat outside active logical deployment node=%s",
+                heartbeat.node_id,
+            )
+            return
         transitions = self.heartbeats.record(heartbeat)
         effective = heartbeat.model_copy(
             update={
@@ -614,6 +751,18 @@ class DistributedOrchestrator:
             }
         )
         self.store.put("nodes", heartbeat.node_id, effective)
+        try:
+            self.lifecycle.capacity.update_runtime_free(
+                heartbeat.node_id,
+                cpu_free_cores=heartbeat.capacity.cpu_free_cores,
+                memory_free_mb=heartbeat.capacity.memory_free_mb,
+                gpu_free_mb=heartbeat.capacity.gpu_free_mb,
+                available=effective.availability == NodeAvailability.AVAILABLE,
+            )
+        except Exception:
+            LOGGER.exception("failed to overlay heartbeat capacity node=%s", heartbeat.node_id)
+        if self.on_heartbeat is not None:
+            self.on_heartbeat(effective)
         self.store.append_event(
             ControlEvent(
                 event_type=ControlEventType.HEARTBEAT_RECEIVED,
@@ -636,6 +785,32 @@ class DistributedOrchestrator:
 
     def _handle_node_transitions(self, transitions: tuple[NodeTransition, ...]) -> None:
         for transition in transitions:
+            heartbeat = self.heartbeats.heartbeat(transition.node_id)
+            heartbeat_age_ms = (
+                None
+                if heartbeat is None
+                else max(
+                    0.0,
+                    (
+                        ensure_utc(transition.occurred_at)
+                        - ensure_utc(heartbeat.sent_at)
+                    ).total_seconds()
+                    * 1000.0,
+                )
+            )
+            LOGGER.warning(
+                "diagnostic node transition node=%s previous=%s current=%s reason=%s "
+                "occurred_at=%s last_heartbeat_sequence=%s last_heartbeat_sent_at=%s "
+                "heartbeat_age_ms=%s",
+                transition.node_id,
+                None if transition.previous is None else transition.previous.value,
+                transition.current.value,
+                transition.reason,
+                transition.occurred_at.isoformat(),
+                None if heartbeat is None else heartbeat.sequence,
+                None if heartbeat is None else heartbeat.sent_at.isoformat(),
+                None if heartbeat_age_ms is None else round(heartbeat_age_ms, 1),
+            )
             event_type = {
                 NodeAvailability.SUSPECT: ControlEventType.NODE_SUSPECT,
                 NodeAvailability.UNAVAILABLE: ControlEventType.NODE_UNAVAILABLE,
@@ -657,13 +832,21 @@ class DistributedOrchestrator:
                     },
                 )
             )
-            heartbeat = self.heartbeats.heartbeat(transition.node_id)
             if heartbeat is not None:
-                self.store.put(
-                    "nodes",
-                    transition.node_id,
-                    heartbeat.model_copy(update={"availability": transition.current}),
-                )
+                effective = heartbeat.model_copy(update={"availability": transition.current})
+                self.store.put("nodes", transition.node_id, effective)
+                try:
+                    self.lifecycle.capacity.update_runtime_free(
+                        transition.node_id,
+                        cpu_free_cores=heartbeat.capacity.cpu_free_cores,
+                        memory_free_mb=heartbeat.capacity.memory_free_mb,
+                        gpu_free_mb=heartbeat.capacity.gpu_free_mb,
+                        available=transition.current == NodeAvailability.AVAILABLE,
+                    )
+                except Exception:
+                    LOGGER.exception("failed to update transition capacity node=%s", transition.node_id)
+                if self.on_heartbeat is not None:
+                    self.on_heartbeat(effective)
             if transition.current == NodeAvailability.UNAVAILABLE:
                 affected: set[UUID] = set()
                 for instance in tuple(self.lifecycle.active_instances):

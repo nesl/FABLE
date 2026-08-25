@@ -13,13 +13,24 @@ from fable.common.time import ensure_utc, utc_now
 
 
 class BaselineId(StrEnum):
+    # Accuracy/evaluation policy identifiers retained as first-class values;
+    # they are not aliases for the newer controlled-planning microbenchmarks.
+    B0_PRODUCE_ALL = "B0_PRODUCE_ALL"
+    B1_STATIC_WHOLE_EVENT = "B1_STATIC_WHOLE_EVENT"
+    B2_FRONTIER_FIXED_REALIZATION = "B2_FRONTIER_FIXED_REALIZATION"
     B0_ALWAYS_ON = "B0_ALWAYS_ON"
     B1_HANDWRITTEN_STATIC = "B1_HANDWRITTEN_STATIC"
     B2_STATIC_WHOLE_EVENT = "B2_STATIC_WHOLE_EVENT"
     B3_TASK_RESOURCE_ADAPTIVE = "B3_TASK_RESOURCE_ADAPTIVE"
     B4_GREEDY_FRONTIER = "B4_GREEDY_FRONTIER"
     FABLE = "FABLE"
+    FABLE_NO_SHARING = "FABLE_NO_SHARING"
     O1_EXHAUSTIVE_ORACLE = "O1_EXHAUSTIVE_ORACLE"
+    C0_CHEAP_ONLY = "C0_CHEAP_ONLY"
+    C1_STRONG_ONLY = "C1_STRONG_ONLY"
+    C2_FIXED_CASCADE = "C2_FIXED_CASCADE"
+    C3_FABLE_ESCALATION = "C3_FABLE_ESCALATION"
+    C4_FABLE_NO_ESCALATION = "C4_FABLE_NO_ESCALATION"
     SPATIAL_BROADCAST = "SPATIAL_BROADCAST"
     SPATIAL_TOPOLOGY_SHORTLIST = "SPATIAL_TOPOLOGY_SHORTLIST"
     SPATIAL_RESOURCE_ONLY = "SPATIAL_RESOURCE_ONLY"
@@ -127,15 +138,102 @@ class PlanDecision(EvaluationRecord):
     continuation_types: tuple[str, ...] = ()
     predicted_completion_ms: int | None = Field(default=None, ge=0)
     predicted_transfer_bytes: int | None = Field(default=None, ge=0)
+    predicted_compute_ms: int | None = Field(default=None, ge=0)
+    predicted_slack_ms: int | None = None
     planning_latency_ms: float = Field(default=0, ge=0)
     labels_generated: int = Field(default=0, ge=0)
     labels_pruned: int = Field(default=0, ge=0)
     labels_retained: int = Field(default=0, ge=0)
+    pruning_counts: dict[str, int] = Field(default_factory=dict)
+    pruning_samples: tuple[str, ...] = ()
     oracle_gap_ms: int | None = None
     reason: str = ""
     frozen: bool = False
     resource_epoch: int = Field(default=0, ge=0)
     semantic_epoch: int = Field(default=0, ge=0)
+    graph_version: int = Field(default=1, ge=1)
+    replan_trigger: str = ""
+
+
+class PredicateDemandRecord(EvaluationRecord):
+    record_type: Literal["predicate_demand"] = "predicate_demand"
+    demand_id: str = Field(min_length=1)
+    checkpoint_id: str = Field(min_length=1)
+    graph_version: int = Field(default=1, ge=1)
+    predicate_id: str = Field(min_length=1)
+    semantic_epoch: int = Field(default=0, ge=0)
+    resource_epoch: int = Field(default=0, ge=0)
+    bindings: dict[str, str] = Field(default_factory=dict)
+    eligible_source_ids: tuple[str, ...] = ()
+    deadline: datetime | None = None
+
+    @field_validator("deadline")
+    @classmethod
+    def _normalize_deadline(cls, value: datetime | None) -> datetime | None:
+        return None if value is None else ensure_utc(value)
+
+
+class ProviderCommand(EvaluationRecord):
+    record_type: Literal["provider_command"] = "provider_command"
+    command_id: str = Field(min_length=1)
+    command: str = Field(min_length=1)
+    provider_instance_id: str | None = None
+    demand_ids: tuple[str, ...] = ()
+    node_id: str = Field(min_length=1)
+    emitted_at: datetime
+    received_at: datetime | None = None
+
+    @field_validator("emitted_at", "received_at")
+    @classmethod
+    def _normalize_command_time(cls, value: datetime | None) -> datetime | None:
+        return None if value is None else ensure_utc(value)
+
+
+class ProviderLeaseEvent(EvaluationRecord):
+    record_type: Literal["provider_lease"] = "provider_lease"
+    lease_id: str = Field(min_length=1)
+    provider_instance_id: str = Field(min_length=1)
+    demand_id: str = Field(min_length=1)
+    lease_event: str = Field(min_length=1)
+    attached_at: datetime
+    detached_at: datetime | None = None
+
+    @field_validator("attached_at", "detached_at")
+    @classmethod
+    def _normalize_lease_time(cls, value: datetime | None) -> datetime | None:
+        return None if value is None else ensure_utc(value)
+
+
+class DisturbanceEvent(EvaluationRecord):
+    record_type: Literal["disturbance_event"] = "disturbance_event"
+    disturbance_id: str = Field(min_length=1)
+    disturbance_type: str = Field(min_length=1)
+    action: str = Field(min_length=1)
+    target_ids: tuple[str, ...] = ()
+    condition_epoch: int = Field(default=0, ge=0)
+    scheduled_trigger: str = ""
+    validated: bool = False
+
+
+class RetrospectiveAttempt(EvaluationRecord):
+    record_type: Literal["retrospective_attempt"] = "retrospective_attempt"
+    attempt_id: str = Field(min_length=1)
+    checkpoint_id: str = Field(min_length=1)
+    predicate_id: str = Field(min_length=1)
+    replay_policy: str = Field(min_length=1)
+    retained_interval_start: datetime
+    retained_interval_end: datetime
+    outcome: str = Field(min_length=1)
+    artifact_ids: tuple[str, ...] = ()
+    raw_bytes_read: int = Field(default=0, ge=0)
+    transferred_bytes: int = Field(default=0, ge=0)
+    processing_seconds: float = Field(default=0, ge=0)
+    buffer_expiration_reason: str = ""
+
+    @field_validator("retained_interval_start", "retained_interval_end")
+    @classmethod
+    def _normalize_retrospective_time(cls, value: datetime) -> datetime:
+        return ensure_utc(value)
 
 
 class HypothesisTransition(EvaluationRecord):
@@ -168,6 +266,7 @@ class ResourceSample(EvaluationRecord):
     memory_bytes: int = Field(default=0, ge=0)
     gpu_utilization: float | None = Field(default=None, ge=0, le=1)
     gpu_memory_bytes: int | None = Field(default=None, ge=0)
+    gpu_time_seconds: float = Field(default=0, ge=0)
     gpu_energy_joules: float | None = Field(default=None, ge=0)
     network_tx_bytes: int = Field(default=0, ge=0)
     network_rx_bytes: int = Field(default=0, ge=0)

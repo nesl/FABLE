@@ -6,7 +6,7 @@ from datetime import timedelta
 from uuid import UUID
 
 from fable.common.enums import (
-    ArtifactAccessMode,
+    ExecutionInputKind,
     ExecutionMode,
     PlanStatus,
     ResultKind,
@@ -15,6 +15,7 @@ from fable.common.examples import BASE_TIME
 from fable.common.ids import deterministic_id, uuid7
 from fable.common.schemas import (
     DataMovementConstraints,
+    ExecutionInput,
     ExecutionPlan,
     PhysicalPlanLabel,
     PlanCost,
@@ -25,12 +26,6 @@ from fable.common.schemas import (
     SemanticPredicate,
 )
 from fable.common.time import DeadlineSpec, EventTimeInterval
-from fable.planning.models import (
-    ExternalInputKind,
-    ExternalInputRealization,
-    PhysicalAlternative,
-    StepPlacement,
-)
 from fable.planning.provider_registry import ProviderRegistry
 
 from .models import PlanCandidate, TaskSchedulingPolicy
@@ -90,7 +85,7 @@ def fake_audio_candidate(
     provider_registry: ProviderRegistry,
     task_policy: TaskSchedulingPolicy | None = None,
     execution_mode: ExecutionMode = ExecutionMode.LIVE,
-    input_kind: ExternalInputKind = ExternalInputKind.LIVE_SOURCE,
+    input_kind: ExecutionInputKind = ExecutionInputKind.LIVE_SOURCE,
     artifact_id: UUID | None = None,
     expires_at=None,
     node_id: str = "sensor_a",
@@ -112,67 +107,47 @@ def fake_audio_candidate(
         },
         length=32,
     )
-    external = ExternalInputRealization(
-        input_name="audio",
+    external = ExecutionInput(
+        name="audio",
         data_type="audio_segment.v1",
         kind=input_kind,
         node_id=node_id,
-        source_id=("microphone_store" if input_kind == ExternalInputKind.LIVE_SOURCE else None),
+        source_id=("microphone_store" if input_kind == ExecutionInputKind.LIVE_SOURCE else None),
         artifact_id=artifact_id,
-        bytes=0 if input_kind == ExternalInputKind.LIVE_SOURCE else 512_000,
-        access_modes=(ArtifactAccessMode.LOCAL,),
+        bytes=0 if input_kind == ExecutionInputKind.LIVE_SOURCE else 512_000,
         expires_at=expires_at,
     )
-    placement = StepPlacement(
-        step_id="classify",
-        provider_id="audio_event_classifier",
-        node_id=node_id,
-        node_class=node_class,
-        startup_ms=profile.startup_ms,
-        execution_ms=profile.execution_ms,
-        cpu_cores=profile.cpu_cores,
-        memory_mb=profile.memory_mb,
-        gpu_memory_mb=profile.gpu_memory_mb,
-        quality_score=profile.quality_score,
-    )
-    alternative = PhysicalAlternative(
-        alternative_id=alternative_id,
-        demand_id=demand.demand_id,
-        checkpoint_id=demand.checkpoint_id,
-        chain_id="detect_audio_event",
-        execution_mode=execution_mode,
-        external_inputs=(external,),
-        step_placements=(placement,),
-        transfers=(),
-        result_output_type="predicate_match.v1",
-        continuation_output_types=("audio_event_set.v1",),
-        estimated_completion_ms=profile.startup_ms + profile.execution_ms,
-        estimated_transfer_bytes=external.bytes,
-        minimum_quality_score=profile.quality_score,
-        graph_node_ids=(),
-        graph_edge_ids=(),
-    )
+    completion_ms = profile.startup_ms + profile.execution_ms
     step = PlanStep(
         step_id=f"{alternative_id}:classify",
         provider_id="audio_event_classifier",
         node_id=node_id,
+        demand_id=demand.demand_id,
+        alternative_id=alternative_id,
+        chain_id="detect_audio_event",
+        execution_mode=execution_mode,
+        inputs=(external,),
         input_artifact_ids=(() if artifact_id is None else (artifact_id,)),
         input_data_types=("audio_segment.v1",),
         output_data_types=("audio_event_set.v1", "predicate_match.v1"),
         parameters=(("label", label),),
+        cpu_cores=profile.cpu_cores,
+        memory_mb=profile.memory_mb,
+        gpu_memory_mb=profile.gpu_memory_mb,
+        quality_score=profile.quality_score,
         estimated_startup_ms=profile.startup_ms,
         estimated_execution_ms=profile.execution_ms,
         estimated_transfer_bytes=external.bytes,
     )
     cost = PlanCost(
-        predicted_completion_ms=alternative.estimated_completion_ms,
+        predicted_completion_ms=completion_ms,
         deadline_slack_ms=int(
             (
                 demand.deadline.latest_useful_completion - BASE_TIME
             ).total_seconds()
             * 1000
         )
-        - alternative.estimated_completion_ms,
+        - completion_ms,
         startup_cost_ms=profile.startup_ms,
         resource_cost_units=(
             profile.cpu_cores
@@ -212,7 +187,6 @@ def fake_audio_candidate(
     return PlanCandidate(
         plan=plan,
         demands=(demand,),
-        alternatives=(alternative,),
         task_policy=policy,
         predicted_completion_ms=cost.predicted_completion_ms,
         startup_cost_ms=cost.startup_cost_ms,

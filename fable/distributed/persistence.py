@@ -140,6 +140,7 @@ class MongoStateStore:
         "frontiers",
         "demands",
         "plans",
+        "plan_execution",
         "provider_instances",
         "leases",
         "results",
@@ -148,6 +149,9 @@ class MongoStateStore:
         "processed_messages",
         "emitted_events",
         "control_events",
+        "event_request_responses",
+        "runtime_disturbance_acks",
+        "terminal_events",
     )
 
     def __init__(
@@ -180,6 +184,8 @@ class MongoStateStore:
             self.db["nodes"].create_index([("node_id", 1), ("sent_at", -1)])
             self.db["control_events"].create_index([("created_at", 1), ("event_id", 1)])
             self.db["control_events"].create_index([("entity_type", 1), ("entity_id", 1)])
+            self.db["terminal_events"].create_index([("request_id", 1), ("emitted_at", 1)])
+            self.db["runtime_disturbance_acks"].create_index([("disturbance_id", 1), ("resource_epoch", 1)])
         except Exception:
             # Index creation may be intentionally deferred while Mongo is down;
             # ordinary operations will surface connection errors later.

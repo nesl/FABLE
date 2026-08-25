@@ -37,7 +37,7 @@ import paho.mqtt.client as mqtt
 CONFIG_TOPIC = "/replay/config"
 SYNC_TOPIC = "/replay/sync"
 
-APP_VERSION = "replay-supervisor-config-owner-v20260709-4"
+APP_VERSION = "replay-supervisor-config-owner-v20260822-5"
 
 DEFAULT_ROOTS = [
     "/data_roots/west_point",
@@ -106,6 +106,7 @@ class ReplaySupervisor:
         self.child: subprocess.Popen[str] | None = None
         self.last_sync_payload: dict[str, Any] | None = None
         self.last_config_payload: dict[str, Any] | None = None
+        self.last_config_signature: tuple[Any, ...] | None = None
         self.lock = threading.RLock()
         self.client = mqtt.Client()
         self.client.on_connect = self.on_connect
@@ -122,6 +123,10 @@ class ReplaySupervisor:
         if self.service == "gps":
             return "/replay/error/supervisor/gps"
         return f"/replay/error/supervisor/{self.service}/{self.node_name}"
+
+    @property
+    def readiness_topic(self) -> str:
+        return f"/readiness/{self.node_name}/{self.service}"
 
     def status(self, **payload: Any) -> None:
         payload.setdefault("service", f"{self.service}_supervisor")
@@ -143,8 +148,30 @@ class ReplaySupervisor:
         return str(payload.get("scenario") or "").strip()
 
     def _sync_matches_scenario(self, scenario: str, payload: dict[str, Any] | None) -> bool:
+        if not self._valid_sync_payload(payload):
+            return False
         payload_scenario = self._payload_scenario(payload)
-        return bool(payload) and (not payload_scenario or payload_scenario == scenario)
+        return not payload_scenario or payload_scenario == scenario
+
+    @staticmethod
+    def _valid_sync_payload(payload: dict[str, Any] | None) -> bool:
+        if not isinstance(payload, dict):
+            return False
+        try:
+            float(payload["start_at"])
+        except (KeyError, TypeError, ValueError):
+            return False
+        return True
+
+    def _is_targeted(self, payload: dict[str, Any]) -> bool:
+        targets = payload.get("target_nodes")
+        if not isinstance(targets, (list, tuple)) or not targets:
+            return True
+        aliases = {self.node_name}
+        prefix = "dvpg_gq_orin_"
+        if self.node_name.startswith(prefix):
+            aliases.add(f"orin{self.node_name.removeprefix(prefix)}")
+        return any(str(target) in aliases for target in targets)
 
     def on_connect(self, client: mqtt.Client, _userdata: Any, _flags: Any, rc: int, *_extra: Any) -> None:
         print(f"[supervisor:{self.service}:{self.node_name}] MQTT connected rc={rc}", flush=True)
@@ -166,18 +193,26 @@ class ReplaySupervisor:
             # we can create an infinite rebroadcast loop.
             if isinstance(payload, dict) and payload.get("_supervisor_rebroadcast"):
                 return
+            if not self._valid_sync_payload(payload):
+                # Empty retained publishes and STOP markers are control-plane
+                # cleanup, not synchronization barriers. Keeping/rebroadcasting
+                # them starts probe children before the real evaluation sync.
+                with self.lock:
+                    self.last_sync_payload = None
+                self.status(state="sync_ignored", message="sync missing valid start_at")
+                return
             scenario = payload.get("scenario") if isinstance(payload, dict) else None
             start_at = payload.get("start_at") if isinstance(payload, dict) else None
             print(f"[supervisor:{self.service}:{self.node_name}] received MQTT /replay/sync scenario={scenario} start_at={start_at}", flush=True)
             with self.lock:
                 self.last_sync_payload = payload
             if self.args.sync_rebroadcast_delay >= 0:
-                # If a child is already waiting, rebroadcast immediately. Also
-                # keep the configured short delayed send for child subscription
-                # jitter right after startup.
-                self.rebroadcast_sync_after_child_ready(delay=0.0)
-                if self.args.sync_rebroadcast_delay > 0:
-                    self.rebroadcast_sync_after_child_ready(delay=max(0.0, self.args.sync_rebroadcast_delay))
+                # One delayed send covers child subscription jitter. Immediate
+                # plus delayed sends leave redundant pending sync events while
+                # media is still initializing.
+                self.rebroadcast_sync_after_child_ready(
+                    delay=max(0.0, self.args.sync_rebroadcast_delay)
+                )
 
     def stop_child(self) -> None:
         with self.lock:
@@ -330,6 +365,20 @@ class ReplaySupervisor:
         env["REPLAY_PLAYBACK_MODE"] = playback_mode
         env["REPLAY_PLAYBACK_SPEED"] = f"{speed:g}"
         env["REPLAY_CONTROL_PLANE"] = "mqtt"
+        # The persistent supervisor owns /replay/config, so the child cannot
+        # learn the active generation from its disabled config subscription.
+        # Carry it explicitly into retained readiness; otherwise a freshly
+        # loaded child is indistinguishable from stale readiness left by a
+        # previous run.
+        with self.lock:
+            config_payload = (
+                dict(self.last_config_payload)
+                if isinstance(self.last_config_payload, dict)
+                else {}
+            )
+        replay_id = str(config_payload.get("replay_id") or "")
+        if replay_id:
+            env["REPLAY_ACTIVE_ID"] = replay_id
         # In persistent mode the supervisor owns /replay/config.  Child replay
         # apps receive scenario/start/end through argv and only need /replay/sync.
         # This prevents retained or duplicated /replay/config messages from
@@ -385,8 +434,37 @@ class ReplaySupervisor:
         threading.Timer(max(0.0, delay), lambda: send_once(1)).start()
 
     def handle_config(self, payload: dict[str, Any]) -> None:
+        if not isinstance(payload, dict):
+            self.error("/replay/config must be a JSON object", payload=payload)
+            return
+        if not self._is_targeted(payload):
+            return
+        action = str(payload.get("action") or "START").strip().upper()
+        if action == "STOP":
+            self.stop_child()
+            with self.lock:
+                self.last_config_payload = None
+                self.last_config_signature = None
+                replay_id = str(payload.get("replay_id") or "")
+                sync_replay_id = str((self.last_sync_payload or {}).get("replay_id") or "")
+                if not replay_id or not sync_replay_id or replay_id == sync_replay_id:
+                    self.last_sync_payload = None
+            self.status(
+                state="stopped",
+                replay_id=payload.get("replay_id"),
+                message="explicit replay STOP accepted",
+            )
+            return
+        if action not in {"START", "CONFIGURE", "PROBE"}:
+            self.error(f"unsupported /replay/config action={action!r}", payload=payload)
+            return
         scenario = str(payload.get("scenario") or "").strip()
         if not scenario:
+            # An empty retained publish clears MQTT control state. It is not a
+            # replay command and must not disturb or restart a child.
+            if not payload or set(payload).issubset({"raw"}) and not payload.get("raw"):
+                self.status(state="idle", message="retained replay config cleared")
+                return
             self.error("/replay/config missing non-empty scenario", payload=payload)
             return
         try:
@@ -396,10 +474,50 @@ class ReplaySupervisor:
             self.error(f"invalid start/end in config: {exc}", payload=payload)
             return
 
+        if action == "PROBE":
+            ready = self.prepare_symlinks(scenario)
+            if ready:
+                publish_json(
+                    self.client,
+                    self.readiness_topic,
+                    {
+                        "service": self.service,
+                        "node": self.node_name,
+                        "scenario": scenario,
+                        "ready": True,
+                        "probe_only": True,
+                        "t": time.time(),
+                    },
+                )
+                self.status(state="probe_ready", scenario=scenario)
+            else:
+                self.status(state="probe_no_data", scenario=scenario)
+            return
+
         playback_mode, speed = self._normalize_playback_timing(payload)
+
+        signature = (
+            scenario,
+            str(payload.get("replay_id") or ""),
+            start,
+            end,
+            playback_mode,
+            speed,
+        )
+        with self.lock:
+            child_running = self.child is not None and self.child.poll() is None
+            duplicate = child_running and signature == self.last_config_signature
+        if duplicate:
+            self.status(
+                state="duplicate_config_ignored",
+                scenario=scenario,
+                replay_id=payload.get("replay_id"),
+            )
+            return
 
         with self.lock:
             self.last_config_payload = payload
+            self.last_config_signature = signature
 
         self.status(state="config_received", scenario=scenario, start=start, end=end, playback_mode=playback_mode, speed=speed)
         with self.lock:

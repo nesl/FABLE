@@ -140,6 +140,59 @@ class Phase1RepeatedVisitTests(unittest.TestCase):
         self.assertEqual(transition.status, ApplyStatus.REJECTED)
         self.assertIn("maximum delay", transition.reason)
 
+    def test_one_physical_occurrence_can_advance_distinct_hypotheses(self) -> None:
+        second_seed = seed_result_from_spec(
+            self.runtime,
+            ScriptedResultSpec(
+                node_key="first_visit",
+                source_id="camera_gate",
+                event_time_interval=EventTimeInterval(
+                    start=BASE_TIME + timedelta(seconds=2),
+                    end=BASE_TIME + timedelta(seconds=3),
+                ),
+                occurrence_id="second-seed",
+                introduced={"vehicle": "track_other"},
+            ),
+        )
+        second_hypothesis = self.runtime.seed(second_seed).hypothesis_ids[0]
+        first_hypothesis = self.runtime.seed(
+            seed_result_from_spec(
+                self.runtime,
+                ScriptedResultSpec(
+                    node_key="first_visit",
+                    source_id="camera_gate",
+                    event_time_interval=EventTimeInterval(
+                        start=BASE_TIME,
+                        end=BASE_TIME + timedelta(seconds=1),
+                    ),
+                    occurrence_id="first-seed",
+                    introduced={"vehicle": "track_first"},
+                ),
+            )
+        ).hypothesis_ids[0]
+
+        def departure(hypothesis_id, vehicle):
+            return predicate_result_from_spec(
+                self.runtime,
+                hypothesis_id,
+                ScriptedResultSpec(
+                    node_key="departure",
+                    source_id="camera_gate",
+                    event_time_interval=EventTimeInterval(
+                        start=BASE_TIME + timedelta(seconds=20),
+                        end=BASE_TIME + timedelta(seconds=21),
+                    ),
+                    occurrence_id="one-physical-departure",
+                    validated={"vehicle": vehicle},
+                ),
+            )
+
+        first = self.runtime.apply(departure(first_hypothesis, "track_first"))
+        second = self.runtime.apply(departure(second_hypothesis, "track_other"))
+        self.assertEqual(first.status, ApplyStatus.APPLIED)
+        self.assertEqual(second.status, ApplyStatus.APPLIED)
+
+
 
 if __name__ == "__main__":
     unittest.main()

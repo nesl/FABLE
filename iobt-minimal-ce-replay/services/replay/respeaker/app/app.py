@@ -80,6 +80,7 @@ class respeaker_replay(iobt_max_service):
         self._loaded_config_signature = None
         self._pending_config_signature = None
         self._last_sync_signature = None
+        self._sync_lock = threading.RLock()
         self.sync_file = os.environ.get("REPLAY_SYNC_FILE", "/tmp/replay_sync.json")
         self._last_sync_file_mtime = 0.0
         self._initial_sync_json = os.environ.get("REPLAY_INITIAL_SYNC_JSON", "").strip()
@@ -193,6 +194,12 @@ class respeaker_replay(iobt_max_service):
         self.df_timestamps["elapsed"] = (
             self.df_timestamps["Timestamp"] - t0
         ).dt.total_seconds()
+        event_start = os.environ.get("FABLE_REPLAY_EVENT_START", "").strip()
+        self.replay_event_start_epoch = (
+            datetime.fromisoformat(event_start.replace("Z", "+00:00")).timestamp()
+            if event_start
+            else None
+        )
 
         total_frames = len(self.df_timestamps)
         total_duration = self.df_timestamps["elapsed"].iloc[-1]
@@ -251,6 +258,7 @@ class respeaker_replay(iobt_max_service):
             end_time=self.playback_end_time,
             local_ipc="/tmp/respeaker.ipc",
             total_playback_duration=getattr(self, "total_recording_duration", None),
+            replay_id=os.environ.get("REPLAY_ACTIVE_ID") or None,
             **extra,
         )
 
@@ -322,16 +330,21 @@ class respeaker_replay(iobt_max_service):
         self._set_playback_timing(mode, speed)
         start_at = float(msg.get('start_at', time.time()))
         sync_signature = self._make_sync_signature(msg, start_at, self.playback_mode, self.playback_speed)
-        if sync_signature == self._last_sync_signature and self.sync_received:
-            return False
-        self._last_sync_signature = sync_signature
-        self.sync_start_at = start_at
-        self.loop_wall_start = self.sync_start_at
-        self.sync_received = True
-        self._sync_event.set()
+        with self._sync_lock:
+            if sync_signature == self._last_sync_signature:
+                return False
+            self._last_sync_signature = sync_signature
+            self.sync_start_at = start_at
+            self.loop_wall_start = self.sync_start_at
+            self.sync_received = True
+            self._sync_event.set()
         print(f"[ReSpeaker] Sync received from {source} — start_at={self.sync_start_at:.3f} "
               f"(in {self.sync_start_at - time.time():.2f}s) mode={self.playback_mode} speed={self.playback_speed:g}", flush=True)
         return True
+
+    def _consume_pending_sync(self):
+        with self._sync_lock:
+            self._sync_event.clear()
 
     def _maybe_load_initial_sync(self):
         raw = getattr(self, "_initial_sync_json", "")
@@ -538,6 +551,7 @@ class respeaker_replay(iobt_max_service):
             if self._sync_event.is_set():
                 self._sync_event.clear()
             sync_ready = False  # next top-level iteration must wait for a new sync
+            self._consume_pending_sync()
 
             # ── PLAY ──────────────────────────────────────────────────────────
             self.frame_count = 0
@@ -624,14 +638,27 @@ class respeaker_replay(iobt_max_service):
                     break
 
                 chunk     = self.audio_data[sample_start:sample_end, :]
-                timestamp = time.time()
+                timestamp = (
+                    self.replay_event_start_epoch
+                    + float(self.df_timestamps["elapsed"].iloc[frame_idx])
+                    if self.replay_event_start_epoch is not None
+                    else time.time()
+                )
 
                 if self.state == state.collecting:
                     self.record_frames.append(chunk.copy())
                     if not self.frame_log_file.closed:
                         self.frame_log_file.write(f"{self.frame_count},{self.ts_to_string(timestamp)}\n")
 
-                self.publish("local", "rawaudio", {"t": timestamp, "waveform": chunk})
+                self.publish(
+                    "local",
+                    "rawaudio",
+                    {
+                        "t": timestamp,
+                        "waveform": chunk,
+                        "replay_id": os.environ.get("REPLAY_ACTIVE_ID") or None,
+                    },
+                )
                 self.samples.append(chunk[:, 1])
                 self.power_samples.append(chunk[:, 1:5].mean(axis=1))
 

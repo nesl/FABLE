@@ -138,7 +138,7 @@ YOLO detector:       enabled, model loaded, GPU requested
 ReSpeaker replay:    enabled
 Audio detector:      enabled
 GPS replay:          enabled
-CE detector:         enabled
+Legacy CE detector:  available only with Compose profile `legacy-ce`
 ```
 
 Run all discovered devices with the full default stack:
@@ -160,7 +160,7 @@ python3 setup/generate_replay_compose.py \
 docker compose -f compose.replay.yaml up --build
 ```
 
-The generated stack will still include one shared `gps-replay` and one `complex-event-detector` unless you disable them.
+The generated stack still defines one shared `gps-replay`. The legacy `complex-event-detector` service is generated behind the Compose profile `legacy-ce`, so it is not started by ordinary `docker compose up` commands. Start it only when intentionally comparing against the legacy CE path, for example with `docker compose --profile legacy-ce ...`.
 
 ## Preset: ZED + YOLO only
 
@@ -301,7 +301,7 @@ python3 setup/generate_replay_compose.py \
 docker compose -f compose.replay.yaml up --build
 ```
 
-This runs:
+This runs the multimodal replay stack:
 
 ```text
 zed-replay-orin11
@@ -309,8 +309,9 @@ yolo-detector-orin11
 respeaker-replay-orin11
 audio-detector-orin11
 gps-replay
-complex-event-detector
 ```
+
+To intentionally add the legacy CE detector, start Compose with the `legacy-ce` profile. FABLE evaluation runs should leave that profile disabled.
 
 ## Preset: full multimodal + CE for all discovered devices
 
@@ -322,6 +323,26 @@ docker compose -f compose.replay.yaml up --build
 ```
 
 This discovers all device folders such as `orin3`, `orin11`, `orin14`, etc. Use this only after the one-device case works, because YOLO containers can be expensive.
+
+## FABLE closed-loop execution
+
+The deployed FABLE orchestrator now accepts a semantic complex-event request rather than requiring the caller to prebuild a physical `PlanCandidate`. Use:
+
+```bash
+python3 tools/fable_submit_event.py --family <family_id> --parameters '{}'
+```
+
+The orchestrator compiles the event family, starts the root semantic frontier, plans only the active predicates, dispatches their providers, applies returned `PredicateResult`s, cancels resolved/obsolete leases, and plans the next frontier until the hypothesis completes. Existing `fable_submit_demo.py` and related direct-plan tools remain available for distributed-substrate debugging.
+
+FABLE execution is controlled by `FABLE_EXECUTION_PROFILE`:
+
+- `development`: normal development; reference runtimes are permitted.
+- `plumbing`: explicit control-plane/reference-provider testing.
+- `real`: evaluation mode; reference runtimes and unsupported cross-worker intermediate-data paths are rejected.
+
+`tools/run_fable_evaluation.sh` defaults to `real` and invokes `tools/validate_fable_evaluation_config.py` before starting the stack.
+
+The provider-runtime configuration also distinguishes a physical worker/container (`worker_id`) from the logical provider capabilities exposed by that worker. This prevents the scheduler from charging the same warm vehicle or multimodal container once per logical predicate capability.
 
 ## GPU behavior
 

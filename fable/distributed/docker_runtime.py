@@ -143,6 +143,13 @@ class DockerSDKRuntime:
         with self._lock:
             container = self.client.containers.get(spec.container_name)
             container.reload()
+            # Evaluation bundles intentionally create lease-controlled workers
+            # without running them.  Adoption is the activation boundary: a
+            # created/exited worker must be started before readiness can ever
+            # arrive.  Already-running adopted services are left untouched.
+            if str(container.status).lower() in {"created", "exited", "dead"}:
+                container.start()
+                container.reload()
             handle = _handle_from_container(
                 container,
                 provider_instance_id=provider_instance_id,

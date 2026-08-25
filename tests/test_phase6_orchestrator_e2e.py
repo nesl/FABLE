@@ -6,11 +6,14 @@ import json
 from fable.common.time import EventTimeInterval, utc_now
 from fable.distributed.demo import build_replay_audio_candidate
 from fable.distributed.models import (
+    AgentProviderStatus,
+    CancelProviderCommand,
     ProviderRuntimeSpec,
     ReadinessProbe,
     ReplayOutputAdapter,
     RuntimeMode,
 )
+from fable.distributed.topics import ack_topic
 from fable.distributed.topics import activate_topic
 
 from .fake_phase6_data import make_stack, wait_until
@@ -67,6 +70,106 @@ def test_duplicate_activate_command_starts_one_logical_invocation(tmp_path):
             item for item in stack.broker.published if item[0] == activate_topic("sensor_a")
         ]
         assert len(activation_messages) == 1  # broker duplicated delivery, not publication
+    finally:
+        stack.stop()
+
+
+def test_adopted_shared_worker_reactivates_after_last_lease_is_released(tmp_path):
+    """A rolling hypothesis must not inherit the prior worker's IDLE state."""
+
+    node_id = "sensor_a"
+    runtime = ProviderRuntimeSpec(
+        provider_id="audio_event_classifier",
+        provider_contract_version=1,
+        node_id=node_id,
+        mode=RuntimeMode.ADOPT_EXISTING,
+        container_name="shared-audio-worker",
+        worker_id="shared-worker",
+    )
+    stack = make_stack(tmp_path, runtimes={(node_id, "audio_event_classifier"): runtime})
+    try:
+        agent = stack.agents[node_id]
+        agent.containers.available_adopted_names.add("shared-audio-worker")
+        _, first_commands = stack.orchestrator.submit_candidates(
+            (_candidate(stack, node_id, "rolling-1"),), now=utc_now()
+        )
+        first = first_commands[0]
+        assert agent.providers[first.provider_instance_id].status == AgentProviderStatus.READY
+        agent.cancel(
+            CancelProviderCommand(
+                orchestrator_id="orchestrator",
+                node_id=node_id,
+                provider_instance_id=first.provider_instance_id,
+                lease_id=first.lease.lease_id,
+                demand_id=first.demand.demand_id,
+                application_ack_topic=ack_topic("orchestrator"),
+            )
+        )
+        assert agent.providers[first.provider_instance_id].status == AgentProviderStatus.IDLE
+
+        _, second_commands = stack.orchestrator.submit_candidates(
+            (_candidate(stack, node_id, "rolling-2"),), now=utc_now()
+        )
+        second = second_commands[0]
+        assert second.provider_instance_id != first.provider_instance_id
+        assert agent.providers[second.provider_instance_id].status == AgentProviderStatus.READY
+        assert second.lease.lease_id in agent.providers[second.provider_instance_id].active_leases
+    finally:
+        stack.stop()
+
+
+def test_idle_shared_worker_buffers_output_for_next_logical_lease(tmp_path):
+    """A live adopted worker must not drop evidence between graph frontiers."""
+
+    node_id = "sensor_a"
+    output_topic = f"/{node_id}/audio_detector/detections"
+    runtime = ProviderRuntimeSpec(
+        provider_id="audio_event_classifier",
+        provider_contract_version=1,
+        node_id=node_id,
+        mode=RuntimeMode.ADOPT_EXISTING,
+        container_name="shared-audio-worker",
+        worker_id="shared-worker",
+        output_topics=(output_topic,),
+        output_adapter=ReplayOutputAdapter.AUDIO_DETECTION,
+        output_label_aliases={"loud_audio": ("loud_audio",)},
+    )
+    stack = make_stack(tmp_path, runtimes={(node_id, "audio_event_classifier"): runtime})
+    try:
+        agent = stack.agents[node_id]
+        agent.containers.available_adopted_names.add("shared-audio-worker")
+        _, first_commands = stack.orchestrator.submit_candidates(
+            (_candidate(stack, node_id, "frontier-1"),), now=utc_now()
+        )
+        first = first_commands[0]
+        agent.cancel(
+            CancelProviderCommand(
+                orchestrator_id="orchestrator",
+                node_id=node_id,
+                provider_instance_id=first.provider_instance_id,
+                lease_id=first.lease.lease_id,
+                demand_id=first.demand.demand_id,
+                application_ack_topic=ack_topic("orchestrator"),
+            )
+        )
+        assert agent.providers[first.provider_instance_id].status == AgentProviderStatus.IDLE
+
+        event_time = utc_now().timestamp()
+        stack.broker.publish(
+            output_topic,
+            json.dumps({"t": event_time, "event": "loud_audio", "db": -10}).encode(),
+            qos=0,
+            retain=False,
+        )
+        assert not stack.received_results
+        assert len(agent._provider_output_cache) == 1
+
+        stack.orchestrator.submit_candidates(
+            (_candidate(stack, node_id, "frontier-2"),), now=utc_now()
+        )
+        assert wait_until(lambda: len(stack.received_results) == 1)
+        assert stack.received_results[0].request_id == "frontier-2"
+        assert stack.received_results[0].semantic_predicate.predicate_id == "AUDIO_EVENT"
     finally:
         stack.stop()
 

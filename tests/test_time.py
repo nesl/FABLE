@@ -30,6 +30,28 @@ class EventTimeTests(unittest.TestCase):
         self.assertTrue(interval.is_instant)
         self.assertEqual(interval.duration, timedelta(0))
 
+    def test_interval_containment_tolerance_is_explicit_and_bounded(self) -> None:
+        retained = EventTimeInterval(
+            start=self.base + timedelta(milliseconds=842),
+            end=self.base + timedelta(seconds=20),
+        )
+        requested = EventTimeInterval(
+            start=self.base,
+            end=self.base + timedelta(seconds=20),
+        )
+        self.assertFalse(retained.contains_interval(requested))
+        self.assertTrue(
+            retained.contains_interval(requested, tolerance=timedelta(seconds=1))
+        )
+        self.assertFalse(
+            retained.contains_interval(requested, tolerance=timedelta(milliseconds=800))
+        )
+
+    def test_interval_containment_rejects_negative_tolerance(self) -> None:
+        interval = EventTimeInterval(start=self.base, end=self.base)
+        with self.assertRaises(ValueError):
+            interval.contains_interval(interval, tolerance=timedelta(milliseconds=-1))
+
     def test_watermark_closes_window_only_after_lateness(self) -> None:
         interval = EventTimeInterval(
             start=self.base,

@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from collections.abc import Callable
 from uuid import UUID
 
 from fable.common.enums import PlanStatus, ProviderLeaseStatus
 from fable.common.ids import deterministic_id
 from fable.common.schemas import PlanStep, ProviderLease, ResourceReservation
 from fable.common.time import ensure_utc, utc_now
-from fable.planning.models import PhysicalAlternative, StepPlacement
 from fable.planning.provider_registry import ProviderRegistry
 
 from .capacity import CapacityLedger
@@ -30,14 +30,14 @@ class ProviderLifecycleError(ValueError):
 
 @dataclass(frozen=True)
 class StepLeaseIntent:
+    """Scheduler-ready intent derived only from an ``ExecutionPlan`` step."""
+
     demand_id: UUID
     request_id: str
     hypothesis_id: UUID
     checkpoint_id: UUID
     graph_node_id: str
     cancellation_scope: object
-    alternative: PhysicalAlternative
-    placement: StepPlacement
     plan_step: PlanStep
     share_key: ProviderShareKey
     reservation: ResourceReservation
@@ -65,16 +65,21 @@ class ProviderLifecycleManager:
         provider_registry: ProviderRegistry,
         capacity: CapacityLedger,
         idle_grace_ms: int = 2_000,
+        capacity_group_resolver: Callable[
+            [str, str, ResourceReservation, str], tuple[str, ResourceReservation]
+        ] | None = None,
     ) -> None:
         self.providers = provider_registry
         self.capacity = capacity
         self.idle_grace_ms = idle_grace_ms
+        self.capacity_group_resolver = capacity_group_resolver
         self.instances: dict[str, ProviderInstanceRecord] = {}
         self.leases: dict[UUID, ManagedLease] = {}
         self.plans: dict[UUID, ManagedPlan] = {}
         self._reusable_by_key: dict[str, str] = {}
         self._generation_by_key: dict[str, int] = {}
         self._lease_idempotency: dict[tuple[UUID, UUID, str], UUID] = {}
+        self._capacity_group_refcounts: dict[str, int] = {}
 
     @property
     def active_instances(self) -> tuple[ProviderInstanceRecord, ...]:
@@ -112,47 +117,55 @@ class ProviderLifecycleManager:
         self,
         candidate: PlanCandidate,
     ) -> tuple[StepLeaseIntent, ...]:
+        """Translate a concrete execution plan into provider lease intents.
+
+        This boundary intentionally consumes only ``ExecutionPlan`` and
+        ``PredicateDemand`` contracts.  Planner-internal alternatives and
+        placements are not required by scheduling.
+        """
+
         demand_map = {demand.demand_id: demand for demand in candidate.demands}
-        plan_steps = {step.step_id: step for step in candidate.plan.steps}
+        sole_demand = candidate.demands[0] if len(candidate.demands) == 1 else None
         intents: list[StepLeaseIntent] = []
-        for alternative in sorted(candidate.alternatives, key=lambda item: str(item.demand_id)):
-            demand = demand_map[alternative.demand_id]
-            for placement in alternative.step_placements:
-                full_step_id = f"{alternative.alternative_id}:{placement.step_id}"
+        for plan_step in sorted(candidate.plan.steps, key=lambda item: item.step_id):
+            demand_id = plan_step.demand_id
+            if demand_id is None:
+                if sole_demand is None:
+                    raise ProviderLifecycleError(
+                        f"step {plan_step.step_id} is not scoped to a demand"
+                    )
+                demand = sole_demand
+            else:
                 try:
-                    plan_step = plan_steps[full_step_id]
+                    demand = demand_map[demand_id]
                 except KeyError as exc:
                     raise ProviderLifecycleError(
-                        f"plan is missing selected alternative step {full_step_id}"
+                        f"step {plan_step.step_id} references unknown demand {demand_id}"
                     ) from exc
-                key = self._share_key(
-                    candidate=candidate,
-                    demand=demand,
-                    alternative=alternative,
-                    placement=placement,
+            key = self._share_key(
+                candidate=candidate,
+                demand=demand,
+                plan_step=plan_step,
+            )
+            intents.append(
+                StepLeaseIntent(
+                    demand_id=demand.demand_id,
+                    request_id=demand.request_id,
+                    hypothesis_id=demand.hypothesis_id,
+                    checkpoint_id=demand.checkpoint_id,
+                    graph_node_id=demand.graph_node_id,
+                    cancellation_scope=demand.cancellation_scope,
                     plan_step=plan_step,
+                    share_key=key,
+                    reservation=ResourceReservation(
+                        node_id=plan_step.node_id,
+                        cpu_cores=plan_step.cpu_cores,
+                        memory_mb=plan_step.memory_mb,
+                        gpu_memory_mb=plan_step.gpu_memory_mb,
+                        network_bytes=plan_step.estimated_transfer_bytes,
+                    ),
                 )
-                intents.append(
-                    StepLeaseIntent(
-                        demand_id=demand.demand_id,
-                        request_id=demand.request_id,
-                        hypothesis_id=demand.hypothesis_id,
-                        checkpoint_id=demand.checkpoint_id,
-                        graph_node_id=demand.graph_node_id,
-                        cancellation_scope=demand.cancellation_scope,
-                        alternative=alternative,
-                        placement=placement,
-                        plan_step=plan_step,
-                        share_key=key,
-                        reservation=ResourceReservation(
-                            node_id=placement.node_id,
-                            cpu_cores=placement.cpu_cores,
-                            memory_mb=placement.memory_mb,
-                            gpu_memory_mb=placement.gpu_memory_mb,
-                            network_bytes=plan_step.estimated_transfer_bytes,
-                        ),
-                    )
-                )
+            )
         return tuple(intents)
 
     def preview_incremental_reservations(
@@ -165,10 +178,18 @@ class ProviderLifecycleManager:
             assert key_id is not None
             if self._find_reusable(intent.share_key) is not None:
                 continue
-            # A provider token shared by multiple demands in the same candidate
-            # reserves capacity once.
-            if key_id not in result:
-                result[key_id] = intent.reservation
+            owner_id, reservation = self._capacity_group(
+                intent.plan_step.node_id,
+                intent.plan_step.provider_id,
+                intent.reservation,
+                fallback_owner_id=key_id,
+            )
+            # A logical provider token and, optionally, an entire physical worker
+            # bundle reserve capacity once.
+            if self._capacity_group_refcounts.get(owner_id, 0) > 0:
+                continue
+            if owner_id not in result:
+                result[owner_id] = reservation
         return tuple(sorted(result.items(), key=lambda item: item[0]))
 
     def attach_candidate(
@@ -334,7 +355,7 @@ class ProviderLifecycleManager:
                     now=observed_now,
                 )
                 self._reusable_by_key.pop(instance.share_key.key_id or "", None)
-                self.capacity.release(instance.provider_instance_id)
+                self._release_instance_capacity(instance)
                 draining.append(instance.provider_instance_id)
         return tuple(sorted(draining))
 
@@ -356,7 +377,7 @@ class ProviderLifecycleManager:
         instance.failure_reason = reason
         self._transition(instance, ProviderInstanceLifecycle.FAILED, now=observed_now)
         self._reusable_by_key.pop(instance.share_key.key_id or "", None)
-        self.capacity.release(instance.provider_instance_id)
+        self._release_instance_capacity(instance)
         return tuple(sorted(affected_demands, key=str))
 
     def leases_for_instance(self, provider_instance_id: str) -> tuple[ManagedLease, ...]:
@@ -388,11 +409,11 @@ class ProviderLifecycleManager:
         )
         lease = ProviderLease(
             provider_instance_id=instance.provider_instance_id,
-            provider_id=intent.placement.provider_id,
+            provider_id=intent.plan_step.provider_id,
             provider_contract_version=intent.share_key.provider_contract_version,
             demand_id=intent.demand_id,
             plan_id=candidate.plan.plan_id,
-            node_id=intent.placement.node_id,
+            node_id=intent.plan_step.node_id,
             configuration_hash=intent.share_key.configuration_hash,
             status=status,
             starts_at=now,
@@ -407,7 +428,7 @@ class ProviderLifecycleManager:
             step_id=intent.plan_step.step_id,
             share_key_id=intent.share_key.key_id or "",
             cancellation_scope=intent.cancellation_scope,
-            execution_mode=intent.alternative.execution_mode,
+            execution_mode=intent.plan_step.execution_mode,
             created_at=now,
         )
         self.leases[lease.lease_id] = managed
@@ -435,12 +456,24 @@ class ProviderLifecycleManager:
             {"share_key": key_id, "generation": generation},
             length=32,
         )
-        self.capacity.reserve(provider_instance_id, reservation)
+        capacity_owner_id, capacity_reservation = self._capacity_group(
+            share_key.node_id,
+            share_key.provider_id,
+            reservation,
+            fallback_owner_id=provider_instance_id,
+        )
+        if self._capacity_group_refcounts.get(capacity_owner_id, 0) == 0:
+            self.capacity.reserve(capacity_owner_id, capacity_reservation)
+        self._capacity_group_refcounts[capacity_owner_id] = (
+            self._capacity_group_refcounts.get(capacity_owner_id, 0) + 1
+        )
         instance = ProviderInstanceRecord(
             provider_instance_id=provider_instance_id,
             share_key=share_key,
             lifecycle=ProviderInstanceLifecycle.COLD,
             reservation=reservation,
+            capacity_owner_id=capacity_owner_id,
+            capacity_reservation=capacity_reservation,
             created_at=now,
             updated_at=now,
             lifecycle_history=(ProviderInstanceLifecycle.COLD,),
@@ -468,43 +501,13 @@ class ProviderLifecycleManager:
         *,
         candidate: PlanCandidate,
         demand,
-        alternative: PhysicalAlternative,
-        placement: StepPlacement,
         plan_step: PlanStep,
     ) -> ProviderShareKey:
-        provider = self.providers.provider(placement.provider_id)
-        chain = self.providers.chain(alternative.chain_id)
-        external_names = self._external_roots(chain, placement.step_id)
-        external_by_name = {item.input_name: item for item in alternative.external_inputs}
-        selected_external = tuple(
-            external_by_name[name]
-            for name in sorted(external_names)
-            if name in external_by_name
-        )
-        source_signature = tuple(
-            sorted(
-                {
-                    f"source:{item.source_id}"
-                    for item in selected_external
-                    if item.source_id is not None
-                }
-                | {
-                    f"node:{item.node_id}"
-                    for item in selected_external
-                    if item.node_id is not None
-                }
-            )
-        )
-        input_artifacts = tuple(
-            sorted(
-                (item.artifact_id for item in selected_external if item.artifact_id is not None),
-                key=str,
-            )
-        )
+        provider = self.providers.provider(plan_step.provider_id)
         configuration_hash = deterministic_id(
             "config",
             {
-                "provider_id": placement.provider_id,
+                "provider_id": plan_step.provider_id,
                 "parameters": plan_step.parameters,
             },
             length=32,
@@ -525,44 +528,20 @@ class ProviderLifecycleManager:
         if not provider.execution_capabilities.supports_shared_execution:
             discriminator = f"{demand.demand_id}:{plan_step.step_id}"
         return ProviderShareKey(
-            provider_id=placement.provider_id,
+            provider_id=plan_step.provider_id,
             provider_contract_version=provider.contract_version,
-            node_id=placement.node_id,
+            node_id=plan_step.node_id,
             configuration_hash=configuration_hash,
-            source_signature=source_signature,
-            input_artifact_ids=input_artifacts,
+            source_signature=plan_step.source_signature,
+            input_artifact_ids=tuple(sorted(plan_step.input_artifact_ids, key=str)),
             input_data_types=tuple(sorted(plan_step.input_data_types)),
             output_data_types=tuple(sorted(plan_step.output_data_types)),
             event_time_interval=demand.event_time_interval,
-            execution_mode=alternative.execution_mode,
+            execution_mode=plan_step.execution_mode,
             policy_hash=policy_hash,
             semantic_binding_signature=binding_signature,
             nonshareable_discriminator=discriminator,
         )
-
-    def _external_roots(self, chain, step_id: str) -> set[str]:
-        step_by_id = {step.step_id: step for step in chain.steps}
-        cache: dict[str, set[str]] = {}
-
-        def visit(current: str, stack: set[str]) -> set[str]:
-            if current in cache:
-                return cache[current]
-            if current in stack:
-                raise ProviderLifecycleError(f"cycle in chain {chain.chain_id}")
-            stack = {*stack, current}
-            roots: set[str] = set()
-            step = step_by_id[current]
-            for source_ref in step.bindings.values():
-                if source_ref.startswith("external."):
-                    roots.add(source_ref.split(".", 1)[1])
-                elif "." in source_ref:
-                    upstream = source_ref.split(".", 1)[0]
-                    if upstream in step_by_id:
-                        roots.update(visit(upstream, stack))
-            cache[current] = roots
-            return roots
-
-        return visit(step_id, set())
 
     def _transition(
         self,
@@ -584,7 +563,35 @@ class ProviderLifecycleManager:
     def _retire_immediately(self, instance: ProviderInstanceRecord, *, now: datetime) -> None:
         self._transition(instance, ProviderInstanceLifecycle.DRAINING, now=now)
         self._reusable_by_key.pop(instance.share_key.key_id or "", None)
-        self.capacity.release(instance.provider_instance_id)
+        self._release_instance_capacity(instance)
+
+    def _capacity_group(
+        self,
+        node_id: str,
+        provider_id: str,
+        reservation: ResourceReservation,
+        *,
+        fallback_owner_id: str,
+    ) -> tuple[str, ResourceReservation]:
+        if self.capacity_group_resolver is None:
+            return fallback_owner_id, reservation
+        owner_id, grouped = self.capacity_group_resolver(
+            node_id, provider_id, reservation, fallback_owner_id
+        )
+        if not owner_id:
+            raise ProviderLifecycleError("capacity group resolver returned an empty owner ID")
+        if grouped.node_id != node_id:
+            raise ProviderLifecycleError("capacity group reservation must stay on the provider node")
+        return owner_id, grouped
+
+    def _release_instance_capacity(self, instance: ProviderInstanceRecord) -> None:
+        owner_id = instance.capacity_owner_id or instance.provider_instance_id
+        count = self._capacity_group_refcounts.get(owner_id, 0)
+        if count <= 1:
+            self._capacity_group_refcounts.pop(owner_id, None)
+            self.capacity.release(owner_id)
+        else:
+            self._capacity_group_refcounts[owner_id] = count - 1
 
     def _instance(self, provider_instance_id: str) -> ProviderInstanceRecord:
         try:

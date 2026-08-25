@@ -407,6 +407,7 @@ def main():
 
     if not args.no_ce:
         lines.append("\n  complex-event-detector:\n")
+        lines.append('    profiles: ["legacy-ce"]\n')
         lines.append("    build:\n")
         lines.append("      context: .\n")
         lines.append("      dockerfile: services/orchestration/complex_event_detector/Dockerfile\n")

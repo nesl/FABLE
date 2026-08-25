@@ -160,6 +160,12 @@
       "default": null,
       "title": "Gpu Memory Bytes"
     },
+    "gpu_time_seconds": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Gpu Time Seconds",
+      "type": "number"
+    },
     "gpu_energy_joules": {
       "anyOf": [
         {

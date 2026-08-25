@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable
 
@@ -12,6 +13,61 @@ from .association import CrossSensorIdentityAssociator
 from .errors import InvalidProviderInput
 from .models import DescriptorSet, DetectionFrame, EntityAssociationSet, TrackSet
 from .tracker import DetectionReplayTracker, RoboflowTrackerAdapter
+
+
+@dataclass(frozen=True)
+class HistoricalVehicleMatch:
+    """Compact vehicle candidate recovered from a bounded track interval."""
+
+    scoped_track_id: str
+    source_id: str
+    event_time_interval: EventTimeInterval
+    confidence: float
+
+
+class HistoricalVehicleIntervalMatcher:
+    """Recover concrete vehicle identities from retained/replayed track sets.
+
+    This provider intentionally performs presence recovery, not cross-camera
+    identity association.  Each candidate remains scoped to its source and
+    tracker session; later SAME_ENTITY processing is responsible for relating
+    it to evidence from another interval or camera.
+    """
+
+    def match_many(
+        self,
+        track_sets: tuple[TrackSet, ...],
+        *,
+        entity_kind: str = "vehicle",
+        bound_entity_id: str | None = None,
+        maximum_candidates: int = 8,
+    ) -> tuple[HistoricalVehicleMatch, ...]:
+        if entity_kind != "vehicle":
+            return ()
+        grouped: dict[str, list] = {}
+        for track_set in sorted(track_sets, key=lambda item: item.event_time):
+            for track in track_set.tracks:
+                if bound_entity_id and track.scoped_track_id != bound_entity_id:
+                    continue
+                grouped.setdefault(track.scoped_track_id, []).append(track)
+        candidates = []
+        for scoped_track_id, observations in grouped.items():
+            first, last = observations[0], observations[-1]
+            candidates.append(
+                HistoricalVehicleMatch(
+                    scoped_track_id=scoped_track_id,
+                    source_id=last.source_id,
+                    event_time_interval=EventTimeInterval(
+                        start=first.event_time,
+                        end=last.event_time,
+                    ),
+                    confidence=max(item.confidence for item in observations),
+                )
+            )
+        candidates.sort(
+            key=lambda item: (-item.confidence, item.event_time_interval.start, item.scoped_track_id)
+        )
+        return tuple(candidates[: max(0, maximum_candidates)])
 
 
 class JsonlDetectionStore:

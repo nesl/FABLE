@@ -5,7 +5,7 @@ from __future__ import annotations
 import heapq
 from collections.abc import Iterable
 
-from fable.common.time import EventTimeInterval
+from fable.common.time import EventTimeInterval, RAW_BUFFER_ALIGNMENT_TOLERANCE
 
 from .models import DeploymentNode, NetworkLink, NetworkPath, SensorSource
 
@@ -101,7 +101,10 @@ class DeploymentGraph:
             if require_live:
                 result.append(source)
                 continue
-            if source.raw_buffer_interval is None or source.raw_buffer_interval.contains_interval(interval):
+            if source.raw_buffer_interval is None or source.raw_buffer_interval.contains_interval(
+                interval,
+                tolerance=RAW_BUFFER_ALIGNMENT_TOLERANCE,
+            ):
                 result.append(source)
         return tuple(sorted(result, key=lambda item: item.source_id))
 

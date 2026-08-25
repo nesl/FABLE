@@ -188,6 +188,13 @@ class LegacyReplayYoloAdapter:
             raise InvalidProviderInput("legacy YOLO payload contains no detection rows")
         event_times = [_parse_timestamp(row.get("t")) for row in rows]
         event_time = max(event_times)
+        replay_ids = {
+            str(row.get("replay_id"))
+            for row in rows
+            if row.get("replay_id")
+        }
+        if len(replay_ids) > 1:
+            raise InvalidProviderInput("legacy YOLO payload mixes replay generations")
         frame_id = frame_id or f"{source_id}:{event_time.isoformat()}"
         detections: list[Detection] = []
         for index, row in enumerate(rows):
@@ -224,6 +231,13 @@ class LegacyReplayYoloAdapter:
                         "node": str(row.get("node") or ""),
                         "source_host": str(row.get("source_host") or ""),
                         "depth": float(row.get("depth", -1.0)),
+                        "reid": {
+                            "entity_kind": "vehicle",
+                            "crop_data_url": str(row.get("crop_data_url") or ""),
+                            "context_image_data_url": str(
+                                row.get("context_image_data_url") or ""
+                            ),
+                        },
                     },
                 )
             )
@@ -233,6 +247,7 @@ class LegacyReplayYoloAdapter:
             frame_id=frame_id,
             detector_id=self.detector_id,
             detector_version=self.detector_version,
+            replay_id=next(iter(replay_ids), None),
             detections=tuple(detections),
             source_sequence=source_sequence,
         )

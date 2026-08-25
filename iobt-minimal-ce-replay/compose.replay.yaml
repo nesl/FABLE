@@ -144,6 +144,7 @@ services:
       - IOBT_DATA_ROOTS=/data_roots/west_point:/data_roots/gq
 
   complex-event-detector:
+    profiles: ["legacy-ce"]
     build:
       context: .
       dockerfile: services/orchestration/complex_event_detector/Dockerfile

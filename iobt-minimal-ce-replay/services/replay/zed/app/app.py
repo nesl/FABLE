@@ -65,6 +65,7 @@ class zed_custom(iobt_max_service):
         self.replay_child_config_enabled = _env_bool("REPLAY_CHILD_CONFIG_ENABLED", True)
         self._initial_sync_json = os.environ.get("REPLAY_INITIAL_SYNC_JSON", "").strip()
         self._last_sync_signature = None
+        self._sync_lock = threading.RLock()
 
         self.cam            = sl.Camera()
         self.framescale     = 0.25
@@ -120,6 +121,12 @@ class zed_custom(iobt_max_service):
         self.df_timestamps["Timestamp"] = self.df_timestamps["Timestamp"] - self.df_timestamps["Timestamp"].iloc[0]
         self.df_timestamps["Timestamp"] = self.df_timestamps["Timestamp"].dt.total_seconds()
         self.df_timestamps =self.df_timestamps.set_index("Timestamp")
+        event_start = os.environ.get("FABLE_REPLAY_EVENT_START", "").strip()
+        self.replay_event_start_epoch = (
+            datetime.fromisoformat(event_start.replace("Z", "+00:00")).timestamp()
+            if event_start
+            else None
+        )
 
         self.net_img_topic   = self.get_topic_name("rgb_left/compressed")
         self.net_depth_topic = self.get_topic_name("depth/compressed")
@@ -197,6 +204,7 @@ class zed_custom(iobt_max_service):
             end_time=self.playback_end_time,
             local_ipc="/tmp/zed.ipc",
             total_playback_duration=getattr(self, "total_playback_duration", None),
+            replay_id=os.environ.get("REPLAY_ACTIVE_ID") or None,
             **extra,
         )
 
@@ -346,14 +354,15 @@ class zed_custom(iobt_max_service):
             self._set_playback_timing(msg.get('playback_mode', msg.get('mode', None)), msg.get('speed', msg.get('playback_speed', None)))
             start_at = float(msg.get('start_at', time.time()))
             signature = self._make_sync_signature(msg, start_at, self.playback_mode, self.playback_speed)
-            if signature == self._last_sync_signature and self.sync_received:
-                print(f"[ZED] Duplicate sync ignored signature={signature}", flush=True)
-                return
-            self._last_sync_signature = signature
-            self.sync_start_at   = start_at
-            self.loop_wall_start = self.sync_start_at
-            self.sync_received   = True
-            self._sync_event.set()
+            with self._sync_lock:
+                if signature == self._last_sync_signature:
+                    print(f"[ZED] Duplicate sync ignored signature={signature}", flush=True)
+                    return
+                self._last_sync_signature = signature
+                self.sync_start_at   = start_at
+                self.loop_wall_start = self.sync_start_at
+                self.sync_received   = True
+                self._sync_event.set()
             print(f"[ZED] Sync received — start_at={self.sync_start_at:.3f} "
                   f"(in {self.sync_start_at - time.time():.2f}s) mode={self.playback_mode} speed={self.playback_speed:g} signature={signature}", flush=True)
         except Exception as e:
@@ -368,6 +377,11 @@ class zed_custom(iobt_max_service):
         else:
             elapsed = (max(0.0, ts - self.sync_start_at) * speed) % max(self.total_playback_duration, 1e-6)
         return self.playback_start_time + elapsed
+
+    def _consume_pending_sync(self):
+        """Consume the generation used to start playback without losing a newer one."""
+        with self._sync_lock:
+            self._sync_event.clear()
     
     def get_playback_index(self,playback_time):
         return self.df_timestamps.index.searchsorted(playback_time)
@@ -469,6 +483,7 @@ class zed_custom(iobt_max_service):
                     if result == 'config':
                         continue
             sync_ready = False  # consume the sync; next iteration must wait again
+            self._consume_pending_sync()
 
             # ── PLAY ──────────────────────────────────────────────────────────
             # Wait until start_at if it's in the future
@@ -531,7 +546,11 @@ class zed_custom(iobt_max_service):
 
                 grab_status = self.cam.grab()
                 if grab_status == sl.ERROR_CODE.SUCCESS:
-                    timestamp = time.time()
+                    timestamp = (
+                        self.replay_event_start_epoch + float(target_playback_time)
+                        if self.replay_event_start_epoch is not None
+                        else time.time()
+                    )
                     self.cam.retrieve_image(self.img, sl.VIEW.LEFT, resolution=self.lo_res)
                     self.cam.retrieve_measure(self.depth, sl.MEASURE.DEPTH, resolution=self.lo_res)
                     self.process_data(timestamp, self.img, self.depth)
@@ -627,7 +646,18 @@ class zed_custom(iobt_max_service):
         _, encoded_image = cv2.imencode('.png', cv2_img)
         _, encoded_depth = cv2.imencode('.png', img_depth)
 
-        msg   =  {"t":timestamp,"i":encoded_image, "d":encoded_depth}
+        replay_id = (
+            self._last_sync_signature[1]
+            if self._last_sync_signature
+            and self._last_sync_signature[0] == "id"
+            else None
+        )
+        msg = {
+            "t": timestamp,
+            "i": encoded_image,
+            "d": encoded_depth,
+            "replay_id": replay_id,
+        }
         self.publish("local","data",msg)
 
         if(time.time()-self.last_mqtt_msg_time>1/self.slow_pub_fps):

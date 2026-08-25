@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from threading import Lock
 from time import perf_counter_ns
 from typing import Any
 
+from fable.common.schemas import TerminalComplexEvent
 from fable.distributed.models import (
     ArtifactAnnouncement,
     ProviderStatusEvent,
@@ -18,7 +20,10 @@ from evaluation.runner import JsonlEventStore
 from evaluation.schemas import (
     ArtifactEvent,
     BaselineId,
+    ComplexEventResult,
+    PlanDecision,
     PredicateObservation,
+    ProviderCommand,
     ProviderLifecycleEvent,
     ResourceSample,
 )
@@ -41,6 +46,32 @@ class EvaluationMessageNormalizer:
         raw_text = payload.decode("utf-8") if isinstance(payload, bytes) else payload
         data = json.loads(raw_text)
         schema = data.get("schema_version")
+        if schema == EvaluationRecord.SCHEMA_VERSION:
+            record_type = data.get("record_type")
+            if record_type == "plan_decision":
+                return PlanDecision.model_validate(data)
+            if record_type == "provider_command":
+                return ProviderCommand.model_validate(data)
+        if schema == TerminalComplexEvent.SCHEMA_VERSION:
+            event = TerminalComplexEvent.model_validate(data)
+            return ComplexEventResult(
+                run_id=self.context.run_id,
+                baseline_id=self.context.baseline_id,
+                trace_id=self.context.trace_id,
+                request_id=event.request_id,
+                hypothesis_id=str(event.hypothesis_id),
+                event_time=event.event_time_window.start,
+                wall_timestamp=event.emitted_at,
+                monotonic_timestamp_ns=perf_counter_ns(),
+                result_id=str(event.message_id),
+                event_family=event.family_id,
+                event_start_time=event.event_time_window.start,
+                event_end_time=event.event_time_window.end,
+                emitted_at=event.emitted_at,
+                bindings=event.bindings,
+                provenance_refs=tuple(str(item) for item in event.provenance_result_ids),
+                metadata={"topic": topic, "source_schema": event.schema_version},
+            )
         if schema == ReliablePredicateResult.SCHEMA_VERSION:
             envelope = ReliablePredicateResult.model_validate(data)
             result = envelope.result
@@ -69,6 +100,7 @@ class EvaluationMessageNormalizer:
                 source_sequence=sequence,
                 metadata={
                     "topic": topic,
+                    "occurrence_id": result.occurrence_id,
                     "truth": result.truth.value,
                     "node_id": result.provenance.node_id,
                     "processing_started_at": result.processing_started_at.isoformat(),
@@ -180,6 +212,9 @@ class MqttEvaluationLogger:
         self.port = port
         self.client.on_connect = self._on_connect
         self.client.on_message = self._on_message
+        self._started = False
+        self._seen_physical_observations: set[tuple[str, str, str]] = set()
+        self._dedup_lock = Lock()
 
     def _on_connect(self, client, userdata, flags, reason_code, properties) -> None:
         for topic, qos in (
@@ -187,6 +222,8 @@ class MqttEvaluationLogger:
             ("fable/v1/status/+/provider", 1),
             ("fable/v1/artifact/+/announce", 1),
             ("fable/v1/status/+/heartbeat", 0),
+            ("fable/v1/event/+/completed", 1),
+            ("fable/v1/evaluation/record/+", 1),
         ):
             client.subscribe(topic, qos=qos)
 
@@ -194,6 +231,14 @@ class MqttEvaluationLogger:
         try:
             record = self.normalizer.normalize(message.topic, message.payload)
             if record is not None:
+                if isinstance(record, PredicateObservation):
+                    occurrence_id = str(record.metadata.get("occurrence_id") or "")
+                    if occurrence_id:
+                        key = (record.request_id, record.provider_id or "", occurrence_id)
+                        with self._dedup_lock:
+                            if key in self._seen_physical_observations:
+                                return
+                            self._seen_physical_observations.add(key)
                 self.store.append(record)
         except Exception as exc:  # Preserve the live run even if one record is malformed.
             path = self.store.root / "normalization_errors.jsonl"
@@ -211,3 +256,19 @@ class MqttEvaluationLogger:
     def run_forever(self) -> None:
         self.client.connect(self.host, self.port, keepalive=60)
         self.client.loop_forever()
+
+    def start(self) -> None:
+        """Start collection without taking ownership of the caller's thread."""
+
+        if self._started:
+            return
+        self.client.connect(self.host, self.port, keepalive=60)
+        self.client.loop_start()
+        self._started = True
+
+    def stop(self) -> None:
+        if not self._started:
+            return
+        self.client.loop_stop()
+        self.client.disconnect()
+        self._started = False

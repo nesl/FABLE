@@ -15,14 +15,19 @@ from typing import Protocol
 from pydantic import Field
 
 from fable.common.base import FableModel, JSONValue
-from fable.common.examples import convoy_graph
 from fable.common.schemas import SemanticGraph
 
-from .examples import repeated_visit_graph
-from .phase8_examples import (
+from .definitions import (
+    alarm_departure_graph,
     drive_up_shooting_graph,
     multimodal_robbery_graph,
     package_exchange_graph,
+    repeated_visit_graph,
+    sequential_vehicle_pass_graph,
+    talking_rendezvous_graph,
+    two_vehicle_chase_graph,
+    uncalibrated_repeated_pass_graph,
+    vehicle_convergence_graph,
 )
 
 
@@ -227,7 +232,7 @@ def default_event_family_registry() -> AuthoredEventFamilyRegistry:
     )
     registry.register(
         "robbery",
-        lambda parameters: _no_parameters("robbery", parameters, multimodal_robbery_graph),
+        _robbery_factory,
         aliases=("detect robbery", "detect a robbery", "robbery with alarm"),
     )
     registry.register(
@@ -237,34 +242,153 @@ def default_event_family_registry() -> AuthoredEventFamilyRegistry:
     )
     registry.register(
         "drive_up_shooting",
-        lambda parameters: drive_up_shooting_graph(
-            lookback_ms=int(parameters.get("lookback_ms", 15_000))
-        ),
+        _drive_up_shooting_factory,
         aliases=("detect drive up shooting", "drive-up shooting"),
     )
     registry.register(
         "repeated_visit",
-        lambda parameters: repeated_visit_graph(
-            return_window_ms=int(parameters.get("return_window_ms", 300_000))
-        ),
+        _repeated_visit_factory,
         aliases=("detect repeated visit", "detect stalking", "repeated vehicle visit"),
+    )
+    registry.register(
+        "rendezvous",
+        _rendezvous_factory,
+        aliases=("detect rendezvous", "talking rendezvous"),
+    )
+    registry.register(
+        "vehicle_convergence",
+        _vehicle_convergence_factory,
+        aliases=("detect vehicle convergence", "vehicle rendezvous"),
+    )
+    registry.register(
+        "two_vehicle_chase",
+        _two_vehicle_chase_factory,
+        aliases=("detect two vehicle chase", "two vehicle chase"),
     )
     return registry
 
 
 def _convoy_factory(parameters: Mapping[str, JSONValue]) -> SemanticGraph:
-    supported = {"variant"}
+    supported = {"variant", "evaluation_profile", "maximum_gap_ms"}
     unknown = set(parameters) - supported
     if unknown:
         raise RequestCompileError(
             f"the current convoy family does not yet ground parameters {sorted(unknown)}"
         )
     variant = str(parameters.get("variant", "pass_follow_clear"))
-    if variant != "pass_follow_clear":
+    profile = str(parameters.get("evaluation_profile", "sequential_passes"))
+    if variant != "pass_follow_clear" or profile != "sequential_passes":
         raise RequestCompileError(
-            "the current implementation has one registered convoy variant: pass_follow_clear"
+            "convoy supports variant=pass_follow_clear and "
+            "evaluation_profile=sequential_passes"
         )
-    return convoy_graph()
+    return sequential_vehicle_pass_graph(
+        name="Pass-follow-clear convoy",
+        namespace_suffix="pass_follow_clear_convoy",
+        maximum_gap_ms=int(parameters.get("maximum_gap_ms", 60_000)),
+    )
+
+
+def _robbery_factory(parameters: Mapping[str, JSONValue]) -> SemanticGraph:
+    profile = str(parameters.get("evaluation_profile", "cross_sensor"))
+    supported = {
+        "evaluation_profile",
+        "lookback_ms",
+        "alarm_confirmation_ms",
+        "gunshot_confirmation_ms",
+    }
+    _reject_unknown("robbery", parameters, supported)
+    if profile == "alarm_departure":
+        return alarm_departure_graph(
+            alarm_confirmation_ms=int(parameters.get("alarm_confirmation_ms", 10_000))
+        )
+    if profile not in {"cross_sensor", "default"}:
+        raise RequestCompileError(f"unsupported robbery evaluation_profile: {profile}")
+    return multimodal_robbery_graph(
+        lookback_ms=int(parameters.get("lookback_ms", 120_000)),
+        alarm_confirmation_ms=int(parameters.get("alarm_confirmation_ms", 45_000)),
+        gunshot_confirmation_ms=int(parameters.get("gunshot_confirmation_ms", 15_000)),
+    )
+
+
+def _drive_up_shooting_factory(
+    parameters: Mapping[str, JSONValue],
+) -> SemanticGraph:
+    _reject_unknown(
+        "drive_up_shooting", parameters, {"lookback_ms", "require_boarding"}
+    )
+    require_boarding = parameters.get("require_boarding", True)
+    if not isinstance(require_boarding, bool):
+        raise RequestCompileError("require_boarding must be a boolean")
+    return drive_up_shooting_graph(
+        lookback_ms=int(parameters.get("lookback_ms", 15_000)),
+        require_boarding=require_boarding,
+    )
+
+
+def _repeated_visit_factory(parameters: Mapping[str, JSONValue]) -> SemanticGraph:
+    supported = {
+        "return_window_ms",
+        "minimum_return_gap_ms",
+        "visit_count",
+        "evaluation_profile",
+        "identity_confirmation",
+    }
+    _reject_unknown("repeated_visit", parameters, supported)
+    common = {
+        "return_window_ms": int(parameters.get("return_window_ms", 300_000)),
+        "minimum_return_gap_ms": int(parameters.get("minimum_return_gap_ms", 30_000)),
+        "visit_count": int(parameters.get("visit_count", 2)),
+    }
+    if str(parameters.get("evaluation_profile", "calibrated")) == "uncalibrated_passes":
+        return uncalibrated_repeated_pass_graph(
+            **common,
+            identity_confirmation=bool(parameters.get("identity_confirmation", False)),
+        )
+    return repeated_visit_graph(**common)
+
+
+def _rendezvous_factory(parameters: Mapping[str, JSONValue]) -> SemanticGraph:
+    _reject_unknown("rendezvous", parameters, {"evaluation_profile"})
+    profile = str(parameters.get("evaluation_profile", "full_talking"))
+    if profile != "full_talking":
+        raise RequestCompileError(f"unsupported rendezvous evaluation_profile: {profile}")
+    return talking_rendezvous_graph()
+
+
+def _vehicle_convergence_factory(parameters: Mapping[str, JSONValue]) -> SemanticGraph:
+    _reject_unknown("vehicle_convergence", parameters, {"departure_policy"})
+    return vehicle_convergence_graph(
+        departure_policy=str(parameters.get("departure_policy", "identity_bound"))
+    )
+
+
+def _two_vehicle_chase_factory(parameters: Mapping[str, JSONValue]) -> SemanticGraph:
+    _reject_unknown(
+        "two_vehicle_chase", parameters, {"evaluation_profile", "maximum_gap_ms"}
+    )
+    profile = str(parameters.get("evaluation_profile", "follows"))
+    if profile == "sequential_passes":
+        return sequential_vehicle_pass_graph(
+            name="Two-vehicle chase",
+            namespace_suffix="two_vehicle_chase_sequential",
+            maximum_gap_ms=int(parameters.get("maximum_gap_ms", 60_000)),
+        )
+    if profile != "follows":
+        raise RequestCompileError(f"unsupported two_vehicle_chase profile: {profile}")
+    return two_vehicle_chase_graph()
+
+
+def _reject_unknown(
+    family_id: str,
+    parameters: Mapping[str, JSONValue],
+    supported: set[str],
+) -> None:
+    unknown = set(parameters) - supported
+    if unknown:
+        raise RequestCompileError(
+            f"event family {family_id} does not expose parameters {sorted(unknown)}"
+        )
 
 
 def _no_parameters(

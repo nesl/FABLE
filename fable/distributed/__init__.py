@@ -11,6 +11,9 @@ from .models import (
     ControlEventType,
     FaultCommand,
     FaultKind,
+    EventRequestResponse,
+    EventRequestSubmission,
+    ExecutionProfile,
     PlanDispatchRequest,
     PlanDispatchResponse,
     ProviderRuntimeSpec,
@@ -19,8 +22,11 @@ from .models import (
     ReliableNodeHeartbeat,
     ReliablePredicateResult,
     RuntimeMode,
+    RuntimeDisturbanceAck,
+    RuntimeDisturbanceRequest,
     SegmentRef,
 )
+from .plan_execution import PlanExecutionTracker
 
 __all__ = [
     "AckStatus",
@@ -33,6 +39,9 @@ __all__ = [
     "ControlEventType",
     "FaultCommand",
     "FaultKind",
+    "EventRequestResponse",
+    "EventRequestSubmission",
+    "ExecutionProfile",
     "PlanDispatchRequest",
     "PlanDispatchResponse",
     "ProviderRuntimeSpec",
@@ -41,5 +50,8 @@ __all__ = [
     "ReliableNodeHeartbeat",
     "ReliablePredicateResult",
     "RuntimeMode",
+    "RuntimeDisturbanceAck",
+    "RuntimeDisturbanceRequest",
     "SegmentRef",
+    "PlanExecutionTracker",
 ]

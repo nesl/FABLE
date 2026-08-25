@@ -35,7 +35,11 @@ from providers.vehicle.models import (
     scoped_track_identity,
 )
 from providers.vehicle.profiling import ProviderProfileRecord, load_profile_records
-from providers.vehicle.replay import JsonlDetectionStore, RetrospectiveVehicleExecutor
+from providers.vehicle.replay import (
+    HistoricalVehicleIntervalMatcher,
+    JsonlDetectionStore,
+    RetrospectiveVehicleExecutor,
+)
 from providers.vehicle.tracker import DetectionReplayTracker, RoboflowTrackerAdapter
 
 
@@ -139,13 +143,56 @@ def test_tracker_scopes_local_ids_by_source_and_session():
     assert output.tracks[0].attributes["matched_detection_id"] == "det_0"
 
 
+def test_tracker_matches_multi_car_metadata_by_iou_not_semantic_class_id():
+    frame = detection_frame(0).model_copy(
+        update={
+            "detections": (
+                Detection(
+                    detection_id="left-car",
+                    class_name="car",
+                    confidence=0.9,
+                    bbox=BoundingBox(x1=0, y1=0, x2=10, y2=10),
+                    attributes={"reid": {"crop_data_url": "data:image/jpeg;base64,left"}},
+                ),
+                Detection(
+                    detection_id="right-car",
+                    class_name="car",
+                    confidence=0.8,
+                    bbox=BoundingBox(x1=100, y1=0, x2=110, y2=10),
+                    attributes={"reid": {"crop_data_url": "data:image/jpeg;base64,right"}},
+                ),
+            )
+        }
+    )
+    tracked = SimpleNamespace(
+        xyxy=[[100.0, 0.0, 110.0, 10.0]],
+        tracker_id=[9],
+        confidence=[0.8],
+        # Both detections are cars, so the tracker correctly returns semantic
+        # class ID 0. It does not mean detection row zero.
+        class_id=[0],
+    )
+    adapter = RoboflowTrackerAdapter(
+        tracker=SimpleNamespace(update=lambda *args, **kwargs: tracked, reset=lambda: None),
+        detections_factory=lambda _: object(),
+        session_id="multi-car",
+    )
+
+    output = adapter.update(frame)
+
+    assert output.tracks[0].attributes["matched_detection_id"] == "right-car"
+    assert output.tracks[0].attributes["reid"]["crop_data_url"].endswith("right")
+
+
 def test_tracker_rejects_out_of_order_event_time():
     adapter = RoboflowTrackerAdapter(
         tracker=FakeTracker(), detections_factory=lambda _: object(), session_id="session_a"
     )
     adapter.update(detection_frame(2))
-    with pytest.raises(InvalidProviderInput):
+    with pytest.raises(InvalidProviderInput) as error:
         adapter.update(detection_frame(1))
+    assert "previous_event_time=" in str(error.value)
+    assert "current_frame_id='frame_1'" in str(error.value)
 
 
 def test_retained_detection_replay_reconstructs_without_checkpoint_claim():
@@ -193,6 +240,15 @@ def test_zone_transition_pass_motion_and_dwell_providers():
     assert motion.update(track_set(0, (track(3, 0, x=0),))) == ()
     observations = motion.update(track_set(2, (track(3, 2, x=4),)))
     assert observations[0].predicate_id == "MOVING"
+
+    # Depth can be absent on an adjacent replay frame. Motion must fall back
+    # to the camera-local boxes for both endpoints rather than mixing frames.
+    mixed_motion = MotionStateEvaluator(minimum_window_s=1.0)
+    with_world = track(30, 0, x=0)
+    image_only = track(30, 2, x=4).model_copy(update={"world_point": None})
+    assert mixed_motion.update(track_set(0, (with_world,))) == ()
+    mixed_observations = mixed_motion.update(track_set(2, (image_only,)))
+    assert mixed_observations[0].predicate_id == "MOVING"
 
     dwell = DwellEvaluator()
     assert dwell.update(track(4, 0, x=2), zone, minimum_duration_s=2) is None
@@ -292,6 +348,22 @@ def test_jsonl_detection_store_and_retrospective_executor(tmp_path):
     outputs = executor.replay_tracks(source_id="camera_a", interval=interval)
     assert outputs[-1].event_time == BASE_TIME + timedelta(seconds=2)
     assert outputs[-1].reconstructed_from_detection_replay
+
+
+def test_historical_vehicle_matcher_recovers_source_scoped_interval():
+    matcher = HistoricalVehicleIntervalMatcher()
+    rows = (
+        track_set(1, (track(7, 1, x=1),)),
+        track_set(3, (track(7, 3, x=4),)),
+    )
+
+    matches = matcher.match_many(rows)
+
+    assert len(matches) == 1
+    assert matches[0].scoped_track_id == "camera_a:session_a:7"
+    assert matches[0].source_id == "camera_a"
+    assert matches[0].event_time_interval.start == BASE_TIME + timedelta(seconds=1)
+    assert matches[0].event_time_interval.end == BASE_TIME + timedelta(seconds=3)
 
 
 def test_profile_records_feed_planner_profiles():

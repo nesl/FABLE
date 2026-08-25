@@ -326,6 +326,7 @@ def main() -> None:
 
     if not args.no_ce:
         lines.append("\n  complex-event-detector:\n")
+        lines.append('    profiles: ["legacy-ce"]\n')
         emit_build(lines, "services/orchestration/complex_event_detector/Dockerfile", args.build_network)
         lines.append("    image: iobt-minimal/complex-event-detector:latest\n")
         lines.append("    container_name: complex-event-detector\n")

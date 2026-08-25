@@ -5,7 +5,10 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Callable
 from datetime import timedelta
+from itertools import count
+import json
 import logging
+import queue
 import threading
 import time
 from typing import Any, Protocol
@@ -138,6 +141,13 @@ class PahoMQTTTransport:
         self._subscriptions: dict[str, tuple[int, list[MessageCallback]]] = {}
         self._connected = threading.Event()
         self._started = False
+        self._callback_queue: queue.PriorityQueue = queue.PriorityQueue()
+        self._control_callback_queue: queue.PriorityQueue = queue.PriorityQueue()
+        self._callback_sequence = count()
+        self._callback_threads: list[threading.Thread] = []
+        self._pending_callback_tokens: set[tuple[str, int]] = set()
+        self._callback_tokens: dict[int, tuple[str, int]] = {}
+        self._callback_token_lock = threading.Lock()
 
     @property
     def connected(self) -> bool:
@@ -151,6 +161,13 @@ class PahoMQTTTransport:
                 self._client.subscribe(topic_filter, qos=qos)
         else:
             existing[1].append(callback)
+            # MQTT retained messages are delivered on SUBSCRIBE, not when a
+            # local callback is appended. Logical provider instances may share
+            # one readiness filter while being created at different graph
+            # checkpoints. Re-subscribe so a newly registered callback also
+            # receives the worker's retained readiness state.
+            if self.connected:
+                self._client.subscribe(topic_filter, qos=existing[0])
 
     def publish(self, topic: str, payload: bytes, *, qos: int = 1, retain: bool = False) -> None:
         info = self._client.publish(topic, payload=payload, qos=qos, retain=retain)
@@ -161,6 +178,19 @@ class PahoMQTTTransport:
         if self._started:
             return
         self._started = True
+        if not self._callback_threads:
+            for name, callback_queue in (
+                ("control", self._control_callback_queue),
+                ("evidence", self._callback_queue),
+            ):
+                worker = threading.Thread(
+                    target=self._run_callbacks,
+                    args=(callback_queue,),
+                    name=f"mqtt-{name}-{self.client_id}",
+                    daemon=True,
+                )
+                worker.start()
+                self._callback_threads.append(worker)
         self._client.connect_async(self.host, self.port, keepalive=self.keepalive)
         self._client.loop_start()
 
@@ -176,9 +206,19 @@ class PahoMQTTTransport:
         finally:
             self._client.loop_stop()
             self._connected.clear()
+            for index, callback_queue in enumerate(
+                (self._control_callback_queue, self._callback_queue)
+            ):
+                callback_queue.put((-100, next(self._callback_sequence), None, "", b""))
+            for worker in self._callback_threads:
+                worker.join(timeout=2.0)
+            self._callback_threads.clear()
 
     def _on_connect(self, client, userdata, flags, reason_code, properties=None) -> None:
-        if int(reason_code) != 0:
+        # Paho 2.x supplies a ReasonCode object which deliberately does not
+        # implement ``int()``; Paho 1.x supplied a plain integer.
+        code = getattr(reason_code, "value", reason_code)
+        if int(code) != 0:
             LOGGER.error("MQTT connection failed client=%s rc=%s", self.client_id, reason_code)
             return
         self._connected.set()
@@ -197,10 +237,127 @@ class PahoMQTTTransport:
             if mqtt_topic_matches(topic_filter, message.topic):
                 callbacks.extend(registered)
         for callback in callbacks:
+            callback_queue = (
+                getattr(self, "_control_callback_queue", self._callback_queue)
+                if self._is_control_topic(message.topic)
+                else self._callback_queue
+            )
+            sequence = next(self._callback_sequence)
+            token = self._pending_result_token(message.topic, payload, callback)
+            if token is not None and hasattr(self, "_callback_token_lock"):
+                with self._callback_token_lock:
+                    if token in self._pending_callback_tokens:
+                        # QoS/application retries can arrive while the first
+                        # copy is still waiting for durable processing.  One
+                        # callback is sufficient: its application ACK clears
+                        # every retransmission of the same message ID.
+                        continue
+                    self._pending_callback_tokens.add(token)
+                    self._callback_tokens[sequence] = token
+            callback_queue.put(
+                (
+                    self._message_priority(message.topic, payload),
+                    sequence,
+                    callback,
+                    message.topic,
+                    payload,
+                )
+            )
+
+    def _run_callbacks(self, callback_queue: queue.PriorityQueue) -> None:
+        while True:
+            _priority, sequence, callback, topic, payload = callback_queue.get()
+            if callback is None:
+                callback_queue.task_done()
+                return
+            started = time.monotonic()
             try:
-                callback(message.topic, payload)
+                callback(topic, payload)
             except Exception:
-                LOGGER.exception("MQTT handler failed topic=%s client=%s", message.topic, self.client_id)
+                LOGGER.exception("MQTT handler failed topic=%s client=%s", topic, self.client_id)
+            finally:
+                elapsed_ms = (time.monotonic() - started) * 1000.0
+                if elapsed_ms >= 250.0:
+                    LOGGER.warning(
+                        "diagnostic slow MQTT handler client=%s topic=%s callback=%s "
+                        "elapsed_ms=%.1f payload_bytes=%d",
+                        self.client_id,
+                        topic,
+                        getattr(callback, "__qualname__", repr(callback)),
+                        elapsed_ms,
+                        len(payload),
+                    )
+                if hasattr(self, "_callback_token_lock"):
+                    with self._callback_token_lock:
+                        token = self._callback_tokens.pop(sequence, None)
+                        if token is not None:
+                            self._pending_callback_tokens.discard(token)
+                callback_queue.task_done()
+
+    @staticmethod
+    def _pending_result_token(
+        topic: str,
+        payload: bytes,
+        callback: MessageCallback,
+    ) -> tuple[str, int] | None:
+        """Return an exact in-flight deduplication key for typed results.
+
+        This intentionally uses the reliable wrapper's ``message_id``, not an
+        occurrence or semantic identity.  Distinct observations and distinct
+        provider attempts therefore remain independently ordered and applied.
+        """
+
+        if not topic.startswith("fable/v1/result/"):
+            return None
+        try:
+            message_id = str(json.loads(payload).get("message_id", ""))
+        except (UnicodeDecodeError, json.JSONDecodeError, AttributeError):
+            return None
+        if not message_id:
+            return None
+        return message_id, id(callback)
+
+    @staticmethod
+    def _is_control_topic(topic: str) -> bool:
+        return any(
+            marker in topic
+            for marker in (
+                "/status/",
+                "/heartbeat",
+                "/command/",
+                "/cancel/",
+                "/ack/",
+                "/artifact/",
+                "/provider_status/",
+                "/dispatch/",
+                "/evaluation/resource_change",
+            )
+        )
+
+    @staticmethod
+    def _message_priority(topic: str, payload: bytes) -> int:
+        if "/evaluation/resource_change" in topic:
+            return -2
+        if PahoMQTTTransport._is_control_topic(topic):
+            return -1
+        if topic.startswith("fable/v1/result/"):
+            return 0
+        if topic.endswith("/predicates"):
+            try:
+                predicate_id = str(json.loads(payload).get("predicate_id", "")).upper()
+            except (UnicodeDecodeError, json.JSONDecodeError, AttributeError):
+                predicate_id = ""
+            if predicate_id in {
+                "PASSES",
+                "ENTERS",
+                "EXITS",
+                "GUNSHOT",
+                "ALARM",
+                "SAME_ENTITY",
+            }:
+                return 1
+            return 2
+        return 3
 
 
 class ReliableMessenger:

@@ -1,0 +1,280 @@
+FABLE EVALUATION DATASET INVENTORY
+==================================
+
+Generated from labels, replay catalogs, topology metadata, and media probes on
+2026-07-31.
+
+Authoritative and measured sources
+----------------------------------
+* evaluation/labels/filtered_complex_event_experiments.csv
+* evaluation/labels/README.md
+* evaluation/labels/site_sensor_transition_model_2024_2025.json
+* iobt-minimal-ce-replay/generated/scenario_catalog.json
+* Raw fixed-node data under:
+    /media/brianw/Extreme SSD/GQ Data
+    /media/brianw/Extreme SSD/West Point Experimentation
+* Raw mobile data under:
+    /media/brianw/Extreme SSD3/mobile 1 all through mobile 6 all
+
+Definitions used below
+----------------------
+* "Experiment duration" is the labeled event/evaluation window in
+  filtered_complex_event_experiments.csv. It is the duration that should be
+  replay-scoped and counted in an evaluation runtime estimate.
+* "Raw recording" is a sensor recording chunk containing one or more experiment
+  windows. Raw chunks must not be mistaken for CE duration.
+* "Recommended" means recommended_for_use=True in the label catalog.
+* An Orin node comprises a fixed ZED stereo/depth camera and normally a ReSpeaker
+  microphone. Some campaigns also recorded GPS/status streams.
+* Mobile archive numbers are physical archive identifiers, not stable logical
+  device or map identities. Handsets were moved/swapped between experiments.
+
+
+CORPUS SUMMARY
+==============
+
+The ground-truth catalog contains 89 experiment rows:
+
+Year   All rows   Recommended   Known labeled duration   Recommended duration
+2024       49          47           3,819 s (63:39)          3,705 s (61:45)
+2025       27          23           2,692 s (44:52)          2,511 s (41:51)
+2026       13          13           2,400 s (40:00)          2,400 s (40:00)
+TOTAL      89          83           8,911 s (2:28:31)        8,616 s (2:23:36)
+
+One 2025 row has no duration, and one invalid 2024 row has a recorded duration of
+zero. The 83 recommended rows have known positive durations.
+
+Counts and labeled durations by complex-event type and year
+------------------------------------------------------------
+
+Year  Complex-event type          All/rec.  Sum all  Sum rec.  Min/median/max rec.
+2024  Vehicle convergence          5 / 5       575s     575s      72 / 120 / 166s
+2024  Route convoy                25 / 23     2,378s   2,264s      81 / 95 / 146s
+2024  Two-vehicle chase           19 / 19       866s     866s      38 / 44 / 63s
+2025  Robbery with alarm          16 / 15     1,273s   1,237s      21 / 73 / 170s
+2025  Vehicle rendezvous           3 / 3       360s     360s      60 / 120 / 180s
+2025  Talking/rendezvous           8 / 5     1,059s*    914s     120 / 197 / 258s
+2026  Pass-follow-clear convoy     6 / 6       660s     660s      60 / 120 / 180s
+2026  Three-visit stalking         3 / 3     1,080s   1,080s     240 / 360 / 480s
+2026  Cross-sensor robbery         4 / 4       660s     660s     120 / 180 / 180s
+
+* Seven of eight Talking/rendezvous rows have a duration; the missing-duration
+  row is not recommended.
+
+
+SENSORS, MODALITIES, AND MEDIA FORMATS
+======================================
+
+Fixed Orin/ZED nodes, 2024 and 2025
+-----------------------------------
+* Nominal deployment: orin1 through orin10 (10 fixed devices).
+* Modalities found: ZED stereo video/depth, ZED frame-timestamp CSV, and ReSpeaker
+  multichannel audio. The label sheet also names vehicle GPS IDs, but the generated
+  replay scenario catalog did not find archived GPS files for these labeled dates.
+* Exported ZED media measured from the corpus:
+    left RGB MP4:  1920 x 1080, H.264, 15 fps
+    right RGB MP4: 1920 x 1080, H.264, 15 fps
+    depth MP4:     1920 x 1080, 15 fps
+    original:      ZED SVO plus timestamp/configuration CSV
+* ReSpeaker example measured from the corpus: FLAC, 16 kHz, 6 channels. The files
+  are microphone-array audio suitable for audio-event classification and, where
+  geometry is known, GCC-PHAT localization.
+* Most matched scenarios contain all ten nodes. A few 2024 Route-convoy source
+  scenarios contain 9 or only 1 catalogued node, and Two-vehicle-chase source
+  chunks contain 8–10. This is media availability, not an assertion that every
+  camera sees the CE.
+
+Mobile Android nodes
+--------------------
+* Six physical archives exist: mobile_archive_1 through mobile_archive_6.
+* Each probed archive contains portrait H.264 video at 720 x 1280, approximately
+  24–30 fps, with AAC mono audio at 48 kHz.
+* Archives 1–3 use named recordings such as recording_<scenario>_<epoch-ms>.mp4
+  and cover the earlier collection layout. Archives 4–6 contain timestamp-only
+  recording__<epoch-ms>.mp4 files used by the integrated 2025 replay path.
+* The topology drawings use deployment-local names n1–n3 (2024) and d1–d3 (2025).
+  These names are not safely interchangeable with archive numbers. Replay retains
+  archive IDs unless an explicit run-specific alias map exists.
+* A phone file contains synchronized image and microphone tracks. Consequently,
+  mobile replay can provide both visual person/vehicle evidence and audio evidence
+  such as speech/alarm. It should not be treated as camera-only media.
+
+Fixed Orin/ZED nodes, 2026
+--------------------------
+* Physical node pool: orin11 through orin16 (up to 6 fixed devices).
+* Matched experiments have 5–6 catalogued nodes; individual April 13 scenarios
+  can have 4–5. The explicit label hints identify orin14 for the first convoy
+  tests and orin14/orin16 for two robbery tests, but evaluation may fan out to all
+  available selected nodes.
+* Modalities found: ZED SVO2 video/depth with frame timestamp CSV, ReSpeaker audio,
+  and GPS CSV in many scenarios. GPS availability varies on April 13/15.
+* Replay code initializes ZED at HD1080 and the timestamp CSVs show approximately
+  15 fps. Unlike 2024/2025, this corpus generally retains SVO2 instead of separate
+  left/right/depth MP4 exports.
+* The 2026 camera locations were dynamic and have no trustworthy geometric site
+  calibration. Relevant node labels may scope search, but 2024/2025 spatial priors
+  and topology distances must not be applied to 2026.
+
+
+EXPERIMENT GROUPS
+=================
+
+2024 — Vehicle convergence (5 experiments, all recommended)
+----------------------------------------------------------------
+Semantics/data: multiple vehicles approach/converge at a common area. Labels name
+three vehicle/GPS roles. Visual evidence is expected across fixed cameras and may
+be supplemented by the three deployment-local mobile cameras.
+Sensors/modalities: each of the five matched raw scenarios has all 10 Orin ZED and
+ReSpeaker nodes. Topology deployment 2024_spatial_ce1 also describes n1–n3 mobile
+camera/microphone nodes. No archived GPS stream was indexed despite GPS identities
+in the experiment log.
+Labeled duration: total 575s (9:35), range 72–166s, median 120s.
+IDs: 20241008-vehicle-convergence-1-r004 through
+     20241008-vehicle-convergence-5-r008.
+Matched fixed-node scenarios: 20241008_101228, _101550, _102107, _102439, _102813.
+
+2024 — Route convoy (25 experiments; 23 recommended)
+----------------------------------------------------
+Semantics/data: ordered vehicle roles remain on a route with sustained/sequential
+FOLLOWS observations. This is principally cross-camera visual tracking/identity
+data; audio is recorded but is not central to the CE.
+Sensors/modalities: nominally Orin 1–10 with ZED + ReSpeaker, plus n1–n3 in the
+2024_temporal_ce1 topology. Of the 25 matched fixed-node scenarios, 24 contain
+both ZED and ReSpeaker data; one has ZED only. Per-scenario node count is 1, 9, or
+10 because of incomplete/late recording availability.
+Labeled duration: all rows 2,378s (39:38); recommended rows 2,264s (37:44),
+recommended range 81–146s and median 95s.
+IDs/source rows: scenarios 1–24, label rows r012–r036. The "6-wrong" r017 and the
+zero-duration scenario 24 r036 are not recommended; corrected scenario 6 is r018.
+Matched fixed-node scenario IDs run from 20241008_110823 through 20241008_140943.
+
+2024 — Two-vehicle chase (19 experiments, all recommended)
+----------------------------------------------------------
+Semantics/data: one vehicle follows/chases another through sequential camera views.
+Labels name CAR1 and ATV1. Primary evidence is visual tracking and cross-sensor
+identity/order; audio is incidental.
+Sensors/modalities: Orin 1–10 ZED + ReSpeaker and an ambiguous temporal_ce2 mobile
+layout (n1–n3; two source diagrams exist). The indexed source is three long raw
+recording chunks, with 8 or 10 fixed nodes, containing the 19 short labeled windows.
+Labeled duration: total 866s (14:26), range 38–63s, median 44s.
+IDs: 20241009-two-vehicle-chase-complex-ev-1-r003, scenarios 2–18 r004–r021,
+including a scenario-4 redo at r007.
+Matched raw chunks: 20241009_084833, 20241009_092107, 20241009_093228.
+
+2025 — Robbery with alarm (16 experiments; 15 recommended)
+----------------------------------------------------------
+Semantics/data: visual retrospective evidence surrounding a gunshot/alarm trigger,
+with later vehicle identity/recovery. Both image and sound are essential; person
+evidence may be retained, but the robust retrospective identity target is vehicle.
+Sensors/modalities: all 16 matched scenarios contain Orin 1–10 ZED + ReSpeaker.
+The 2025_robbery topology also has d1–d3 mobile nodes. Integrated timestamp-only
+mobile archives 4–6 add synchronized 720x1280 video and mono audio; physical archive
+IDs must not be assumed to equal d1–d3. Vehicle GPS IDs ATV2 and CAR1 occur in the
+labels, but fixed replay catalog GPS files are absent for this date.
+Labeled duration: all rows 1,273s (21:13); recommended rows 1,237s (20:37),
+recommended range 21–170s and median 73s.
+IDs: Burglary A r006–r013, B r014–r016, and C r017/r018/r023–r025.
+Burglary-C r017 is not recommended.
+Matched raw scenarios: 20250812_120334 through _125735, then _150403, _150825,
+and _151418. In particular, 20250812_120747 is the recording where mobile archive
+5 was manually identified as clearly capturing the alarm.
+
+2025 — Vehicle rendezvous (3 experiments, all recommended)
+----------------------------------------------------------
+Semantics/data: two vehicles converge; the definition can use vehicle tracks and
+image-space bbox size/proximity when metric calibration is unavailable.
+Sensors/modalities: Orin 1–10 ZED + ReSpeaker and synchronized mobile archives 4–6
+where timestamp overlap is available. Mobile 6 was manually identified as the
+clearest view for rows 26 and 27. Audio exists but is not required for a vehicle-only
+rendezvous.
+Labeled duration: total 360s (6:00), range 60–180s, median 120s.
+IDs: 20250812-vehicle-rendezvous-brianjulian-1-r026,
+     ...-2-r027, and ...-3-r028.
+Matched raw scenarios: 20250812_160025, _160536, _160853.
+Provenance warning: source names originally said "Staking-BrianJulian". Manual
+review established that rows 26–28 are Vehicle rendezvous and they must not be
+reported as two-visit stalking.
+
+2025 — Talking/rendezvous (8 experiments; 5 recommended)
+--------------------------------------------------------
+Semantics/data: people meet/remain in visual proximity, with synchronized speech
+activity/diarization where audible. Both image and audio are available, but weak or
+masked speech means the visual rendezvous evidence is important and literal speech
+content is not universally required.
+Sensors/modalities: each matched scenario contains Orin 1–10 ZED + ReSpeaker.
+Timestamp-matched mobile archives 4–6 provide closer 720x1280 video and 48-kHz mono
+audio, notably mobile 6 for 20250812_161305.
+Labeled duration: seven known rows total 1,059s (17:39). Five recommended rows total
+914s (15:14), range 120–258s, median 197s.
+IDs: 20250812 Talking/rendezvous r029–r032 and 20250813 UCLA r002–r005.
+Not recommended: 20250812 r030 and r032, and 20250813 UCLA-5 r002. The r032 duration
+is missing. 20250812_162612 is known to have poor participant visibility and vehicle
+noise masking speech.
+Matched raw scenarios: 20250812_161305, _162301, _162612, _163055 and
+20250813_104307, _104505, _104953, _105536.
+
+2026 — Pass-follow-clear convoy (6 experiments, all recommended)
+----------------------------------------------------------------
+Semantics/data: vehicles pass a reference/view, form a sustained or sequential
+FOLLOWS pattern, and ultimately leave/clear. Primary modality is visual; GPS may
+support route/order on scenarios where it is actually present.
+Sensors/modalities: available nodes are drawn from Orin 11–16. The six matched
+scenarios each contain 5 or 6 nodes with ZED + ReSpeaker; three also contain indexed
+GPS. Labels explicitly mention orin14 for the three April-13 trials and the 11–16
+pool for two April-15 trials.
+Labeled duration: total 660s (11:00), range 60–180s, median 120s.
+IDs: 20260413 c1-test r003, c1-test-suv r004, c1-teest-white r005; and
+20260415 3-car-convoy scenarios 9–11 r009–r011.
+Matched raw scenarios: 20260413_142929, _143336, _144110 and
+20260415_141956, _144606, _144833.
+
+2026 — Three-visit stalking (3 experiments, all recommended)
+------------------------------------------------------------
+Semantics/data: repeated vehicle/person visits assembled across time and cameras.
+Because geometry is unknown, evaluation uses repeated pass/appearance evidence and
+identity/color descriptors instead of fixed-site calibrated routes.
+Sensors/modalities: each matched source has five fixed devices from the Orin 11–16
+pool (union: orin11, orin13, orin14, orin15, orin16), with ZED, ReSpeaker, and GPS.
+Labeled duration: total 1,080s (18:00), range 240–480s, median 360s.
+IDs: 20260414-three-visit-stalking-stalking-28-r028 through ...-30-r030.
+Matched raw scenarios: 20260414_144312, _144723, _145742.
+
+2026 — Cross-sensor robbery (4 experiments, all recommended)
+------------------------------------------------------------
+Semantics/data: detect an alarm/gunshot, retrospectively recover the entering or
+associated vehicle across selected cameras, and combine identity evidence. Both
+audio and visual modalities are required; local ReID can fall back from person to
+vehicle and then to a bounded VLM comparison when configured.
+Sensors/modalities: each matched source contains 5 or 6 nodes from Orin 11–16 with
+ZED, ReSpeaker, and GPS. Two April-15 labels identify orin14 and orin16; 2026's
+unknown/dynamic placements require generous fan-out rather than old spatial priors.
+Labeled duration: total 660s (11:00), range 120–180s, median 180s.
+IDs: 20260414 robbery-31 r031 and robbery-32 r032; 20260415 robbery-12 r012 and
+robbery-13 r013.
+Matched raw scenarios: 20260414_150705, _152233 and 20260415_145227, _150701.
+
+
+RAW-DURATION AND ALIGNMENT CAVEATS
+==================================
+
+1. The 2026 generated scenario catalog reports approximately four-hour observed
+   durations for many raw chunks (roughly 14,400 seconds). These values result from
+   the union of heterogeneous CSV timestamps, especially GPS/status timelines, and
+   are not CE recording lengths. The labeled 2026 corpus is 40 minutes total.
+2. Nineteen 2024 chase windows are embedded in three longer raw recording chunks.
+   Summing those chunks once gives about 50 minutes, while summing the actual labels
+   gives 14:26. Evaluation must trim by event time.
+3. Android filename epoch milliseconds are converted explicitly from site-local
+   America/New_York event times to UTC. A mobile file is selected only when it
+   overlaps the event window with sufficient coverage; adjacent five-minute chunks
+   may be stitched.
+4. Source recordings start before some labeled events. A large difference between
+   a scenario filename time and a label start is therefore expected and is not by
+   itself clock misalignment.
+5. "Sensors present" means media files exist in the indexed source scenario. It
+   does not mean every sensor sees or hears the event, nor that all streams have
+   complete coverage of the full labeled interval.
+6. The label catalog is the source of experiment counts, CE names, quality flags,
+   and replay windows. The generated scenario catalog is the source of observed
+   fixed-node/modalities. Manual corrections in evaluation/labels/README.md take
+   precedence over misleading original spreadsheet names.

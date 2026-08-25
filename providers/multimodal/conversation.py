@@ -271,6 +271,85 @@ class OnlineSpeakerDiarizer:
         return speaker_id
 
 
+class PersonProximityEvaluator:
+    """Emit sustained pair proximity from world or image-space person tracks.
+
+    World-coordinate gaps are measured directly.  Uncalibrated image-space
+    gaps are normalized by the mean person-box width, making the threshold
+    portable across replay resolutions without claiming metric geometry.
+    """
+
+    provider_id = "person_proximity_provider"
+    provider_version = "1"
+
+    def __init__(
+        self,
+        *,
+        maximum_normalized_gap: float = 2.5,
+        minimum_duration_seconds: float = 1.0,
+    ) -> None:
+        if maximum_normalized_gap <= 0 or minimum_duration_seconds < 0:
+            raise ValueError("person-proximity thresholds are invalid")
+        self.maximum_normalized_gap = maximum_normalized_gap
+        self.minimum_duration_seconds = minimum_duration_seconds
+        self._rows: dict[tuple[str, str], list[tuple[object, float, str]]] = {}
+
+    def update(self, track_set: TrackSet) -> tuple[InteractionPredicateObservation, ...]:
+        persons = sorted(
+            (item for item in track_set.tracks if item.class_name.lower() == "person"),
+            key=lambda item: item.scoped_track_id,
+        )
+        outputs: list[InteractionPredicateObservation] = []
+        for index, left in enumerate(persons):
+            for right in persons[index + 1 :]:
+                if left.world_point is not None and right.world_point is not None:
+                    if left.world_point.coordinate_frame_id != right.world_point.coordinate_frame_id:
+                        continue
+                    gap = _distance(left, right)
+                    mode = "world_distance"
+                else:
+                    scale = max((left.bbox.width + right.bbox.width) / 2.0, 1.0)
+                    gap = _distance(left, right) / scale
+                    mode = "bbox_width_normalized"
+                if gap > self.maximum_normalized_gap:
+                    continue
+                pair = (left.scoped_track_id, right.scoped_track_id)
+                rows = self._rows.setdefault(pair, [])
+                rows.append((track_set.event_time, gap, mode))
+                start = rows[0][0]
+                duration = (track_set.event_time - start).total_seconds()
+                if duration < self.minimum_duration_seconds:
+                    continue
+                interval = EventTimeInterval(start=start, end=track_set.event_time)
+                mean_gap = sum(row[1] for row in rows) / len(rows)
+                bindings = {"participant_a": pair[0], "participant_b": pair[1]}
+                outputs.append(
+                    InteractionPredicateObservation(
+                        occurrence_id=phase8_occurrence_id(
+                            "PERSON_PROXIMITY", bindings, interval, self.provider_id
+                        ),
+                        predicate_id="PERSON_PROXIMITY",
+                        truth=True,
+                        confidence=max(
+                            0.0,
+                            min(1.0, 1.0 - 0.5 * mean_gap / self.maximum_normalized_gap),
+                        ),
+                        event_time_interval=interval,
+                        bindings=bindings,
+                        source_ids=(track_set.source_id,),
+                        provider_id=self.provider_id,
+                        provider_version=self.provider_version,
+                        supporting_artifact_types=("track_set.v1",),
+                        measurements={
+                            "mean_gap": mean_gap,
+                            "gap_mode": mode,
+                            "duration_seconds": duration,
+                        },
+                    )
+                )
+        return tuple(outputs)
+
+
 class ConversationEvaluator:
     """Combine person proximity with VAD/diarization evidence.
 

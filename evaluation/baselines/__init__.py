@@ -4,6 +4,7 @@ from .policies import (
     FablePolicy,
     GreedyFrontierPolicy,
     HandwrittenStaticPolicy,
+    ProduceAllPolicy,
     StaticWholeEventPolicy,
     TaskResourceAdaptivePolicy,
 )
@@ -17,6 +18,7 @@ __all__ = [
     "FablePolicy",
     "GreedyFrontierPolicy",
     "HandwrittenStaticPolicy",
+    "ProduceAllPolicy",
     "StaticWholeEventPolicy",
     "TaskResourceAdaptivePolicy",
 ]

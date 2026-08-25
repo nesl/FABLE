@@ -8,6 +8,8 @@ from fable.distributed.demo import build_replay_audio_candidate
 from fable.distributed.heartbeat import HeartbeatMonitor
 from fable.distributed.reconciliation import EventEmissionLedger, RuntimeReconciler
 from fable.planning.testing import fake_deployment
+from fable.planning.runtime_deployment import RuntimeDeploymentView
+from fable.contracts import NodeCapacity, NodeHeartbeat
 from fable.scheduling.capacity import CapacityLedger
 from fable.scheduling.lifecycle import ProviderLifecycleManager
 
@@ -28,6 +30,42 @@ def _candidate(stack, request_id="failure_task"):
         now=now,
         deadline_seconds=60,
     )
+
+
+def test_instantaneous_cpu_busy_sample_does_not_erase_allocatable_capacity():
+    ledger = CapacityLedger(fake_deployment())
+    node = ledger.deployment.node("sensor_a")
+    ledger.update_runtime_free(
+        "sensor_a",
+        cpu_free_cores=0.0,
+        memory_free_mb=node.capacity.memory_mb,
+        gpu_free_mb=node.capacity.gpu_memory_mb,
+    )
+
+    # CPU utilization is telemetry, not a schedulable-capacity mutation. A
+    # busy prestarted worker must still be adoptable by its logical lease.
+    assert ledger.available("sensor_a").cpu_cores == node.capacity.cpu_cores
+
+
+def test_busy_heartbeat_does_not_prune_phase3_node_capacity():
+    deployment = fake_deployment()
+    view = RuntimeDeploymentView(deployment)
+    node = deployment.node("sensor_a")
+    view.record_heartbeat(
+        NodeHeartbeat(
+            node_id="sensor_a",
+            session_id="busy-worker-session",
+            sequence=1,
+            availability=NodeAvailability.AVAILABLE,
+            capacity=NodeCapacity(
+                cpu_free_cores=0.0,
+                memory_free_mb=1,
+                gpu_free_mb=0,
+            ),
+        )
+    )
+
+    assert view.snapshot().node("sensor_a").capacity == node.capacity
 
 
 def test_three_and_five_missed_heartbeats_produce_suspect_then_unavailable(tmp_path):

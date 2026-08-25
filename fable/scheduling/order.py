@@ -7,7 +7,7 @@ from collections.abc import Iterable
 from datetime import datetime, timedelta
 
 from fable.common.time import ensure_utc, utc_now
-from fable.planning.models import ExternalInputKind
+from fable.common.enums import ExecutionInputKind
 
 from .models import EvidenceUrgency, PlanCandidate, TaskPriorityClass
 
@@ -30,11 +30,11 @@ class MultiTenantOrderer:
             return EvidenceUrgency.LIVE_ONLY
         external_inputs = tuple(
             item
-            for alternative in candidate.alternatives
-            for item in alternative.external_inputs
-            if item.kind != ExternalInputKind.OMITTED_OPTIONAL
+            for step in candidate.plan.steps
+            for item in step.inputs
+            if item.kind != ExecutionInputKind.OMITTED_OPTIONAL
         )
-        if any(item.kind == ExternalInputKind.LIVE_SOURCE for item in external_inputs):
+        if any(item.kind == ExecutionInputKind.LIVE_SOURCE for item in external_inputs):
             return EvidenceUrgency.LIVE_ONLY
         expirations = [item.expires_at for item in external_inputs if item.expires_at is not None]
         if expirations and min(expirations) <= observed_now + timedelta(

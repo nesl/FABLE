@@ -159,6 +159,13 @@ class FrontierDeriver:
         node_id: str,
         interval: EventTimeInterval,
     ) -> tuple[bool, str]:
+        node = self.graph.nodes_by_id[node_id]
+        precedence_tolerance = timedelta(
+            milliseconds=int(node.annotations.get("precedence_tolerance_ms", 0))
+        )
+        minimum_delay_tolerance = timedelta(
+            milliseconds=int(node.annotations.get("minimum_delay_tolerance_ms", 0))
+        )
         guards = list(self.graph.temporal_guards_for_target(node_id))
         for parent_id in self.graph.parents(node_id):
             guards.extend(self.graph.temporal_guards_on_parent_child(parent_id, node_id))
@@ -183,14 +190,21 @@ class FrontierDeriver:
                 earliest_source_end = min(value.end for value in source_intervals)
                 latest_source_end = max(value.end for value in source_intervals)
                 if guard.minimum_ms is not None:
-                    lower = latest_source_end + timedelta(milliseconds=guard.minimum_ms)
+                    lower = (
+                        latest_source_end
+                        + timedelta(milliseconds=guard.minimum_ms)
+                        - minimum_delay_tolerance
+                    )
                     if interval.start < lower:
                         return False, f"result begins before minimum delay for guard {guard.guard_id}"
                 if guard.maximum_ms is not None:
                     upper = earliest_source_end + timedelta(milliseconds=guard.maximum_ms)
                     if interval.start > upper:
                         return False, f"result begins after maximum delay for guard {guard.guard_id}"
-                if guard.kind == TemporalGuardKind.PRECEDES and interval.start < latest_source_end:
+                if (
+                    guard.kind == TemporalGuardKind.PRECEDES
+                    and interval.start < latest_source_end - precedence_tolerance
+                ):
                     return False, f"result violates precedence guard {guard.guard_id}"
             elif guard.kind == TemporalGuardKind.OVERLAPS:
                 if not source_intervals or not any(interval.overlaps(value) for value in source_intervals):

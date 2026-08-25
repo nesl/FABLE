@@ -266,6 +266,11 @@ class AudioEventClassifier:
                 attributes={
                     "backend_id": self.backend.backend_id,
                     "backend_version": self.backend.backend_version,
+                    **(
+                        {"replay_id": str(window.metadata["replay_id"])}
+                        if window.metadata.get("replay_id")
+                        else {}
+                    ),
                 },
             )
             results.append(observation)
@@ -331,6 +336,9 @@ def audio_window_from_replay_payload(
         start=event_start,
         end=event_start + timedelta(seconds=duration),
     )
+    replay_id = payload.get("replay_id")
+    if replay_id is None:
+        replay_id = document.get("replay_id")
     return AudioWindow(
         source_id=source_id,
         event_time_interval=interval,
@@ -338,6 +346,9 @@ def audio_window_from_replay_payload(
         channel_ids=tuple(f"ch{index}" for index in indices),
         waveform=tuple(tuple(float(value) for value in selected[:, index]) for index in range(selected.shape[1])),
         source_sequence=source_sequence,
+        metadata={
+            "replay_id": str(replay_id) if replay_id is not None else ""
+        },
     )
 
 

@@ -88,6 +88,7 @@ class DetectionFrame(FableModel):
     image_height: int | None = Field(default=None, ge=1)
     detector_id: str = Field(min_length=1)
     detector_version: str = Field(min_length=1)
+    replay_id: str | None = None
     detections: tuple[Detection, ...] = ()
     source_sequence: int | None = Field(default=None, ge=0)
 
@@ -144,6 +145,7 @@ class TrackSet(FableModel):
     tracker_version: str = Field(min_length=1)
     tracker_session_id: str = Field(min_length=1)
     event_time: datetime
+    replay_id: str | None = None
     tracks: tuple[TrackObservation, ...] = ()
     reconstructed_from_detection_replay: bool = False
     replay_interval: EventTimeInterval | None = None
@@ -192,6 +194,7 @@ class PredicateObservation(FableModel):
     source_ids: tuple[str, ...] = ()
     provider_id: str = Field(min_length=1)
     provider_version: str = Field(min_length=1)
+    replay_id: str | None = None
     supporting_artifact_types: tuple[str, ...] = ()
     measurements: dict[str, JSONValue] = Field(default_factory=dict)
 
@@ -201,6 +204,8 @@ class DescriptorRecord(FableModel):
     vector: tuple[float, ...]
     quality: float = Field(default=1.0, ge=0.0, le=1.0)
     source_crop_ids: tuple[str, ...] = ()
+    source_crop_data_urls: tuple[str, ...] = ()
+    source_context_image_data_urls: tuple[str, ...] = ()
 
     @model_validator(mode="after")
     def _nonempty_vector(self) -> Self:
@@ -214,6 +219,7 @@ class DescriptorSet(FableModel):
     source_id: str = Field(min_length=1)
     event_time_interval: EventTimeInterval
     descriptor_kind: str = Field(min_length=1)
+    entity_kind: str = Field(default="vehicle", min_length=1)
     model_id: str = Field(min_length=1)
     model_version: str = Field(min_length=1)
     preprocessing_id: str = Field(min_length=1)
@@ -249,6 +255,8 @@ class EntityAssociation(FableModel):
     distance: float = Field(ge=0.0)
     confidence: float = Field(ge=0.0, le=1.0)
     route_time_compatible: bool = True
+    association_basis: str = "reid"
+    association_model_id: str = ""
 
 
 class EntityAssociationSet(FableModel):
@@ -257,9 +265,32 @@ class EntityAssociationSet(FableModel):
     right_source_id: str = Field(min_length=1)
     event_time_interval: EventTimeInterval
     feature_space_key: tuple[str, str, str, int, str, str]
+    entity_kind: str = Field(default="vehicle", min_length=1)
     associations: tuple[EntityAssociation, ...]
     unmatched_left: tuple[str, ...] = ()
     unmatched_right: tuple[str, ...] = ()
+
+
+class IdentityComparisonDemand(FableModel):
+    """Bound request to compare exactly two source-scoped local identities."""
+
+    request_id: str = Field(min_length=1)
+    demand_id: str = Field(min_length=1)
+    left_local_entity_id: str = Field(min_length=1)
+    right_local_entity_id: str = Field(min_length=1)
+    entity_kind: str = Field(default="vehicle", min_length=1)
+    event_time_interval: EventTimeInterval
+
+
+class IdentityComparisonCancellation(FableModel):
+    """Typed cancellation for one exact identity-comparison demand."""
+
+    schema_version: Literal["fable.identity_comparison_cancellation.v1"] = (
+        "fable.identity_comparison_cancellation.v1"
+    )
+    request_id: str = Field(min_length=1)
+    demand_id: str = Field(min_length=1)
+    reason: str = ""
 
 
 def scoped_track_identity(source_id: str, tracker_session_id: str, local_track_id: int) -> str:

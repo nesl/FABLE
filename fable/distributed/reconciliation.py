@@ -51,6 +51,7 @@ class RuntimeReconciler:
         self.lifecycle._reusable_by_key.clear()  # type: ignore[attr-defined]
         self.lifecycle._generation_by_key.clear()  # type: ignore[attr-defined]
         self.lifecycle._lease_idempotency.clear()  # type: ignore[attr-defined]
+        self.lifecycle._capacity_group_refcounts.clear()  # type: ignore[attr-defined]
         for owner_id, _reservation in tuple(self.lifecycle.capacity.reservations):
             self.lifecycle.capacity.release(owner_id)
 
@@ -64,11 +65,13 @@ class RuntimeReconciler:
                 ProviderInstanceLifecycle.FAILED,
             )
             if active_lifecycle:
+                owner_id = instance_copy.capacity_owner_id or instance_copy.provider_instance_id
+                reservation = instance_copy.capacity_reservation or instance_copy.reservation
                 try:
-                    self.lifecycle.capacity.reserve(
-                        instance_copy.provider_instance_id,
-                        instance_copy.reservation,
-                    )
+                    refcounts = self.lifecycle._capacity_group_refcounts  # type: ignore[attr-defined]
+                    if refcounts.get(owner_id, 0) == 0:
+                        self.lifecycle.capacity.reserve(owner_id, reservation)
+                    refcounts[owner_id] = refcounts.get(owner_id, 0) + 1
                 except Exception as exc:
                     instance_copy.failure_reason = f"restart capacity reconciliation failed: {exc}"
                     object.__setattr__(instance_copy, "lifecycle", ProviderInstanceLifecycle.FAILED)

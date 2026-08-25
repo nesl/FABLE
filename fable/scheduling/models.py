@@ -30,7 +30,6 @@ from fable.common.schemas import (
     ResourceReservation,
 )
 from fable.common.time import EventTimeInterval, ensure_utc, utc_now
-from fable.planning.models import PhysicalAlternative
 
 
 class TaskPriorityClass(StrEnum):
@@ -100,7 +99,6 @@ class PlanCandidate(FableModel):
     candidate_id: str | None = None
     plan: ExecutionPlan
     demands: tuple[PredicateDemand, ...]
-    alternatives: tuple[PhysicalAlternative, ...]
     task_policy: TaskSchedulingPolicy
     predicted_completion_ms: int = Field(ge=0)
     startup_cost_ms: int = Field(default=0, ge=0)
@@ -123,18 +121,24 @@ class PlanCandidate(FableModel):
             raise ValueError("task policy request_id must match the candidate demands")
         if len({demand.request_id for demand in self.demands}) != 1:
             raise ValueError("one plan candidate may belong to only one task/request")
-        alt_ids = {alternative.demand_id for alternative in self.alternatives}
-        if alt_ids != demand_ids:
-            raise ValueError("candidate must contain one selected alternative per demand")
-        if len(self.alternatives) != len(demand_ids):
-            raise ValueError("candidate alternatives must be unique by demand")
+        scoped_step_demands = {
+            step.demand_id for step in self.plan.steps if step.demand_id is not None
+        }
+        if scoped_step_demands and not scoped_step_demands.issubset(demand_ids):
+            raise ValueError("execution-plan step references a demand outside candidate")
+        if len(demand_ids) > 1 and any(step.demand_id is None for step in self.plan.steps):
+            raise ValueError("multi-demand execution plans must scope every step to a demand")
         if self.plan.status not in (PlanStatus.CANDIDATE, PlanStatus.ADMITTED):
             raise ValueError("only candidate/admitted plans may enter scheduling")
         payload = {
             "plan_id": self.plan.plan_id,
             "label_id": self.plan.label_id,
             "demands": tuple(sorted(str(item) for item in demand_ids)),
-            "alternatives": tuple(sorted(item.alternative_id for item in self.alternatives)),
+            "alternatives": tuple(
+                sorted(
+                    {step.alternative_id for step in self.plan.steps if step.alternative_id}
+                )
+            ),
             "fallback_rank": self.fallback_rank,
         }
         expected = deterministic_id("candidate", payload, length=32)
@@ -162,11 +166,12 @@ class PlanCandidate(FableModel):
 
         return self.earliest_deadline - timedelta(milliseconds=self.predicted_completion_ms)
 
-    def alternative_for_demand(self, demand_id: UUID) -> PhysicalAlternative:
-        for alternative in self.alternatives:
-            if alternative.demand_id == demand_id:
-                return alternative
-        raise KeyError(demand_id)
+    @property
+    def selected_alternative_ids(self) -> tuple[str, ...]:
+        return tuple(
+            sorted({step.alternative_id for step in self.plan.steps if step.alternative_id})
+        )
+
 
 
 class ProviderShareKey(FrozenFableModel):
@@ -200,7 +205,12 @@ class ProviderInstanceRecord(FableModel):
     provider_instance_id: str = Field(min_length=1)
     share_key: ProviderShareKey
     lifecycle: ProviderInstanceLifecycle = ProviderInstanceLifecycle.COLD
+    # ``reservation`` is the logical provider footprint used by planning.  When
+    # several logical capabilities live in one physical worker/container, the
+    # capacity owner fields let Phase 5 reserve that worker once.
     reservation: ResourceReservation
+    capacity_owner_id: str | None = None
+    capacity_reservation: ResourceReservation | None = None
     active_lease_ids: tuple[UUID, ...] = ()
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
@@ -219,6 +229,11 @@ class ProviderInstanceRecord(FableModel):
     def _validate_instance(self) -> Self:
         if self.reservation.node_id != self.share_key.node_id:
             raise ValueError("provider instance reservation and share key must use the same node")
+        if (
+            self.capacity_reservation is not None
+            and self.capacity_reservation.node_id != self.share_key.node_id
+        ):
+            raise ValueError("capacity-group reservation must use the provider instance node")
         if not self.lifecycle_history or self.lifecycle_history[-1] != self.lifecycle:
             raise ValueError("provider lifecycle history must end in the current lifecycle")
         return self

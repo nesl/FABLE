@@ -4,7 +4,7 @@ from pathlib import Path
 import yaml
 
 from evaluation.runtime_logging import EvaluationMessageNormalizer, RuntimeLoggingContext
-from evaluation.schemas import BaselineId, PredicateObservation
+from evaluation.schemas import BaselineId, PlanDecision, PredicateObservation
 from fable.common.enums import TruthValue
 from fable.common.examples import BASE_TIME
 from fable.common.ids import uuid7
@@ -63,6 +63,38 @@ def test_runtime_normalizer_converts_reliable_predicate_result() -> None:
     assert record.predicate_id == "FOLLOWS"
     assert record.bindings["follower"] == "vehicle_2"
     assert record.source_sequence == 20
+
+
+def test_runtime_normalizer_accepts_redesigned_plan_record() -> None:
+    plan = PlanDecision(
+        run_id="run",
+        baseline_id=BaselineId.FABLE,
+        trace_id="trace",
+        request_id="request",
+        event_time=BASE_TIME,
+        monotonic_timestamp_ns=1,
+        decision_id="decision",
+        checkpoint_id="checkpoint",
+        planning_scope="REDESIGNED_CONTROLLER_FRONTIER",
+        selected_node_ids=("sensor_a",),
+        activated_provider_keys=("yolo_vehicle_fast_640@sensor_a",),
+    )
+    normalizer = EvaluationMessageNormalizer(
+        RuntimeLoggingContext(
+            run_id="run",
+            baseline_id=BaselineId.FABLE,
+            trace_id="trace",
+            default_request_id="request",
+        )
+    )
+    record = normalizer.normalize(
+        "fable/v1/evaluation/record/plan_decision",
+        plan.model_dump_json(),
+    )
+    assert isinstance(record, PlanDecision)
+    assert record.activated_provider_keys == (
+        "yolo_vehicle_fast_640@sensor_a",
+    )
 
 
 def test_evaluation_compose_overlay_is_additive_and_valid_yaml() -> None:

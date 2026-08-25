@@ -8,11 +8,47 @@ from time import perf_counter_ns
 from typing import Iterable
 
 from fable.common.ids import deterministic_id
+from fable.common.schemas import TerminalComplexEvent
 
 from evaluation.baselines.models import BaselineDecision, BaselinePlanningCase
 from evaluation.baselines.policies import BaselinePolicy
-from evaluation.schemas import EvaluationMode, PlanDecision, PredicateObservation
+from evaluation.schemas import (
+    BaselineId,
+    ComplexEventResult,
+    EvaluationMode,
+    PlanDecision,
+    PredicateObservation,
+)
 from evaluation.schemas.records import EvaluationRecord
+
+
+def terminal_complex_event_record(
+    event: TerminalComplexEvent,
+    *,
+    run_id: str,
+    trace_id: str,
+    baseline_id: BaselineId,
+) -> ComplexEventResult:
+    """Adapt the canonical terminal FABLE result into the evaluation record schema."""
+
+    return ComplexEventResult(
+        run_id=run_id,
+        baseline_id=baseline_id,
+        trace_id=trace_id,
+        request_id=event.request_id,
+        hypothesis_id=str(event.hypothesis_id),
+        event_time=event.event_time_window.start,
+        wall_timestamp=event.emitted_at,
+        monotonic_timestamp_ns=perf_counter_ns(),
+        result_id=str(event.message_id),
+        event_family=event.family_id,
+        event_start_time=event.event_time_window.start,
+        event_end_time=event.event_time_window.end,
+        emitted_at=event.emitted_at,
+        bindings=event.bindings,
+        provenance_refs=tuple(str(item) for item in event.provenance_result_ids),
+        metadata={"source_schema": event.schema_version},
+    )
 
 
 class JsonlEventStore:
@@ -104,6 +140,23 @@ class EvaluationRunner:
         )
         self.store.append(plan_record)
         return decision
+
+    def record_terminal_event(
+        self,
+        event: TerminalComplexEvent,
+        *,
+        run_id: str,
+        trace_id: str,
+        baseline_id: BaselineId,
+    ) -> ComplexEventResult:
+        record = terminal_complex_event_record(
+            event,
+            run_id=run_id,
+            trace_id=trace_id,
+            baseline_id=baseline_id,
+        )
+        self.store.append(record)
+        return record
 
     def replay_common_perception(
         self,

@@ -14,6 +14,12 @@ nodes:
         output_topics:
         - /dvpg_gq_orin_11/analytics/yolo/bbox
         output_adapter: YOLO_OBJECT_PRESENT
+        worker_id: yolo-vision-worker
+        worker_resource_limits:
+          cpu_cores: 1.0
+          memory_mb: 2048
+          gpu_memory_mb: 1792
+          gpu_count: 1
       audio_event_classifier:
         mode: ADOPT_EXISTING
         container_name: fable-multimodal-orin11
@@ -26,6 +32,12 @@ nodes:
         output_topics:
         - /dvpg_gq_orin_11/fable/audio/events
         output_adapter: MULTIMODAL_PREDICATE
+        worker_id: multimodal-worker
+        worker_resource_limits:
+          cpu_cores: 2.5
+          memory_mb: 4096
+          gpu_memory_mb: 2048
+          gpu_count: 1
       multi_object_tracker:
         mode: ADOPT_EXISTING
         container_name: fable-vehicle-orin11
@@ -36,18 +48,36 @@ nodes:
           ready_value: true
           timeout_ms: 60000
         output_adapter: NONE
+        worker_id: vehicle-worker
+        worker_resource_limits:
+          cpu_cores: 2.5
+          memory_mb: 3072
+          gpu_memory_mb: 1024
+          gpu_count: 1
       camera_projection:
         mode: ADOPT_EXISTING
         container_name: fable-vehicle-orin11
         stop_adopted_when_idle: false
         readiness: *id001
         output_adapter: NONE
+        worker_id: vehicle-worker
+        worker_resource_limits:
+          cpu_cores: 2.5
+          memory_mb: 3072
+          gpu_memory_mb: 1024
+          gpu_count: 1
       route_map_matcher:
         mode: ADOPT_EXISTING
         container_name: fable-vehicle-orin11
         stop_adopted_when_idle: false
         readiness: *id001
         output_adapter: NONE
+        worker_id: vehicle-worker
+        worker_resource_limits:
+          cpu_cores: 2.5
+          memory_mb: 3072
+          gpu_memory_mb: 1024
+          gpu_count: 1
       pass_reference_evaluator:
         mode: ADOPT_EXISTING
         container_name: fable-vehicle-orin11
@@ -56,6 +86,12 @@ nodes:
         output_topics:
         - /dvpg_gq_orin_11/fable/vehicle/predicates
         output_adapter: VEHICLE_PREDICATE
+        worker_id: vehicle-worker
+        worker_resource_limits:
+          cpu_cores: 2.5
+          memory_mb: 3072
+          gpu_memory_mb: 1024
+          gpu_count: 1
       zone_membership_evaluator:
         mode: ADOPT_EXISTING
         container_name: fable-vehicle-orin11
@@ -64,6 +100,12 @@ nodes:
         output_topics:
         - /dvpg_gq_orin_11/fable/vehicle/predicates
         output_adapter: VEHICLE_PREDICATE
+        worker_id: vehicle-worker
+        worker_resource_limits:
+          cpu_cores: 2.5
+          memory_mb: 3072
+          gpu_memory_mb: 1024
+          gpu_count: 1
       zone_transition_evaluator:
         mode: ADOPT_EXISTING
         container_name: fable-vehicle-orin11
@@ -72,6 +114,40 @@ nodes:
         output_topics:
         - /dvpg_gq_orin_11/fable/vehicle/predicates
         output_adapter: VEHICLE_PREDICATE
+        worker_id: vehicle-worker
+        worker_resource_limits:
+          cpu_cores: 2.5
+          memory_mb: 3072
+          gpu_memory_mb: 1024
+          gpu_count: 1
+      track_lifecycle_exit_evaluator:
+        mode: ADOPT_EXISTING
+        container_name: fable-vehicle-orin11
+        stop_adopted_when_idle: false
+        readiness: *id001
+        output_topics:
+        - /dvpg_gq_orin_11/fable/vehicle/predicates
+        output_adapter: VEHICLE_PREDICATE
+        worker_id: vehicle-worker
+        worker_resource_limits:
+          cpu_cores: 2.5
+          memory_mb: 3072
+          gpu_memory_mb: 1024
+          gpu_count: 1
+      pairwise_distance_evaluator:
+        mode: ADOPT_EXISTING
+        container_name: fable-vehicle-orin11
+        stop_adopted_when_idle: false
+        readiness: *id001
+        output_topics:
+        - /dvpg_gq_orin_11/fable/vehicle/predicates
+        output_adapter: VEHICLE_PREDICATE
+        worker_id: vehicle-worker
+        worker_resource_limits:
+          cpu_cores: 2.5
+          memory_mb: 3072
+          gpu_memory_mb: 1024
+          gpu_count: 1
       motion_state_evaluator:
         mode: ADOPT_EXISTING
         container_name: fable-vehicle-orin11
@@ -80,6 +156,12 @@ nodes:
         output_topics:
         - /dvpg_gq_orin_11/fable/vehicle/predicates
         output_adapter: VEHICLE_PREDICATE
+        worker_id: vehicle-worker
+        worker_resource_limits:
+          cpu_cores: 2.5
+          memory_mb: 3072
+          gpu_memory_mb: 1024
+          gpu_count: 1
       follows_local_geometry:
         mode: ADOPT_EXISTING
         container_name: fable-vehicle-orin11
@@ -88,6 +170,12 @@ nodes:
         output_topics:
         - /dvpg_gq_orin_11/fable/vehicle/predicates
         output_adapter: VEHICLE_PREDICATE
+        worker_id: vehicle-worker
+        worker_resource_limits:
+          cpu_cores: 2.5
+          memory_mb: 3072
+          gpu_memory_mb: 1024
+          gpu_count: 1
       gcc_phat_audio_localizer:
         mode: ADOPT_EXISTING
         container_name: fable-multimodal-orin11
@@ -100,6 +188,12 @@ nodes:
         output_topics:
         - /dvpg_gq_orin_11/fable/audio/localizations
         output_adapter: NONE
+        worker_id: multimodal-worker
+        worker_resource_limits:
+          cpu_cores: 2.5
+          memory_mb: 4096
+          gpu_memory_mb: 2048
+          gpu_count: 1
       audio_visual_association:
         mode: ADOPT_EXISTING
         container_name: fable-multimodal-orin11
@@ -111,6 +205,12 @@ nodes:
           timeout_ms: 60000
         output_topics: []
         output_adapter: NONE
+        worker_id: multimodal-worker
+        worker_resource_limits:
+          cpu_cores: 2.5
+          memory_mb: 4096
+          gpu_memory_mb: 2048
+          gpu_count: 1
       voice_activity_detector:
         mode: ADOPT_EXISTING
         container_name: fable-multimodal-orin11
@@ -122,6 +222,12 @@ nodes:
           timeout_ms: 60000
         output_topics: []
         output_adapter: NONE
+        worker_id: multimodal-worker
+        worker_resource_limits:
+          cpu_cores: 2.5
+          memory_mb: 4096
+          gpu_memory_mb: 2048
+          gpu_count: 1
       speaker_embedding_provider:
         mode: ADOPT_EXISTING
         container_name: fable-multimodal-orin11
@@ -133,6 +239,12 @@ nodes:
           timeout_ms: 60000
         output_topics: []
         output_adapter: NONE
+        worker_id: multimodal-worker
+        worker_resource_limits:
+          cpu_cores: 2.5
+          memory_mb: 4096
+          gpu_memory_mb: 2048
+          gpu_count: 1
       speaker_diarization_provider:
         mode: ADOPT_EXISTING
         container_name: fable-multimodal-orin11
@@ -145,6 +257,12 @@ nodes:
         output_topics:
         - /dvpg_gq_orin_11/fable/audio/speaker_turns
         output_adapter: NONE
+        worker_id: multimodal-worker
+        worker_resource_limits:
+          cpu_cores: 2.5
+          memory_mb: 4096
+          gpu_memory_mb: 2048
+          gpu_count: 1
       keyword_or_asr_provider:
         mode: ADOPT_EXISTING
         container_name: fable-multimodal-orin11
@@ -156,6 +274,12 @@ nodes:
           timeout_ms: 60000
         output_topics: []
         output_adapter: NONE
+        worker_id: multimodal-worker
+        worker_resource_limits:
+          cpu_cores: 2.5
+          memory_mb: 4096
+          gpu_memory_mb: 2048
+          gpu_count: 1
       conversation_provider:
         mode: ADOPT_EXISTING
         container_name: fable-multimodal-orin11
@@ -168,6 +292,12 @@ nodes:
         output_topics:
         - /dvpg_gq_orin_11/fable/interactions/predicates
         output_adapter: MULTIMODAL_PREDICATE
+        worker_id: multimodal-worker
+        worker_resource_limits:
+          cpu_cores: 2.5
+          memory_mb: 4096
+          gpu_memory_mb: 2048
+          gpu_count: 1
       person_vehicle_relation_provider:
         mode: ADOPT_EXISTING
         container_name: fable-multimodal-orin11
@@ -180,6 +310,12 @@ nodes:
         output_topics:
         - /dvpg_gq_orin_11/fable/interactions/predicates
         output_adapter: MULTIMODAL_PREDICATE
+        worker_id: multimodal-worker
+        worker_resource_limits:
+          cpu_cores: 2.5
+          memory_mb: 4096
+          gpu_memory_mb: 2048
+          gpu_count: 1
       package_detector:
         mode: ADOPT_EXISTING
         container_name: fable-multimodal-orin11
@@ -191,6 +327,12 @@ nodes:
           timeout_ms: 60000
         output_topics: []
         output_adapter: NONE
+        worker_id: multimodal-worker
+        worker_resource_limits:
+          cpu_cores: 2.5
+          memory_mb: 4096
+          gpu_memory_mb: 2048
+          gpu_count: 1
       interaction_evidence_analyzer:
         mode: ADOPT_EXISTING
         container_name: fable-multimodal-orin11
@@ -202,6 +344,12 @@ nodes:
           timeout_ms: 60000
         output_topics: []
         output_adapter: NONE
+        worker_id: multimodal-worker
+        worker_resource_limits:
+          cpu_cores: 2.5
+          memory_mb: 4096
+          gpu_memory_mb: 2048
+          gpu_count: 1
       object_transfer_reasoner:
         mode: ADOPT_EXISTING
         container_name: fable-multimodal-orin11
@@ -215,6 +363,12 @@ nodes:
         - /dvpg_gq_orin_11/fable/interactions/predicates
         - /dvpg_gq_orin_11/fable/interactions/custody
         output_adapter: MULTIMODAL_PREDICATE
+        worker_id: multimodal-worker
+        worker_resource_limits:
+          cpu_cores: 2.5
+          memory_mb: 4096
+          gpu_memory_mb: 2048
+          gpu_count: 1
       historical_vehicle_interval_matcher:
         mode: ADOPT_EXISTING
         container_name: fable-multimodal-orin11
@@ -226,6 +380,12 @@ nodes:
           timeout_ms: 60000
         output_topics: []
         output_adapter: NONE
+        worker_id: multimodal-worker
+        worker_resource_limits:
+          cpu_cores: 2.5
+          memory_mb: 4096
+          gpu_memory_mb: 2048
+          gpu_count: 1
   x86server:
     providers:
       audio_event_classifier:

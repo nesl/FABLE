@@ -13,8 +13,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
+    && pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cu124 \
+       torch==2.6.0 torchvision==0.21.0 \
     && pip install --no-cache-dir pynng==0.8.1 paho-mqtt==2.1.0 h5py msgpack==1.1.0 \
-       numpy scipy opencv-python-headless pandas ultralytics
+       numpy scipy opencv-python-headless pandas ultralytics==8.3.228
 
 COPY services/analytics/yolo_detector/app /app
 COPY lib /lib/iobtmax

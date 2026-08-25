@@ -35,7 +35,7 @@ from .conversation import (
     OnlineSpeakerDiarizer,
     SpectralSpeakerEmbeddingProvider,
 )
-from .errors import OptionalDependencyError
+from .errors import InvalidAudioInput, OptionalDependencyError
 from .localization import GccPhatAudioLocalizer
 from .models import (
     AudioEventObservation,
@@ -147,14 +147,21 @@ class MultimodalReplayProcessor:
         events = list(self.audio_classifier.classify(window))
         localizations: list[AudioLocalization] = []
         if self.localizer is not None:
-            localization = self.localizer.localize(window)
-            localizations.append(localization)
-            events = [
-                event.model_copy(update={"localized_zone_id": localization.zone_id})
-                for event in events
-            ]
-            self._localized_audio_events.extend((event, localization) for event in events)
-            self._trim_audio_context(window.event_time_interval.end)
+            try:
+                localization = self.localizer.localize(window)
+            except InvalidAudioInput as exc:
+                # Localization is an optional enrichment. A geometrically
+                # ambiguous window must not suppress a valid classifier event
+                # needed by source-scoped AUDIO_EVENT demands.
+                LOGGER.debug("audio localization unavailable: %s", exc)
+            else:
+                localizations.append(localization)
+                events = [
+                    event.model_copy(update={"localized_zone_id": localization.zone_id})
+                    for event in events
+                ]
+                self._localized_audio_events.extend((event, localization) for event in events)
+                self._trim_audio_context(window.event_time_interval.end)
         speech = self.vad.detect(window)
         if speech and self.speaker_embedder is not None:
             speech = self.speaker_embedder.attach(window, speech)
@@ -293,7 +300,7 @@ class MultimodalMqttService:
         self.client.on_message = self._on_message
 
     def _on_connect(self, client: Any, userdata: Any, flags: Any, reason_code: Any, properties: Any) -> None:
-        if int(reason_code) != 0:
+        if int(getattr(reason_code, "value", reason_code)) != 0:
             LOGGER.error("MQTT connection failed: %s", reason_code)
             return
         client.subscribe(self.config.raw_audio_topic, qos=0)

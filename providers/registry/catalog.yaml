@@ -450,6 +450,7 @@ providers:
       predicates:
       - ENTERS
       - EXITS
+      - DEPARTURE_OR_ESCAPE
     ports:
       inputs:
       - name: tracks
@@ -460,6 +461,31 @@ providers:
         type: route_graph.v1
         required: true
         purpose: deployment_metadata
+      outputs:
+      - name: result
+        type: predicate_match.v1
+        purpose: result
+    execution_capabilities:
+      modes:
+      - live
+      - retrospective
+      supports_shared_execution: true
+      accepted_input_access:
+      - local
+      - remote_reference
+      - transferred
+  track_lifecycle_exit_evaluator:
+    description: Emit EXITS from detector-backed track disappearance without surveyed geometry.
+    implements:
+      predicates:
+      - EXITS
+      - DEPARTURE_OR_ESCAPE
+    ports:
+      inputs:
+      - name: tracks
+        type: track_set.v1
+        required: true
+        purpose: evidence
       outputs:
       - name: result
         type: predicate_match.v1
@@ -527,17 +553,41 @@ providers:
       - remote_reference
       - transferred
   pairwise_distance_evaluator:
-    description: Evaluate pairwise world/route distance.
+    description: Evaluate pairwise distance from image-space tracks, using world coordinates when present.
     implements:
       predicates:
       - DISTANCE_LT
     ports:
       inputs:
       - name: left_tracks
-        type: projected_track_set.v1
+        type: track_set.v1
         required: true
         purpose: evidence
       - name: right_tracks
+        type: track_set.v1
+        required: true
+        purpose: evidence
+      outputs:
+      - name: result
+        type: predicate_match.v1
+        purpose: result
+    execution_capabilities:
+      modes:
+      - live
+      - retrospective
+      supports_shared_execution: true
+      accepted_input_access:
+      - local
+      - remote_reference
+      - transferred
+  person_proximity_provider:
+    description: Evaluate sustained image/world-space proximity between person tracks.
+    implements:
+      predicates:
+      - PERSON_PROXIMITY
+    ports:
+      inputs:
+      - name: person_tracks
         type: projected_track_set.v1
         required: true
         purpose: evidence
@@ -1038,6 +1088,179 @@ providers:
       - transferred
     provider_family: historical_vehicle_recovery
 chains:
+  same_entity_same_camera_reid:
+    capabilities:
+    - tracking
+    - vehicle_identity
+    - cross_sensor_identity
+    - same_source_pair_only
+    - sensor_prefix_local
+    description: Detect once in one camera, describe both bound track fragments, and associate them without duplicating the sensor pipeline.
+    external_inputs:
+      video:
+        type: raw_video_frames.v1
+    steps:
+    - id: detect
+      provider: yolo_vehicle_fast_640
+      bind:
+        frames: external.video
+    - id: track
+      provider: multi_object_tracker
+      bind:
+        detections: detect.detections
+    - id: crops
+      provider: track_crop_extractor
+      bind:
+        frames: external.video
+        tracks: track.tracks
+    - id: reid
+      provider: vehicle_reid_descriptor
+      bind:
+        crops: crops.crops
+    - id: associate
+      provider: cross_sensor_identity_association
+      bind:
+        left_embeddings: reid.embeddings
+        right_embeddings: reid.embeddings
+    outputs:
+      result: associate.entity_map
+      entity_map: associate.entity_map
+  same_entity_cross_camera_reid:
+    capabilities:
+    - tracking
+    - vehicle_identity
+    - cross_sensor_identity
+    - allow_same_source_pair
+    - sensor_prefix_local
+    description: Detect, crop, embed, and associate a bound vehicle pair without evaluating an unrelated behavior predicate.
+    external_inputs:
+      video_a:
+        type: raw_video_frames.v1
+      video_b:
+        type: raw_video_frames.v1
+    steps:
+    - id: detect_a
+      provider: yolo_vehicle_fast_640
+      bind:
+        frames: external.video_a
+    - id: track_a
+      provider: multi_object_tracker
+      bind:
+        detections: detect_a.detections
+    - id: crops_a
+      provider: track_crop_extractor
+      bind:
+        frames: external.video_a
+        tracks: track_a.tracks
+    - id: reid_a
+      provider: vehicle_reid_descriptor
+      bind:
+        crops: crops_a.crops
+    - id: detect_b
+      provider: yolo_vehicle_fast_640
+      bind:
+        frames: external.video_b
+    - id: track_b
+      provider: multi_object_tracker
+      bind:
+        detections: detect_b.detections
+    - id: crops_b
+      provider: track_crop_extractor
+      bind:
+        frames: external.video_b
+        tracks: track_b.tracks
+    - id: reid_b
+      provider: vehicle_reid_descriptor
+      bind:
+        crops: crops_b.crops
+    - id: associate
+      provider: cross_sensor_identity_association
+      bind:
+        left_embeddings: reid_a.embeddings
+        right_embeddings: reid_b.embeddings
+    outputs:
+      result: associate.entity_map
+      entity_map: associate.entity_map
+  track_lifecycle_exit_live_vehicle:
+    capabilities:
+    - tracking
+    description: Detect, track, and emit detector-backed vehicle lifecycle exits.
+    external_inputs:
+      video:
+        type: raw_video_frames.v1
+    steps:
+    - id: detect
+      provider: yolo_vehicle_fast_640
+      bind:
+        frames: external.video
+    - id: track
+      provider: multi_object_tracker
+      bind:
+        detections: detect.detections
+    - id: transition
+      provider: track_lifecycle_exit_evaluator
+      bind:
+        tracks: track.tracks
+    outputs:
+      result: transition.result
+      track_summary: track.track_summary
+  pairwise_distance_live_vehicle:
+    capabilities:
+    - tracking
+    - pairwise_distance
+    description: Detect, track, and evaluate uncalibrated or embedded-world pairwise distance.
+    external_inputs:
+      video:
+        type: raw_video_frames.v1
+    steps:
+    - id: detect
+      provider: yolo_vehicle_fast_640
+      bind:
+        frames: external.video
+    - id: track
+      provider: multi_object_tracker
+      bind:
+        detections: detect.detections
+    - id: distance
+      provider: pairwise_distance_evaluator
+      bind:
+        left_tracks: track.tracks
+        right_tracks: track.tracks
+    outputs:
+      result: distance.result
+      track_summary: track.track_summary
+  person_proximity_live:
+    capabilities:
+    - person_detection
+    - tracking
+    - person_proximity
+    description: Detect and track people, then evaluate sustained pairwise proximity.
+    external_inputs:
+      video:
+        type: raw_video_frames.v1
+      calibration:
+        type: camera_calibration.v1
+    steps:
+    - id: detect
+      provider: yolo_full_context_960
+      bind:
+        frames: external.video
+    - id: track
+      provider: multi_object_tracker
+      bind:
+        detections: detect.detections
+    - id: project
+      provider: camera_projection
+      bind:
+        tracks: track.tracks
+        calibration: external.calibration
+    - id: proximity
+      provider: person_proximity_provider
+      bind:
+        person_tracks: project.projected_tracks
+    outputs:
+      result: proximity.result
+      track_summary: track.track_summary
   follows_local_tracks:
     capabilities:
     - tracking
@@ -1198,6 +1421,12 @@ chains:
     capabilities:
     - tracking
     - reference_geometry
+    - source_local_pipeline
+    # The deployed vehicle worker exposes detection -> tracking -> projection
+    # -> predicate evaluation as one sensor-local MQTT pipeline.  There is no
+    # cross-node artifact router for these intermediate stream types, so
+    # enumerating mixed-node variants is both non-executable and can crowd the
+    # faithful local variant out of the bounded alternative set.
     description: Shared vehicle detection and tracking followed by projection and directed line crossing.
     external_inputs:
       video:

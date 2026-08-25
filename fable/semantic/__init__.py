@@ -9,9 +9,9 @@ from .builder import (
     validate_semantic_graph_structure,
 )
 from .compiled import CompiledSemanticGraph
-from .frontier import FrontierDeriver
+from .frontier_deriver import FrontierDeriver
 from .examples import all_constructs_graph, repeated_visit_graph
-from .phase8_examples import drive_up_shooting_graph, multimodal_robbery_graph, package_exchange_graph
+from .definitions import drive_up_shooting_graph, multimodal_robbery_graph, package_exchange_graph
 from .models import (
     ApplyStatus,
     CancellationSet,

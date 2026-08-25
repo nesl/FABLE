@@ -18,7 +18,7 @@ from fable.planning.search_models import LabelSearchState, PlanSearchResult
 from evaluation.schemas import BaselineId
 
 from .models import BaselineDecision, BaselinePlanningCase
-from .static_registry import StaticPipelineRegistry
+from .static_registry import StaticPipelineRegistry, resolve_static_chain_id
 
 
 class BaselinePolicy(Protocol):
@@ -48,6 +48,12 @@ class AlwaysOnPolicy:
         )
 
 
+class ProduceAllPolicy(AlwaysOnPolicy):
+    """CE-specific B0 provider union used by the live evaluation path."""
+
+    baseline_id = BaselineId.B0_PRODUCE_ALL
+
+
 class HandwrittenStaticPolicy:
     baseline_id = BaselineId.B1_HANDWRITTEN_STATIC
 
@@ -56,11 +62,32 @@ class HandwrittenStaticPolicy:
 
     def plan(self, case: BaselinePlanningCase) -> BaselineDecision:
         spec = self.registry.get(case.event_family)
+        placement = self.registry.get_placement(
+            case.placement_id or case.event_family,
+            trace_id=case.trace_id,
+        )
         alternatives, excluded = _supported_alternatives(
             case.whole_event_graph.alternatives,
             case.replay_supported_sensor_ids,
         )
-        if spec is None:
+        if placement is not None and placement.allowed_chain_node_ids:
+            matching = tuple(
+                item
+                for item in alternatives
+                if _matches_static_placement(item, placement)
+            )
+            selected = _one_per_demand(matching)
+            mismatch_counts: dict[str, int] = defaultdict(int)
+            for item in alternatives:
+                mismatch = _static_placement_mismatch(item, placement)
+                if mismatch is not None:
+                    mismatch_counts[mismatch] += 1
+            reason = (
+                "Fixed trace-authored chain, provider, source, and node placement; "
+                "no fallback outside the frozen placement is permitted. "
+                f"Rejected alternatives by contract={dict(mismatch_counts)}."
+            )
+        elif spec is None:
             selected = _one_per_demand(alternatives)
             reason = "No handwritten pipeline was registered; used a deterministic first feasible plan per demand."
         else:
@@ -80,6 +107,60 @@ class HandwrittenStaticPolicy:
             frozen=True,
             excluded=excluded,
         )
+
+
+def _matches_static_placement(
+    alternative: PhysicalAlternative,
+    placement,
+) -> bool:
+    """Return whether an alternative is exactly permitted by frozen B1.
+
+    B1 is a fixed authored pipeline.  Family-level preferred chains are not
+    sufficient when calibration supplied a trace-specific physical contract:
+    selecting a feasible chain on another camera silently turns the baseline
+    into a different pipeline than the one whose containers were pinned.
+    """
+
+    return _static_placement_mismatch(alternative, placement) is None
+
+
+def _static_placement_mismatch(
+    alternative: PhysicalAlternative,
+    placement,
+) -> str | None:
+    runtime_chain_id = resolve_static_chain_id(alternative.chain_id)
+    allowed_chain_ids = {
+        resolve_static_chain_id(chain_id)
+        for chain_id in placement.allowed_chain_ids
+    }
+    if allowed_chain_ids and runtime_chain_id not in allowed_chain_ids:
+        return "CHAIN"
+    chain_nodes = {
+        node_id
+        for chain_id, node_ids in placement.allowed_chain_node_ids.items()
+        if resolve_static_chain_id(chain_id) == runtime_chain_id
+        for node_id in node_ids
+    }
+    if not chain_nodes:
+        return "CHAIN_NODE_CONTRACT"
+    step_nodes = {step.node_id for step in alternative.step_placements}
+    if not step_nodes or not step_nodes.issubset(chain_nodes):
+        return "NODE"
+    allowed_providers = set(placement.allowed_provider_ids)
+    if allowed_providers and any(
+        step.provider_id not in allowed_providers
+        for step in alternative.step_placements
+    ):
+        return "PROVIDER"
+    allowed_sources = set(placement.allowed_source_ids)
+    external_sources = {
+        item.source_id
+        for item in alternative.external_inputs
+        if item.source_id is not None
+    }
+    if allowed_sources and not external_sources.issubset(allowed_sources):
+        return "SOURCE"
+    return None
 
 
 class StaticWholeEventPolicy:

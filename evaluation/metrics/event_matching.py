@@ -38,7 +38,10 @@ def evaluate_event_results(
     results: tuple[ComplexEventResult, ...],
     *,
     minimum_temporal_iou: float = 0.1,
+    temporal_boundary_tolerance_seconds: float = 0.0,
 ) -> EventMatchMetrics:
+    if temporal_boundary_tolerance_seconds < 0:
+        raise ValueError("temporal_boundary_tolerance_seconds must be non-negative")
     candidates: list[tuple[float, int, int]] = []
     for gi, truth in enumerate(ground_truth):
         for ri, result in enumerate(results):
@@ -50,7 +53,17 @@ def evaluate_event_results(
                 result.event_start_time,
                 result.event_end_time,
             )
-            if score >= minimum_temporal_iou:
+            boundary_distance = _interval_distance_seconds(
+                truth.start_time,
+                truth.end_time,
+                result.event_start_time,
+                result.event_end_time,
+            )
+            within_tolerance = bool(
+                temporal_boundary_tolerance_seconds > 0
+                and boundary_distance <= temporal_boundary_tolerance_seconds
+            )
+            if score >= minimum_temporal_iou or within_tolerance:
                 candidates.append((score, gi, ri))
     matched_truth: set[int] = set()
     matched_results: set[int] = set()
@@ -104,6 +117,18 @@ def _temporal_iou(a0: datetime, a1: datetime, b0: datetime, b1: datetime) -> flo
     if seconds == 0:
         return 1.0 if a0 == b0 else 0.0
     return intersection / seconds
+
+
+def _interval_distance_seconds(
+    a0: datetime, a1: datetime, b0: datetime, b1: datetime
+) -> float:
+    """Return zero for overlapping intervals, otherwise their nearest gap."""
+
+    if a1 < b0:
+        return (b0 - a1).total_seconds()
+    if b1 < a0:
+        return (a0 - b1).total_seconds()
+    return 0.0
 
 
 def _percentile(values: list[float], fraction: float) -> float | None:

@@ -19,7 +19,7 @@ if str(REPO) not in sys.path:
 
 from fable.common.time import EventTimeInterval, utc_now
 from fable.distributed.codec import decode_model, encode_model
-from fable.distributed.demo import build_replay_multimodal_candidate
+from fable.debug import build_replay_multimodal_candidate
 from fable.distributed.models import PlanDispatchRequest, PlanDispatchResponse
 from fable.distributed.topics import dispatch_request_topic, dispatch_response_topic
 from fable.planning.provider_registry import ProviderRegistry
@@ -111,7 +111,7 @@ def main() -> int:
     )
 
     def on_connect(client, userdata, flags, reason_code, properties=None):
-        if int(reason_code) != 0:
+        if int(getattr(reason_code, "value", reason_code)) != 0:
             result["error"] = f"MQTT connect failed: {reason_code}"
             response_event.set()
             return

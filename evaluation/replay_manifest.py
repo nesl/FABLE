@@ -24,6 +24,24 @@ class ReplayScenario(FableModel):
     respeaker_nodes: tuple[str, ...] = ()
     source_root: str = ""
 
+    @classmethod
+    def from_catalog_row(cls, row: dict[str, object]) -> "ReplayScenario":
+        """Project a scanner catalog row onto the stable replay contract.
+
+        Scanner rows intentionally contain diagnostics (counts, sample files,
+        validity) that are not part of planning identity.
+        """
+
+        return cls.model_validate({
+            key: row[key]
+            for key in (
+                "scenario_id", "start_datetime", "observed_start_datetime",
+                "observed_end_datetime", "nodes", "zed_nodes",
+                "respeaker_nodes", "source_root",
+            )
+            if key in row
+        })
+
     @field_validator("start_datetime", "observed_start_datetime", "observed_end_datetime")
     @classmethod
     def _normalize_times(cls, value: datetime | None) -> datetime | None:

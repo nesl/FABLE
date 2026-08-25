@@ -47,6 +47,10 @@ class CrossSensorIdentityAssociator:
         *,
         route_time_compatibility: Mapping[tuple[str, str], bool] | None = None,
     ) -> EntityAssociationSet:
+        if left.entity_kind != right.entity_kind:
+            raise ArtifactCompatibilityError(
+                "person and vehicle descriptor feature spaces cannot be associated"
+            )
         if left.compatibility_key != right.compatibility_key:
             raise ArtifactCompatibilityError(
                 "descriptor feature spaces differ; cross-camera association is invalid"
@@ -89,7 +93,7 @@ class CrossSensorIdentityAssociator:
             used_left.add(left_id)
             used_right.add(right_id)
             canonical_id = deterministic_id(
-                "canonical_vehicle",
+                f"canonical_{left.entity_kind}",
                 {
                     "feature_space": left.compatibility_key,
                     "left": [left.source_id, left_id],
@@ -105,6 +109,8 @@ class CrossSensorIdentityAssociator:
                     distance=distance,
                     confidence=max(0.0, 1.0 - distance / max(self.maximum_cosine_distance, 1e-9)),
                     route_time_compatible=True,
+                    association_basis="reid",
+                    association_model_id=left.model_id,
                 )
             )
         start = min(left.event_time_interval.start, right.event_time_interval.start)
@@ -114,6 +120,7 @@ class CrossSensorIdentityAssociator:
             right_source_id=right.source_id,
             event_time_interval=EventTimeInterval(start=start, end=end),
             feature_space_key=left.compatibility_key,
+            entity_kind=left.entity_kind,
             associations=tuple(associations),
             unmatched_left=tuple(
                 sorted(record.local_entity_id for record in left.records if record.local_entity_id not in used_left)

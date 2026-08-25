@@ -34,6 +34,7 @@ services:
       MONGODB_URI: mongodb://fable-mongo:27017
       MONGODB_DATABASE: fable
       FABLE_ORCHESTRATOR_ID: orchestrator
+      FABLE_EXECUTION_PROFILE: ${FABLE_EXECUTION_PROFILE:-development}
       FABLE_DEPLOYMENT_CONFIG: /workspace/replay/config/fable_deployment.yaml
       FABLE_RUNTIME_CONFIG: /workspace/replay/config/fable_provider_runtimes.yaml
       FABLE_STATE_DIR: /var/lib/fable/orchestrator

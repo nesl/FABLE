@@ -52,6 +52,9 @@ class RoboflowTrackerAdapter:
         self._detections_factory = detections_factory
         self._ages: dict[int, int] = defaultdict(int)
         self._last_event_time: datetime | None = None
+        self._last_frame_id: str | None = None
+        self._last_source_sequence: int | None = None
+        self._replay_id: str | None = None
 
     @property
     def family(self) -> str:
@@ -90,7 +93,22 @@ class RoboflowTrackerAdapter:
             dtype=np.float32,
         ).reshape((-1, 4))
         confidence = np.asarray([det.confidence for det in frame.detections], dtype=np.float32)
-        class_ids = np.arange(len(frame.detections), dtype=np.int32)
+        # Tracker class IDs describe semantic classes, not a row's transient
+        # position in one detector frame.  Using ``arange`` made the same car
+        # change class whenever YOLO reordered boxes, preventing association
+        # on busy/mobile views.
+        stable_classes = {
+            "car": 0,
+            "truck": 1,
+            "bus": 2,
+            "motorcycle": 3,
+            "person": 4,
+            "object": 5,
+        }
+        class_ids = np.asarray(
+            [stable_classes.get(detection.class_name, 6) for detection in frame.detections],
+            dtype=np.int32,
+        )
         return sv.Detections(
             xyxy=xyxy,
             confidence=confidence,
@@ -99,14 +117,29 @@ class RoboflowTrackerAdapter:
         )
 
     def update(self, frame: DetectionFrame, *, image: Any | None = None) -> TrackSet:
+        if frame.replay_id and frame.replay_id != self._replay_id:
+            # A bounded retrospective replay is a new event-time generation.
+            # Reset tracker-local state before accepting its earlier timestamps
+            # rather than mixing them into the live generation.
+            self.reset(new_session=True)
+            self._replay_id = frame.replay_id
         if self._last_event_time is not None and frame.event_time < self._last_event_time:
-            raise InvalidProviderInput("tracker input event time must be monotonic")
+            raise InvalidProviderInput(
+                "tracker input event time must be monotonic: "
+                f"source_id={frame.source_id!r} replay_id={frame.replay_id!r} "
+                f"previous_event_time={self._last_event_time.isoformat()} "
+                f"current_event_time={frame.event_time.isoformat()} "
+                f"previous_frame_id={self._last_frame_id!r} current_frame_id={frame.frame_id!r} "
+                f"previous_source_sequence={self._last_source_sequence!r} "
+                f"current_source_sequence={frame.source_sequence!r}"
+            )
         self._last_event_time = frame.event_time
+        self._last_frame_id = frame.frame_id
+        self._last_source_sequence = frame.source_sequence
         tracker = self._ensure_tracker()
         tracked = tracker.update(
             self._to_supervision(frame),
             frame=image,
-            timestamp=frame.event_time.timestamp(),
         )
         output = self._from_tracked(frame, tracked)
         return TrackSet(
@@ -115,6 +148,7 @@ class RoboflowTrackerAdapter:
             tracker_version=self.tracker_version,
             tracker_session_id=self.session_id,
             event_time=frame.event_time,
+            replay_id=frame.replay_id,
             tracks=tuple(output),
         )
 
@@ -123,6 +157,10 @@ class RoboflowTrackerAdapter:
             self._tracker.reset()
         self._ages.clear()
         self._last_event_time = None
+        self._last_frame_id = None
+        self._last_source_sequence = None
+        if new_session:
+            self._replay_id = None
         if new_session:
             self.session_id = uuid4().hex
 
@@ -157,6 +195,11 @@ class RoboflowTrackerAdapter:
                     age_frames=self._ages[track_id],
                     attributes={
                         "matched_detection_id": matched.detection_id if matched else "",
+                        **(
+                            {"reid": matched.attributes.get("reid")}
+                            if matched and matched.attributes.get("reid")
+                            else {}
+                        ),
                     },
                 )
             )
@@ -233,10 +276,14 @@ def _match_input_detection(
     bbox: BoundingBox,
     class_index: int,
 ) -> Detection | None:
-    if 0 <= class_index < len(detections):
-        return detections[class_index]
     if not detections:
         return None
+    # ``class_index`` is the detector's semantic class ID (for example every
+    # car is class 0), not the row index in this frame. Treating it as a row
+    # index silently attached detection 0's metadata/crop to every tracked car
+    # whenever multiple vehicles were present. ByteTrack already returns the
+    # tracked box, so IoU is the correct way to recover its corresponding YOLO
+    # detection and detector-aligned ReID crop.
     return max(detections, key=lambda item: _iou(item.bbox, bbox))
 
 

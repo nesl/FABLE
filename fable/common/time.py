@@ -11,6 +11,12 @@ from .base import FableModel
 
 UTC = timezone.utc
 
+# Catalog/scenario timestamps are often rounded or include a small capture
+# tail beyond the final decodable media timestamp. Raw-buffer availability
+# checks may tolerate up to five seconds of that boundary mismatch; semantic
+# event comparisons remain exact by default.
+RAW_BUFFER_ALIGNMENT_TOLERANCE = timedelta(seconds=5)
+
 
 def utc_now() -> datetime:
     return datetime.now(tz=UTC)
@@ -58,8 +64,15 @@ class EventTimeInterval(FableModel):
         timestamp = ensure_utc(timestamp)
         return self.start <= timestamp <= self.end
 
-    def contains_interval(self, other: "EventTimeInterval") -> bool:
-        return self.start <= other.start and other.end <= self.end
+    def contains_interval(
+        self,
+        other: "EventTimeInterval",
+        *,
+        tolerance: timedelta = timedelta(0),
+    ) -> bool:
+        if tolerance < timedelta(0):
+            raise ValueError("interval containment tolerance cannot be negative")
+        return self.start - tolerance <= other.start and other.end <= self.end + tolerance
 
     def intersection(self, other: "EventTimeInterval") -> "EventTimeInterval | None":
         start = max(self.start, other.start)

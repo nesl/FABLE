@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import time
 
+from fable.integrations.reference_runtime import SyntheticReferenceRuntime
 from fable.distributed.config import ProviderRuntimeResolver
 from fable.distributed.docker_runtime import FakeContainerRuntime
 from fable.distributed.heartbeat import CapacitySampler, ReplaySourceProgressTracker
@@ -24,6 +25,7 @@ from fable.planning.testing import fake_deployment
 from fable.scheduling.admission import MultiTenantScheduler
 from fable.scheduling.capacity import CapacityLedger
 from fable.scheduling.lifecycle import ProviderLifecycleManager
+from fable.integrations.replay import build_replay_output_adapter_registry
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -124,6 +126,8 @@ def make_stack(
             heartbeat_interval=heartbeat_interval,
             capacity_sampler=CapacitySampler(gpu_free_mb_override=8192),
             allow_fault_injection=True,
+        output_adapters=build_replay_output_adapter_registry(),
+            reference_runtime=SyntheticReferenceRuntime(),
         )
         agents[node_id] = agent
 

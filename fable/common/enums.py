@@ -123,6 +123,19 @@ class ExecutionMode(StrEnum):
     RETROSPECTIVE = "RETROSPECTIVE"
 
 
+class ExecutionInputKind(StrEnum):
+    """Origin of a concrete execution-step input.
+
+    This is an execution contract, not a planner-internal concept.  Planning's
+    historical ``ExternalInputKind`` name is kept as a compatibility alias.
+    """
+
+    LIVE_SOURCE = "LIVE_SOURCE"
+    RETAINED_ARTIFACT = "RETAINED_ARTIFACT"
+    DEPLOYMENT_ARTIFACT = "DEPLOYMENT_ARTIFACT"
+    OMITTED_OPTIONAL = "OMITTED_OPTIONAL"
+
+
 class PlanStatus(StrEnum):
     CANDIDATE = "CANDIDATE"
     ADMITTED = "ADMITTED"

@@ -101,7 +101,17 @@ class DemandCompiler:
         frontier: DerivedFrontier,
         graph_node_id: str,
         context: DemandCompileContext,
+        structural_universe: bool = False,
     ) -> PredicateDemand:
+        """Compile one authored primitive.
+
+        ``structural_universe`` marks compilation performed before a concrete
+        branch/identity is selected (static whole-event baselines). Consumer-
+        only roles such as both sides of SAME_ENTITY cannot introduce a live
+        binding.  For structural planning only, ground those roles to a typed
+        symbolic value so the complete task graph can be costed. Runtime
+        frontier compilation remains fail-closed and requires real bindings.
+        """
         if graph_node_id not in frontier.snapshot.enabled_node_ids:
             raise DemandCompileError(f"graph node is not active in this frontier: {graph_node_id}")
         node = graph.nodes_by_id[graph_node_id]
@@ -134,7 +144,27 @@ class DemandCompiler:
                 role_modes[predicate_role.role_name] = _bound_mode(role_schema.binding_capabilities)
                 continue
             unbound_roles.append(predicate_role.role_name)
-            role_modes[predicate_role.role_name] = _unbound_mode(role_schema.binding_capabilities)
+            try:
+                role_modes[predicate_role.role_name] = _unbound_mode(
+                    role_schema.binding_capabilities
+                )
+            except DemandCompileError as exc:
+                if (
+                    structural_universe
+                    and node.predicate.predicate_id == "SAME_ENTITY"
+                ):
+                    unbound_roles.pop()
+                    bound_roles[predicate_role.role_name] = (
+                        f"structural:{variable}"
+                    )
+                    role_modes[predicate_role.role_name] = _bound_mode(
+                        role_schema.binding_capabilities
+                    )
+                    continue
+                raise DemandCompileError(
+                    f"predicate {node.predicate.predicate_id} role "
+                    f"{predicate_role.role_name}: {exc}"
+                ) from exc
 
         forkable = tuple(
             role_name
@@ -144,6 +174,76 @@ class DemandCompiler:
         eligible_sources = context.eligible_source_ids_by_node.get(graph_node_id)
         if eligible_sources is None:
             eligible_sources = self._infer_sources(predicate_schema.required_capabilities)
+        # Some predicates consume identities whose namespace is local to the
+        # sensor/tracker which introduced them.  Authored source-affinity roles
+        # make that locality explicit.  A spatial prediction may rank where to
+        # search next, but it must never move an exact tracker-local identity to
+        # another camera where that identifier cannot exist.
+        affinity_sources = {
+            source_id
+            for role_name in node.annotations.get("source_affinity_roles", ())
+            if (binding := hypothesis.role_bindings.get(str(role_name))) is not None
+            if (
+                source_id := self._identity_source_id(
+                    binding.canonical_entity_id,
+                    eligible_sources=tuple(eligible_sources),
+                )
+            )
+            is not None
+        }
+        # A concrete camera field-of-view is itself a sensor-local binding.
+        # Once an earlier predicate grounds it, executing a successor on a
+        # different camera cannot validate that role. Apply this invariant at
+        # the demand boundary rather than relying on policy-specific fan-out.
+        affinity_sources.update(
+            source_id
+            for entity_id in bound_roles.values()
+            if entity_id.startswith("camera_fov:")
+            if (
+                source_id := self._identity_source_id(
+                    entity_id,
+                    eligible_sources=tuple(eligible_sources),
+                )
+            )
+            is not None
+        )
+        if node.predicate.predicate_id == "SAME_ENTITY":
+            # Both roles are already concrete identities. Their namespaces
+            # identify the only cameras that can supply faithful comparison
+            # evidence. Do not let an exact-pair demand fan out over unrelated
+            # sensors and consume the bounded alternative budget.
+            affinity_sources.update(
+                source_id
+                for entity_id in bound_roles.values()
+                if (
+                    source_id := self._identity_source_id(
+                        entity_id,
+                        eligible_sources=tuple(eligible_sources),
+                    )
+                )
+                is not None
+            )
+        if len(affinity_sources) > 1:
+            if node.predicate.predicate_id != "SAME_ENTITY":
+                raise DemandCompileError(
+                    f"predicate {node.predicate.predicate_id} has incompatible "
+                    f"source-affinity bindings: {sorted(affinity_sources)}"
+                )
+            if eligible_sources and not affinity_sources.issubset(set(eligible_sources)):
+                raise DemandCompileError(
+                    "SAME_ENTITY identity sources are outside explicit source "
+                    f"eligibility: {sorted(affinity_sources)}"
+                )
+            eligible_sources = tuple(sorted(affinity_sources))
+        if affinity_sources:
+            if len(affinity_sources) == 1:
+                affinity_source = next(iter(affinity_sources))
+                if eligible_sources and affinity_source not in set(eligible_sources):
+                    raise DemandCompileError(
+                        f"source-affinity binding requires {affinity_source}, which is "
+                        "outside explicit source eligibility"
+                    )
+                eligible_sources = (affinity_source,)
         eligible_regions = context.eligible_regions_by_node.get(graph_node_id, ())
 
         source_preferences: tuple[SourcePreference, ...] = ()
@@ -286,6 +386,40 @@ class DemandCompiler:
                 continue
             selected.append(source.source_id)
         return tuple(sorted(selected))
+
+    def _identity_source_id(
+        self,
+        canonical_entity_id: str,
+        *,
+        eligible_sources: tuple[str, ...],
+    ) -> str | None:
+        """Resolve the source namespace of a sensor-local canonical identity."""
+
+        if canonical_entity_id.startswith("camera_fov:"):
+            camera_owner = canonical_entity_id.removeprefix("camera_fov:")
+            if camera_owner in self.deployment.sources:
+                return camera_owner
+            node_sources = tuple(
+                source.source_id
+                for source in self.deployment.sources.values()
+                if source.node_id == camera_owner and "vision" in source.modalities
+            )
+            if len(node_sources) == 1:
+                return node_sources[0]
+            return None
+        namespace, separator, _ = canonical_entity_id.partition(":")
+        if not separator:
+            return None
+        if namespace in self.deployment.sources or namespace in set(eligible_sources):
+            return namespace
+        node_sources = tuple(
+            source.source_id
+            for source in self.deployment.sources.values()
+            if source.node_id == namespace and "vision" in source.modalities
+        )
+        if len(node_sources) == 1:
+            return node_sources[0]
+        return None
 
 
 def _bound_mode(capabilities: tuple[BindingCapability, ...]) -> BindingCapability:

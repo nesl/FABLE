@@ -8,9 +8,28 @@ from typing import Any
 import yaml
 
 from fable.planning.deployment import DeploymentGraph
+from fable.common.schemas import ResourceReservation
+from fable.common.time import EventTimeInterval
 from fable.planning.models import ComputeCapacity, DeploymentNode, NetworkLink, SensorSource
 
-from .models import ProviderRuntimeSpec
+from .models import ProviderRuntimeSpec, ResourceLimits, RuntimeMode
+
+
+def _mqtt_topic_filter_matches(topic_filter: str, publish_topic: str) -> bool:
+    """Match a concrete MQTT publish topic against a declared subscription."""
+
+    if "+" in publish_topic or "#" in publish_topic:
+        return topic_filter == publish_topic
+    filter_levels = topic_filter.split("/")
+    topic_levels = publish_topic.split("/")
+    for index, level in enumerate(filter_levels):
+        if level == "#":
+            return index == len(filter_levels) - 1
+        if index >= len(topic_levels):
+            return False
+        if level != "+" and level != topic_levels[index]:
+            return False
+    return len(filter_levels) == len(topic_levels)
 
 
 class ProviderRuntimeResolver:
@@ -52,6 +71,82 @@ class ProviderRuntimeResolver:
     def has(self, node_id: str, provider_id: str) -> bool:
         return (node_id, provider_id) in self._runtimes
 
+    def worker_key(self, node_id: str, provider_id: str) -> str:
+        """Return the physical worker identity for a logical provider capability."""
+        runtime = self.resolve(node_id=node_id, provider_id=provider_id)
+        return f"{node_id}/{runtime.worker_id or runtime.container_name or provider_id}"
+
+    def supports_artifact_topic_transfer(
+        self,
+        *,
+        source_node_id: str,
+        source_provider_id: str,
+        target_node_id: str,
+        target_provider_id: str,
+        data_type: str,
+    ) -> bool:
+        """Return whether a concrete MQTT artifact edge exists.
+
+        Merely sharing a broker is not sufficient. Both runtime endpoints must
+        independently declare the same typed artifact on the same exact topic.
+        Node identity is not itself a transport boundary: generated evaluation
+        nodes share the authenticated broker. Cross-node flow is executable
+        only when both endpoints explicitly declare the same typed topic.
+        """
+
+        source = self.resolve(
+            node_id=source_node_id, provider_id=source_provider_id
+        )
+        target = self.resolve(
+            node_id=target_node_id, provider_id=target_provider_id
+        )
+        if source_node_id != target_node_id and not (
+            source.artifact_broker_scope_id
+            and source.artifact_broker_scope_id == target.artifact_broker_scope_id
+        ):
+            return False
+        output_topic = source.artifact_topic_outputs.get(data_type)
+        input_topic = target.artifact_topic_inputs.get(data_type)
+        return bool(
+            output_topic
+            and input_topic
+            and _mqtt_topic_filter_matches(input_topic, output_topic)
+        )
+
+    def capacity_group(
+        self,
+        node_id: str,
+        provider_id: str,
+        logical_reservation: ResourceReservation,
+        fallback_owner_id: str,
+    ) -> tuple[str, ResourceReservation]:
+        """Map a logical provider reservation to a shared physical worker budget."""
+        runtime = self.resolve(node_id=node_id, provider_id=provider_id)
+        # A concrete container name is also a physical-worker identity.  Older
+        # runtime manifests predate ``worker_id`` and commonly describe one
+        # adopted worker (for example the identity service) through many
+        # logical provider instances.  Charging each logical instance as a
+        # separate process exhausts capacity even though they all attach to
+        # the same container.
+        worker_id = runtime.worker_id or runtime.container_name
+        if not worker_id:
+            # Preserve legacy one-instance/one-reservation semantics.
+            return fallback_owner_id, logical_reservation
+        limits = runtime.worker_resource_limits or ResourceLimits.from_reservation(logical_reservation)
+        return (
+            f"worker:{node_id}:{worker_id}",
+            ResourceReservation(
+                node_id=node_id,
+                cpu_cores=limits.cpu_cores,
+                memory_mb=limits.memory_mb,
+                gpu_memory_mb=limits.gpu_memory_mb,
+                network_bytes=0,
+            ),
+        )
+
+    def allows_real_execution(self, node_id: str, provider_id: str) -> bool:
+        return self.resolve(node_id=node_id, provider_id=provider_id).mode != RuntimeMode.REFERENCE
+
     @property
     def runtimes(self) -> tuple[ProviderRuntimeSpec, ...]:
         return tuple(self._runtimes[key] for key in sorted(self._runtimes))
@@ -81,6 +176,11 @@ def load_deployment_graph(path: str | Path) -> DeploymentGraph:
             coverage_regions=tuple(raw.get("coverage_regions", ())),
             policy_tags=tuple(raw.get("policy_tags", ())),
             available=bool(raw.get("available", True)),
+            raw_buffer_interval=(
+                EventTimeInterval.model_validate(raw["raw_buffer_interval"])
+                if raw.get("raw_buffer_interval") is not None
+                else None
+            ),
         )
         for source_id, raw in sorted(document.get("sources", {}).items())
     )

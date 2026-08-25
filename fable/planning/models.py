@@ -19,6 +19,7 @@ from fable.common.enums import (
     ArtifactAccessMode,
     BindingCapability,
     ExecutionMode,
+    ExecutionInputKind,
     ResultKind,
 )
 from fable.common.time import EventTimeInterval, ensure_utc, utc_now
@@ -219,11 +220,8 @@ class NetworkPath(FableModel):
         return self
 
 
-class ExternalInputKind(StrEnum):
-    LIVE_SOURCE = "LIVE_SOURCE"
-    RETAINED_ARTIFACT = "RETAINED_ARTIFACT"
-    DEPLOYMENT_ARTIFACT = "DEPLOYMENT_ARTIFACT"
-    OMITTED_OPTIONAL = "OMITTED_OPTIONAL"
+# Compatibility alias: this is an execution-contract concept, not planner state.
+ExternalInputKind = ExecutionInputKind
 
 
 class ExternalInputRealization(FrozenFableModel):

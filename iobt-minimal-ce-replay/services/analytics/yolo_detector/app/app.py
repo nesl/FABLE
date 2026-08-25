@@ -7,7 +7,7 @@ import time
 import cv2
 import numpy as np
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from ultralytics import YOLO
 import torch
 try:
@@ -19,7 +19,10 @@ except Exception as exc:
 import queue
 from threading import Lock
 import base64
+import binascii
 import traceback
+
+from remote_frame import decode_remote_frame
 
 
 def env_bool(name: str, default: bool) -> bool:
@@ -115,7 +118,13 @@ class yolo_detector(iobt_max_service):
         self.model_loading = False
         self.local_subscription_ready = (self.source_mode != "local")
 
-        self.yolo_topic = f"/{self.source_host}/analytics/yolo/bbox"
+        # Remote/site alternatives must not publish into the sensor-local
+        # detector stream.  Generated Compose assigns each placement a typed
+        # output topic; ignoring it caused two clocks and two producers to feed
+        # one stateful tracker.
+        self.yolo_topic = os.environ.get(
+            "YOLO_OUTPUT_TOPIC", f"/{self.source_host}/analytics/yolo/bbox"
+        )
         self.annotated_topic = os.environ.get("YOLO_ANNOTATED_TOPIC", f"/debug/{self.source_host}/analytics/yolo/annotated/compressed")
         self.status_topic = os.environ.get("YOLO_STATUS_TOPIC", f"/debug/{self.source_host}/analytics/yolo/status")
         self.publish_frame_status_enabled = env_bool("YOLO_PUBLISH_FRAME_STATUS", self.publish_status_enabled)
@@ -240,24 +249,53 @@ class yolo_detector(iobt_max_service):
         self.q.put(data)
         time.sleep(0)
 
+    @staticmethod
+    def _decode_remote_frame(msg):
+        """Accept both legacy base64 MQTT frames and binary frame payloads.
+
+        The replay bridge publishes binary image/depth bytes. Treating every
+        payload as base64 killed the MQTT network thread on the first binary
+        frame, silently removing the site-edge YOLO alternative.
+        """
+        return decode_remote_frame(msg)["image"]
+
     def get_remote_zed_data(self, topic, msg) -> None:
         if self.softfail:
             return
 
         node = topic.split("/")[1]
         if node not in self.remote_work_buffer:
-            self.remote_work_buffer[node] = {"rgb": None, "depth": None, "rgb_time": 0, "depth_time": 0}
+            self.remote_work_buffer[node] = {
+                "rgb": None,
+                "depth": None,
+                "rgb_time": 0,
+                "depth_time": 0,
+                "rgb_metadata": {},
+                "depth_metadata": {},
+            }
         if "rgb" in topic:
-            self.remote_work_buffer[node]["rgb"] = base64.b64decode(msg)
+            decoded = decode_remote_frame(msg)
+            self.remote_work_buffer[node]["rgb"] = decoded["image"]
             self.remote_work_buffer[node]["rgb_time"] = time.time()
+            self.remote_work_buffer[node]["rgb_metadata"] = decoded
         if "depth" in topic:
-            self.remote_work_buffer[node]["depth"] = base64.b64decode(msg)
+            decoded = decode_remote_frame(msg)
+            self.remote_work_buffer[node]["depth"] = decoded["image"]
             self.remote_work_buffer[node]["depth_time"] = time.time()
+            self.remote_work_buffer[node]["depth_metadata"] = decoded
 
         if self.remote_work_buffer[node]["depth"] is not None and self.remote_work_buffer[node]["rgb"] is not None:
             time_delta = np.abs(self.remote_work_buffer[node]["rgb_time"] - self.remote_work_buffer[node]["depth_time"])
             if time_delta < 0.5:
-                payload = {"t": time.time() * 1e6, "i": self.remote_work_buffer[node]["rgb"], "d": self.remote_work_buffer[node]["depth"]}
+                metadata = self.remote_work_buffer[node]["rgb_metadata"]
+                event_time = metadata.get("event_time")
+                payload = {
+                    "t": event_time if event_time is not None else time.time() * 1e6,
+                    "i": self.remote_work_buffer[node]["rgb"],
+                    "d": self.remote_work_buffer[node]["depth"],
+                    "replay_id": metadata.get("replay_id"),
+                    "frame_number": metadata.get("frame_number"),
+                }
                 msg = {"topic": "data", "node": node, "payload": payload}
                 self.q.put(msg)
                 self.remote_work_buffer[node]["depth"] = None
@@ -361,7 +399,10 @@ class yolo_detector(iobt_max_service):
         # Historical local path uses seconds; remote path above uses microseconds.
         raw_t = float(payload.get("t", time.time()))
         t_seconds = raw_t / 1e6 if raw_t > 1e12 else raw_t
-        t = self.ts_to_string(t_seconds)
+        # Preserve replay event time as an unambiguous UTC timestamp.  The
+        # inherited formatter uses host-local time and omits the offset, which
+        # made downstream typed providers reject otherwise valid detections.
+        t = datetime.fromtimestamp(t_seconds, tz=timezone.utc).isoformat()
 
         self.input_frames_total += 1
         self.last_frame_wall_ts = time.time()
@@ -374,9 +415,29 @@ class yolo_detector(iobt_max_service):
         else:
             dets = [{"node": self.node_short_name, "source_host": self.source_host, "model": "no_model", "class": "test", "conf": 1.0, "box": [100, 80, 120, 100], "depth": -1.0, "world": [], "t": t}]
 
+        # Preserve detector-aligned crops for the bounded identity path.  The
+        # tracker may smooth its own box, but ReID must use the corresponding
+        # YOLO observation rather than the tracker prediction.
+        h, w = cv_rgb.shape[:2]
+        for det in dets:
+            cx, cy, bw, bh = [int(v) for v in det.get("box", [0, 0, 0, 0])]
+            x1, y1 = max(0, cx - bw // 2), max(0, cy - bh // 2)
+            x2, y2 = min(w, cx + bw // 2), min(h, cy + bh // 2)
+            if x2 > x1 and y2 > y1:
+                ok, encoded = cv2.imencode(".jpg", cv_rgb[y1:y2, x1:x2])
+                if ok:
+                    det["crop_data_url"] = (
+                        "data:image/jpeg;base64,"
+                        + base64.b64encode(encoded).decode("ascii")
+                    )
+
         self.last_detections = len(dets)
         self.publish_frame_status(t)
         if dets:
+            replay_id = payload.get("replay_id")
+            if replay_id:
+                for det in dets:
+                    det["replay_id"] = str(replay_id)
             self.last_detection_wall_ts = time.time()
             self.detections_total += len(dets)
             dets_payload = json.dumps(dets)

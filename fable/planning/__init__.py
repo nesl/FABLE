@@ -71,3 +71,7 @@ __all__ += [
     "PruneCode",
     "PruningRecord",
 ]
+
+from .runtime_deployment import RuntimeDeploymentView
+from fable.contracts.telemetry import RuntimeLinkUpdate, RuntimeNodeUpdate
+__all__ += ["RuntimeDeploymentView", "RuntimeLinkUpdate", "RuntimeNodeUpdate"]

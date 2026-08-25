@@ -11,6 +11,7 @@ from providers.multimodal.audio import (
     AudioEventThreshold,
     DeterministicAudioEventBackend,
     YamNetBackend,
+    audio_window_from_replay_payload,
 )
 from providers.multimodal.audiovisual import AudioVisualAssociator
 from providers.multimodal.conversation import ConversationEvaluator, OnlineSpeakerDiarizer
@@ -93,6 +94,38 @@ def test_audio_event_classifier_aliases_debounce_and_refractory() -> None:
     assert {item.label for item in later} == {"gunshot"}
     alarm_again = classifier.classify(window(1.7))
     assert {item.label for item in alarm_again} == {"alarm"}
+
+
+def test_audio_event_retains_replay_generation() -> None:
+    replay_window = audio_window_from_replay_payload(
+        {
+            "waveform": np.zeros((1600, 1), dtype=np.int16),
+            "t": BASE_TIME.timestamp(),
+            "replay_id": "replay-generation-7",
+        },
+        source_id="microphone_a",
+    )
+    classifier = AudioEventClassifier(
+        DeterministicAudioEventBackend({"Gunshot, gunfire": 0.91}),
+        thresholds=(AudioEventThreshold("gunshot", 0.5, 1, 0.0),),
+    )
+    event = classifier.classify(replay_window)[0]
+    assert replay_window.metadata["replay_id"] == "replay-generation-7"
+    assert event.attributes["replay_id"] == "replay-generation-7"
+
+
+def test_audio_replay_generation_can_be_carried_by_transport_wrapper() -> None:
+    replay_window = audio_window_from_replay_payload(
+        {
+            "replay_id": "replay-wrapper-8",
+            "payload": {
+                "waveform": np.zeros((1600, 1), dtype=np.int16),
+                "t": BASE_TIME.timestamp(),
+            },
+        },
+        source_id="microphone_a",
+    )
+    assert replay_window.metadata["replay_id"] == "replay-wrapper-8"
 
 
 def test_yamnet_adapter_uses_explicit_class_map() -> None:

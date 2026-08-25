@@ -125,9 +125,7 @@ class iobt_max_service(ABC):
         self.mqtt_client.on_message = self._on_mqtt_message
         self.mqtt_client.on_connect_fail = self._on_mqtt_connect_fail
         self.mqtt_client.on_disconnect = self._on_mqtt_disconnect 
-        self.mqtt_client.connect(self.host, self.port, 60)
-        self.mqtt_client.loop_start()
-        self.mqtt_subscriber_callbacks ={}
+        self.mqtt_subscriber_callbacks = {}
         self.last_net_pub_time=0
         self.service_control_topic = self.get_topic_name("control")
 
@@ -156,6 +154,12 @@ class iobt_max_service(ABC):
 
         self.serializer=serializer
         print(f"Using serializer {self.serializer}")
+
+        # The Paho network thread may invoke _on_mqtt_connect immediately.
+        # Start it only after every field consumed by MQTT callbacks exists;
+        # otherwise fast local broker connections race service construction.
+        self.mqtt_client.connect(self.host, self.port, 60)
+        self.mqtt_client.loop_start()
 
         if(test_control):
             print("WARNING: TEST_CONTROL mode is on")

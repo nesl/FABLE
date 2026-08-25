@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
+from collections import deque
+from datetime import datetime, timedelta
 import json
 import logging
 from pathlib import Path
@@ -18,7 +19,7 @@ from fable.common.enums import (
     NodeAvailability,
     TruthValue,
 )
-from fable.common.ids import occurrence_anchor_id, uuid7
+from fable.common.ids import uuid7
 from fable.common.schemas import (
     ArtifactLocation,
     ArtifactProducer,
@@ -49,6 +50,11 @@ from .models import (
     RuntimeMode,
 )
 from .outbox import SQLiteProcessedLedger
+from .output_adapters import (
+    ProviderOutputAdapterRegistry,
+    ReferenceExecutionContext,
+    ReferenceRuntimeAdapter,
+)
 from .topics import (
     ack_topic,
     activate_topic,
@@ -63,9 +69,56 @@ from .transport import ReliableMessenger, Transport
 LOGGER = logging.getLogger(__name__)
 
 
+def _identity_comparison_demand_payload(
+    command: ActivateProviderCommand,
+) -> bytes | None:
+    """Build the exact-pair control message required by the identity worker.
+
+    The distributed layer intentionally emits plain typed JSON here instead
+    of importing a concrete provider package.  This keeps the generic node
+    agent independent while preserving the provider's public demand schema.
+    """
+
+    if command.runtime.provider_id != "cross_sensor_identity_association":
+        return None
+    if command.demand.semantic_predicate.predicate_id != "SAME_ENTITY":
+        return None
+    left = command.demand.bound_roles.get("left")
+    right = command.demand.bound_roles.get("right")
+    if not left or not right:
+        return None
+    entity_kind = next(
+        (
+            role.entity_type
+            for role in command.demand.semantic_predicate.roles
+            if role.role_name == "left"
+        ),
+        "vehicle",
+    )
+    payload = {
+        "request_id": command.demand.request_id,
+        "demand_id": str(command.demand.demand_id),
+        "left_local_entity_id": left,
+        "right_local_entity_id": right,
+        "entity_kind": entity_kind,
+        "event_time_interval": command.demand.event_time_interval.model_dump(mode="json"),
+    }
+    return json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+
+
+@dataclass
+class AgentWorkerRecord:
+    worker_id: str
+    runtime: ProviderRuntimeSpec
+    handle: ContainerHandle | None
+    status: AgentProviderStatus
+    logical_provider_instance_ids: set[str] = field(default_factory=set)
+
+
 @dataclass
 class AgentProviderRecord:
     provider_instance_id: str
+    worker_id: str
     provider_id: str
     runtime: ProviderRuntimeSpec
     handle: ContainerHandle | None
@@ -74,6 +127,17 @@ class AgentProviderRecord:
     created_at: datetime = field(default_factory=utc_now)
     updated_at: datetime = field(default_factory=utc_now)
     failure_reason: str = ""
+
+
+@dataclass(frozen=True)
+class BufferedProviderOutput:
+    """One bounded provider-native observation retained for a later lease."""
+
+    adapter: ReplayOutputAdapter
+    topic: str
+    document: Any
+    fingerprint: str
+    received_at: datetime
 
 
 class NodeAgent:
@@ -93,6 +157,8 @@ class NodeAgent:
         heartbeat_interval: float = 1.0,
         capacity_sampler: CapacitySampler | None = None,
         allow_fault_injection: bool = False,
+        output_adapters: ProviderOutputAdapterRegistry | None = None,
+        reference_runtime: ReferenceRuntimeAdapter | None = None,
     ) -> None:
         self.node_id = node_id
         self.session_id = session_id
@@ -108,10 +174,24 @@ class NodeAgent:
         self.heartbeat_interval = heartbeat_interval
         self.capacity_sampler = capacity_sampler or CapacitySampler()
         self.allow_fault_injection = allow_fault_injection
+        self.output_adapters = output_adapters or ProviderOutputAdapterRegistry()
+        self.reference_runtime = reference_runtime
         self.providers: dict[str, AgentProviderRecord] = {}
+        self.workers: dict[str, AgentWorkerRecord] = {}
         self._activation_keys: dict[str, str] = {}
         self._forwarded_occurrences: set[tuple[UUID, str]] = set()
+        # Providers sharing one worker/topic can produce a fact before its
+        # semantic frontier is active (for example PASSES is finalized after
+        # the corresponding EXITS facts). Retain typed provider output locally
+        # so a later bounded demand can adapt it without keeping all semantic
+        # predicates leased or forwarding irrelevant observations upstream.
+        self._provider_output_cache: deque[BufferedProviderOutput] = deque()
+        self._provider_output_fingerprints: set[str] = set()
+        self._provider_output_cache_limit = 32_768
+        self._provider_output_retention = timedelta(minutes=5)
         self._heartbeat_sequence = 0
+        self._last_heartbeat_provider_ids: tuple[str, ...] = ()
+        self._last_heartbeat_demand_ids: tuple[UUID, ...] = ()
         self._heartbeat_stop = threading.Event()
         self._heartbeat_thread: threading.Thread | None = None
         self._pause_heartbeats_until: float = 0.0
@@ -216,46 +296,93 @@ class NodeAgent:
                 return record.status
             record = self.providers.get(command.provider_instance_id)
             if record is None:
-                handle: ContainerHandle | None
-                limits = command.resource_limits
-                if command.runtime.mode == RuntimeMode.MANAGED_CONTAINER:
-                    handle = self.containers.start(
-                        provider_instance_id=command.provider_instance_id,
-                        spec=command.runtime,
-                        limits=limits,
-                    )
-                elif command.runtime.mode == RuntimeMode.ADOPT_EXISTING:
-                    handle = self.containers.adopt(
-                        provider_instance_id=command.provider_instance_id,
-                        spec=command.runtime,
-                    )
-                else:
-                    handle = None
-                ready_immediately = (
-                    command.runtime.mode == RuntimeMode.REFERENCE
-                    or (
-                        handle is not None
-                        and handle.running
-                        and not command.runtime.readiness.mqtt_topic
-                        and (
-                            not command.runtime.readiness.container_health_required
-                            or handle.healthy is True
+                # Keep execution identity consistent with planner capacity
+                # grouping.  A named container is one physical worker even
+                # when a legacy runtime manifest omits the newer worker_id.
+                worker_id = (
+                    command.runtime.worker_id
+                    or command.runtime.container_name
+                    or command.provider_instance_id
+                )
+                worker = self.workers.get(worker_id)
+                new_worker = worker is None
+                # IDLE is a lease state, not a failed readiness state.  An
+                # adopted worker remains alive after its last logical provider
+                # lease is detached.  A later rolling hypothesis may create a
+                # new logical provider instance on that same worker; revive the
+                # worker before copying its status into the new record.  Without
+                # this transition the new lease is born IDLE and every valid
+                # output is silently ignored by _on_provider_output.
+                if (
+                    worker is not None
+                    and worker.status == AgentProviderStatus.IDLE
+                    and worker.handle is not None
+                    and worker.handle.running
+                ):
+                    worker.status = AgentProviderStatus.READY
+                if worker is None:
+                    handle: ContainerHandle | None
+                    limits = command.runtime.worker_resource_limits or command.resource_limits
+                    if command.runtime.mode == RuntimeMode.MANAGED_CONTAINER:
+                        handle = self.containers.start(
+                            provider_instance_id=worker_id,
+                            spec=command.runtime,
+                            limits=limits,
+                        )
+                    elif command.runtime.mode == RuntimeMode.ADOPT_EXISTING:
+                        handle = self.containers.adopt(
+                            provider_instance_id=worker_id,
+                            spec=command.runtime,
+                        )
+                    else:
+                        handle = None
+                    ready_immediately = (
+                        command.runtime.mode == RuntimeMode.REFERENCE
+                        or (
+                            handle is not None
+                            and handle.running
+                            and not command.runtime.readiness.mqtt_topic
+                            and (
+                                not command.runtime.readiness.container_health_required
+                                or handle.healthy is True
+                            )
                         )
                     )
-                )
+                    worker = AgentWorkerRecord(
+                        worker_id=worker_id,
+                        runtime=command.runtime,
+                        handle=handle,
+                        status=(
+                            AgentProviderStatus.READY
+                            if ready_immediately
+                            else AgentProviderStatus.STARTING
+                        ),
+                    )
+                    self.workers[worker_id] = worker
                 record = AgentProviderRecord(
                     provider_instance_id=command.provider_instance_id,
+                    worker_id=worker_id,
                     provider_id=command.runtime.provider_id,
                     runtime=command.runtime,
-                    handle=handle,
-                    status=(
-                        AgentProviderStatus.READY
-                        if ready_immediately
-                        else AgentProviderStatus.STARTING
-                    ),
+                    handle=worker.handle,
+                    status=worker.status,
                 )
+                worker.logical_provider_instance_ids.add(command.provider_instance_id)
                 self.providers[command.provider_instance_id] = record
-                if command.runtime.readiness.mqtt_topic:
+                # MQTT subscriptions belong to the physical worker. Registering
+                # the same result filter once per logical lease turns one
+                # provider result into N callbacks; a callback that correctly
+                # fans out across N sibling leases then becomes O(N^2). The
+                # first logical record owns the single worker callback, which
+                # evaluates every currently attached sibling lease.
+                shared_identity_subscription = (
+                    command.runtime.provider_id
+                    == "cross_sensor_identity_association"
+                )
+                subscribe_logical_record = (
+                    new_worker or not shared_identity_subscription
+                )
+                if subscribe_logical_record and command.runtime.readiness.mqtt_topic:
                     self.transport.subscribe(
                         command.runtime.readiness.mqtt_topic,
                         lambda topic, payload, provider_instance_id=command.provider_instance_id: self._on_readiness(
@@ -263,20 +390,45 @@ class NodeAgent:
                         ),
                         qos=0,
                     )
-                for output_topic in command.runtime.output_topics:
-                    self.transport.subscribe(
-                        output_topic,
-                        lambda topic, payload, provider_instance_id=command.provider_instance_id: self._on_provider_output(
-                            provider_instance_id, topic, payload
-                        ),
-                        qos=0,
-                    )
+                if subscribe_logical_record:
+                    for output_topic in command.runtime.output_topics:
+                        self.transport.subscribe(
+                            output_topic,
+                            lambda topic, payload, provider_instance_id=command.provider_instance_id: self._on_provider_output(
+                                provider_instance_id, topic, payload
+                            ),
+                            qos=0,
+                        )
+            elif (
+                record.status == AgentProviderStatus.IDLE
+                and record.handle is not None
+                and record.handle.running
+            ):
+                # A lifecycle manager may deliberately reuse a logical
+                # provider instance after its prior lease was released.
+                record.status = AgentProviderStatus.READY
+                worker = self.workers.get(record.worker_id)
+                if worker is not None:
+                    worker.status = AgentProviderStatus.READY
             record.active_leases.setdefault(command.lease.lease_id, command)
             record.updated_at = utc_now()
             self._activation_keys[activation_key] = command.provider_instance_id
             status = record.status
 
         self._publish_provider_status_record(record)
+        if command.runtime.output_adapter != ReplayOutputAdapter.NONE:
+            self._replay_buffered_outputs(command)
+        # A lease-controlled worker may not have subscribed to its control
+        # topic until after container readiness. Publish immediately only for
+        # runtimes which are already ready; STARTING runtimes are delivered by
+        # _on_readiness below. This avoids both lost commands and duplicate
+        # delivery when the worker was already connected.
+        # Adopted workers remain ACTIVE while any prior lease is attached.
+        # A later graph checkpoint can add another exact identity demand to
+        # that same worker; ACTIVE is already command-ready and must receive
+        # the new control message just like READY.
+        if status in (AgentProviderStatus.READY, AgentProviderStatus.ACTIVE):
+            self._publish_identity_comparison_demand(command)
         if command.runtime.mode == RuntimeMode.REFERENCE:
             self._execute_reference(command)
         return status
@@ -339,19 +491,28 @@ class NodeAgent:
                 self._publish_provider_status_record(record)
                 return False
             stopped = False
-            if record.runtime.mode == RuntimeMode.MANAGED_CONTAINER:
-                stopped = self.containers.stop(
-                    command.provider_instance_id,
-                    timeout_seconds=max(1, command.force_after_ms // 1000),
-                )
-            elif (
-                record.runtime.mode == RuntimeMode.ADOPT_EXISTING
-                and record.runtime.stop_adopted_when_idle
-            ):
-                stopped = self.containers.stop(
-                    command.provider_instance_id,
-                    timeout_seconds=max(1, command.force_after_ms // 1000),
-                )
+            worker = self.workers.get(record.worker_id)
+            worker_has_active_leases = any(
+                provider.active_leases
+                for provider in self.providers.values()
+                if provider.worker_id == record.worker_id
+                and provider.provider_instance_id != record.provider_instance_id
+            )
+            if worker is not None and not worker_has_active_leases:
+                if record.runtime.mode == RuntimeMode.MANAGED_CONTAINER:
+                    stopped = self.containers.stop(
+                        record.worker_id,
+                        timeout_seconds=max(1, command.force_after_ms // 1000),
+                    )
+                elif (
+                    record.runtime.mode == RuntimeMode.ADOPT_EXISTING
+                    and record.runtime.stop_adopted_when_idle
+                ):
+                    stopped = self.containers.stop(
+                        record.worker_id,
+                        timeout_seconds=max(1, command.force_after_ms // 1000),
+                    )
+                worker.status = AgentProviderStatus.STOPPED if stopped else AgentProviderStatus.IDLE
             record.status = AgentProviderStatus.STOPPED if stopped else AgentProviderStatus.IDLE
             self._publish_provider_status_record(record)
             return stopped
@@ -369,83 +530,127 @@ class NodeAgent:
             ready = _readiness_matches(document, probe.ready_field, probe.ready_value)
             if not ready:
                 return
-            record.status = AgentProviderStatus.READY
-            record.updated_at = utc_now()
-            commands = tuple(record.active_leases.values())
-        self._publish_provider_status_record(record)
+            ready_at = utc_now()
+            worker = self.workers.get(record.worker_id)
+            if worker is not None:
+                sibling_records = tuple(
+                    item for item in self.providers.values() if item.worker_id == record.worker_id
+                )
+                transitioned = tuple(
+                    sibling
+                    for sibling in sibling_records
+                    if sibling.status == AgentProviderStatus.STARTING
+                )
+                if worker.status == AgentProviderStatus.STARTING:
+                    worker.status = AgentProviderStatus.READY
+                for sibling in transitioned:
+                    sibling.status = AgentProviderStatus.READY
+                    sibling.updated_at = ready_at
+            else:
+                sibling_records = (record,)
+                transitioned = (
+                    (record,)
+                    if record.status == AgentProviderStatus.STARTING
+                    else ()
+                )
+                if transitioned:
+                    record.status = AgentProviderStatus.READY
+                    record.updated_at = ready_at
+            # Readiness belongs to the physical worker, not merely to the
+            # logical provider record whose subscription received this MQTT
+            # message. Several rolling SAME_ENTITY checkpoints can attach
+            # logical leases while their shared identity worker is STARTING.
+            # Marking every sibling READY but publishing only ``record``'s
+            # command strands all other exact-pair demands permanently: they
+            # will neither receive another readiness transition nor be sent
+            # by the immediate READY/ACTIVE activation path.
+            #
+            # Deliver every active sibling lease at this worker boundary.
+            # A plan may share one demand across internal logical steps, so
+            # deduplicate by demand ID within the readiness event.
+            commands_by_demand = {}
+            for sibling in transitioned:
+                for command in sibling.active_leases.values():
+                    commands_by_demand.setdefault(command.demand.demand_id, command)
+            commands = tuple(commands_by_demand.values())
+        # MQTT readiness is retained, so each new logical subscription can
+        # receive the same ready document. Publishing status and control for
+        # siblings which were already READY/ACTIVE creates an O(n^2) feedback
+        # storm as rolling hypotheses accumulate. Only real state transitions
+        # have work to release.
+        for sibling in transitioned:
+            self._publish_provider_status_record(sibling)
         # A reference runtime is immediate and never reaches this callback.
         # Managed providers publish their own typed results after readiness.
         for command in commands:
+            self._publish_identity_comparison_demand(command)
             if command.runtime.mode == RuntimeMode.REFERENCE:
                 self._execute_reference(command)
 
+    def _publish_identity_comparison_demand(
+        self,
+        command: ActivateProviderCommand,
+    ) -> bool:
+        payload = _identity_comparison_demand_payload(command)
+        if payload is None:
+            return False
+        self.transport.publish(
+            "/fable/identity/demands",
+            payload,
+            qos=1,
+            retain=False,
+        )
+        return True
+
     def _execute_reference(self, command: ActivateProviderCommand) -> None:
+        if self.reference_runtime is None:
+            raise RuntimeError(
+                "REFERENCE runtime requested without an injected reference-runtime adapter"
+            )
+
+        def is_active(candidate: ActivateProviderCommand) -> bool:
+            with self._lock:
+                record = self.providers.get(candidate.provider_instance_id)
+                return (
+                    record is not None
+                    and candidate.lease.lease_id in record.active_leases
+                )
+
         def run() -> None:
-            started = utc_now()
-            if command.runtime.reference_delay_ms:
-                time.sleep(command.runtime.reference_delay_ms / 1000.0)
-            completed = utc_now()
-            source_id = (
-                command.demand.eligible_source_ids[0]
-                if command.demand.eligible_source_ids
-                else self.node_id
-            )
-            introduced = {
-                role: entity
-                for role, entity in command.runtime.reference_bindings.items()
-                if role in command.demand.unbound_roles
-            }
-            validated = {
-                role: entity
-                for role, entity in command.demand.bound_roles.items()
-                if role in command.runtime.reference_bindings
-                and command.runtime.reference_bindings[role] == entity
-            }
-            occurrence = command.occurrence_id_hint or occurrence_anchor_id(
-                source_id,
-                command.demand.semantic_predicate.predicate_id,
-                command.demand.event_time_interval.start,
-                {**command.demand.bound_roles, **introduced},
-            )
-            artifacts = self._create_reference_artifacts(command)
-            result = PredicateResult(
-                occurrence_id=occurrence,
-                demand_id=command.demand.demand_id,
-                request_id=command.demand.request_id,
-                graph_hash=command.demand.graph_hash,
-                hypothesis_id=command.demand.hypothesis_id,
-                expected_hypothesis_version=command.issued_hypothesis_version,
-                frontier_id=command.demand.frontier_id,
-                checkpoint_id=command.demand.checkpoint_id,
-                graph_node_id=command.demand.graph_node_id,
-                semantic_predicate=command.demand.semantic_predicate,
-                truth=(
-                    TruthValue.TRUE
-                    if command.runtime.reference_truth
-                    else TruthValue.FALSE
-                ),
-                confidence=1.0,
-                event_time_interval=command.demand.event_time_interval,
-                binding_delta=BindingDelta(
-                    introduced=introduced,
-                    validated=validated,
-                ),
-                artifact_ids=tuple(item.artifact_id for item in artifacts),
-                provenance=ResultProvenance(
-                    provider_id=command.runtime.provider_id,
-                    provider_contract_version=command.runtime.provider_contract_version,
+            outcome = self.reference_runtime.execute(
+                command,
+                ReferenceExecutionContext(
                     node_id=self.node_id,
-                    source_ids=(source_id,),
+                    artifact_dir=self.artifact_dir,
+                    is_active=is_active,
                 ),
-                processing_started_at=started,
-                processing_completed_at=completed,
             )
-            self.forward_result(
-                result=result,
-                provider_instance_id=command.provider_instance_id,
-                attempt_id=command.attempt_id,
-                topic=command.result_topic,
-            )
+            if outcome is None or not is_active(command):
+                return
+            for artifact in outcome.artifacts:
+                announcement = ArtifactAnnouncement(
+                    node_id=self.node_id,
+                    session_id=self.session_id,
+                    artifact=artifact,
+                    plan_id=command.lease.plan_id,
+                    step_id=command.plan_step.step_id,
+                    provider_instance_id=command.provider_instance_id,
+                    lease_id=command.lease.lease_id,
+                )
+                self.messenger.send_model(
+                    command.artifact_topic,
+                    announcement,
+                    message_id=str(announcement.message_id),
+                    qos=1,
+                    require_application_ack=True,
+                )
+            if outcome.result is not None:
+                self.forward_result(
+                    result=outcome.result,
+                    provider_instance_id=command.provider_instance_id,
+                    attempt_id=command.attempt_id,
+                    topic=command.result_topic,
+                )
 
         threading.Thread(
             target=run,
@@ -469,12 +674,46 @@ class NodeAgent:
 
         with self._lock:
             record = self.providers.get(provider_instance_id)
-            if record is None or record.status not in (
-                AgentProviderStatus.READY,
-                AgentProviderStatus.ACTIVE,
-            ):
+            if record is None:
                 return
-            commands = tuple(record.active_leases.values())
+            worker = self.workers.get(record.worker_id)
+            worker_is_live = (
+                worker is not None
+                and worker.handle is not None
+                and worker.handle.running
+                and worker.status
+                not in (AgentProviderStatus.STOPPED, AgentProviderStatus.FAILED)
+            )
+            sibling_records = (
+                tuple(
+                    sibling
+                    for sibling in self.providers.values()
+                    if sibling.worker_id == record.worker_id
+                    and sibling.provider_id
+                    == "cross_sensor_identity_association"
+                    and sibling.runtime.output_adapter
+                    == record.runtime.output_adapter
+                )
+                if record.provider_id == "cross_sensor_identity_association"
+                else (record,)
+            )
+            forwarding_records = tuple(
+                sibling
+                for sibling in sibling_records
+                if sibling.status
+                in (AgentProviderStatus.READY, AgentProviderStatus.ACTIVE)
+            )
+            # An adopted/shared worker can remain alive while no logical lease
+            # is attached. Its output must still enter the bounded local cache
+            # so a later graph frontier can recover it. Only active logical
+            # leases may forward results upstream.
+            if not forwarding_records and not worker_is_live:
+                return
+            command_owners = tuple(
+                (sibling.provider_instance_id, command)
+                for sibling in forwarding_records
+                for command in sibling.active_leases.values()
+            )
             adapter = record.runtime.output_adapter
         if adapter == ReplayOutputAdapter.NONE:
             return
@@ -484,288 +723,181 @@ class NodeAgent:
             LOGGER.debug("ignored non-JSON provider output topic=%s", topic)
             return
 
-        for command in commands:
-            adapted = self._adapt_provider_output(command, adapter, document)
+        self._buffer_provider_output(adapter, topic, document)
+
+        forwarded_count = 0
+        for owner_provider_instance_id, command in command_owners:
+            forwarded_count += int(bool(self._forward_provider_document(
+                command=command,
+                adapter=adapter,
+                document=document,
+                provider_instance_id=owner_provider_instance_id,
+            )))
+        if adapter == ReplayOutputAdapter.IDENTITY_ASSOCIATION:
+            LOGGER.debug(
+                "identity association dispatch worker=%s logical_leases=%d "
+                "forwarded=%d associations=%d",
+                record.worker_id,
+                len(command_owners),
+                forwarded_count,
+                len(document.get("associations") or ())
+                if isinstance(document, dict)
+                else 0,
+            )
+
+    def _buffer_provider_output(
+        self,
+        adapter: ReplayOutputAdapter,
+        topic: str,
+        document: Any,
+    ) -> None:
+        """Retain bounded typed output even when it matches no current lease."""
+
+        canonical = json.dumps(document, separators=(",", ":"), sort_keys=True)
+        fingerprint = f"{adapter.value}:{topic}:{canonical}"
+        now = utc_now()
+        with self._lock:
+            self._expire_provider_output_cache(now)
+            if fingerprint in self._provider_output_fingerprints:
+                return
+            self._provider_output_cache.append(
+                BufferedProviderOutput(
+                    adapter=adapter,
+                    topic=topic,
+                    document=document,
+                    fingerprint=fingerprint,
+                    received_at=now,
+                )
+            )
+            self._provider_output_fingerprints.add(fingerprint)
+            while len(self._provider_output_cache) > self._provider_output_cache_limit:
+                removed = self._provider_output_cache.popleft()
+                self._provider_output_fingerprints.discard(removed.fingerprint)
+
+    def _expire_provider_output_cache(self, now: datetime) -> None:
+        cutoff = now - self._provider_output_retention
+        while (
+            self._provider_output_cache
+            and self._provider_output_cache[0].received_at < cutoff
+        ):
+            removed = self._provider_output_cache.popleft()
+            self._provider_output_fingerprints.discard(removed.fingerprint)
+
+    def _replay_buffered_outputs(self, command: ActivateProviderCommand) -> None:
+        """Project distinct retained occurrences up to a defensive bound.
+
+        Bindings are not a valid deduplication key: temporal graphs may require
+        several distinct PASSES or EXITS occurrences for the same entity. The
+        provider's occurrence ID is authoritative, while ``_forwarded_occurrences``
+        still suppresses exact redelivery for an individual demand.
+        """
+
+        now = utc_now()
+        with self._lock:
+            self._expire_provider_output_cache(now)
+            buffered = tuple(
+                item
+                for item in self._provider_output_cache
+                if item.adapter == command.runtime.output_adapter
+            )
+        replayed_occurrences: set[str] = set()
+        for item in buffered:
+            adapted = self._adapt_provider_output(
+                command,
+                item.adapter,
+                item.document,
+            )
             if adapted is None:
                 continue
-            occurrence_id, event_interval, introduced, confidence = adapted
-            dedup_key = (command.demand.demand_id, occurrence_id)
-            with self._lock:
-                if dedup_key in self._forwarded_occurrences:
-                    continue
-                self._forwarded_occurrences.add(dedup_key)
-            result = PredicateResult(
-                occurrence_id=occurrence_id,
-                demand_id=command.demand.demand_id,
-                request_id=command.demand.request_id,
-                graph_hash=command.demand.graph_hash,
-                hypothesis_id=command.demand.hypothesis_id,
-                expected_hypothesis_version=command.issued_hypothesis_version,
-                frontier_id=command.demand.frontier_id,
-                checkpoint_id=command.demand.checkpoint_id,
-                graph_node_id=command.demand.graph_node_id,
-                semantic_predicate=command.demand.semantic_predicate,
-                truth=TruthValue.TRUE,
-                confidence=confidence,
-                event_time_interval=event_interval,
-                binding_delta=BindingDelta(introduced=introduced),
-                provenance=ResultProvenance(
-                    provider_id=command.runtime.provider_id,
-                    provider_contract_version=command.runtime.provider_contract_version,
-                    node_id=self.node_id,
-                    source_ids=command.demand.eligible_source_ids,
-                ),
-                processing_started_at=utc_now(),
-                processing_completed_at=utc_now(),
+            occurrence_id = adapted[0]
+            if occurrence_id in replayed_occurrences:
+                continue
+            replayed_occurrences.add(occurrence_id)
+            self._forward_provider_document(
+                command=command,
+                adapter=item.adapter,
+                document=item.document,
+                provider_instance_id=command.provider_instance_id,
             )
-            self.forward_result(
-                result=result,
-                provider_instance_id=provider_instance_id,
-                attempt_id=command.attempt_id,
-                topic=command.result_topic,
-            )
+            if len(replayed_occurrences) >= 32:
+                LOGGER.warning(
+                    "bounded buffered replay demand=%s after %d occurrences",
+                    command.demand.demand_id,
+                    len(replayed_occurrences),
+                )
+                break
+
+    def _forward_provider_document(
+        self,
+        *,
+        command: ActivateProviderCommand,
+        adapter: ReplayOutputAdapter,
+        document: Any,
+        provider_instance_id: str,
+    ) -> bool:
+        adapted = self._adapt_provider_output(command, adapter, document)
+        if adapted is None:
+            return False
+        occurrence_id, event_interval, introduced, confidence, source_ids = adapted
+        dedup_key = (command.demand.demand_id, occurrence_id)
+        with self._lock:
+            if dedup_key in self._forwarded_occurrences:
+                return False
+            self._forwarded_occurrences.add(dedup_key)
+        result = PredicateResult(
+            occurrence_id=occurrence_id,
+            demand_id=command.demand.demand_id,
+            request_id=command.demand.request_id,
+            graph_hash=command.demand.graph_hash,
+            hypothesis_id=command.demand.hypothesis_id,
+            expected_hypothesis_version=command.issued_hypothesis_version,
+            frontier_id=command.demand.frontier_id,
+            checkpoint_id=command.demand.checkpoint_id,
+            graph_node_id=command.demand.graph_node_id,
+            semantic_predicate=command.demand.semantic_predicate,
+            truth=TruthValue.TRUE,
+            confidence=confidence,
+            event_time_interval=event_interval,
+            binding_delta=BindingDelta(introduced=introduced),
+            provenance=ResultProvenance(
+                provider_id=command.runtime.provider_id,
+                provider_contract_version=command.runtime.provider_contract_version,
+                node_id=self.node_id,
+                source_ids=source_ids or command.demand.eligible_source_ids,
+            ),
+            processing_started_at=utc_now(),
+            processing_completed_at=utc_now(),
+        )
+        self.forward_result(
+            result=result,
+            provider_instance_id=provider_instance_id,
+            attempt_id=command.attempt_id,
+            topic=command.result_topic,
+        )
+        return True
 
     def _adapt_provider_output(
         self,
         command: ActivateProviderCommand,
         adapter: ReplayOutputAdapter,
         document: Any,
-    ) -> tuple[str, Any, dict[str, str], float] | None:
-        demand = command.demand
-        source_id = demand.eligible_source_ids[0] if demand.eligible_source_ids else self.node_id
-        aliases = command.runtime.output_label_aliases
+    ) -> tuple[str, Any, dict[str, str], float, tuple[str, ...]] | None:
+        """Compatibility wrapper around the injected provider-output registry.
 
-        if adapter == ReplayOutputAdapter.AUDIO_DETECTION:
-            if not isinstance(document, dict):
-                return None
-            event_name = str(document.get("event") or document.get("label") or "")
-            requested = str(demand.semantic_predicate.parameters.get("label") or "any")
-            accepted = {event_name, *aliases.get(event_name, ())}
-            if requested not in ("any", "*") and requested not in accepted:
-                return None
-            timestamp = _payload_event_time(document.get("t"))
-            interval = _instant_interval(timestamp)
-            if not demand.event_time_interval.overlaps(interval):
-                return None
-            confidence = float(document.get("confidence", 1.0))
-            occurrence = occurrence_anchor_id(
-                source_id,
-                demand.semantic_predicate.predicate_id,
-                timestamp,
-                {**demand.bound_roles, "event": event_name},
-            )
-            return occurrence, interval, {}, max(0.0, min(1.0, confidence))
+        ``NodeAgent`` no longer interprets vehicle/audio/vision schemas itself.
+        Concrete replay/testbed adapters are registered by the composition root.
+        """
 
-        if adapter == ReplayOutputAdapter.VEHICLE_PREDICATE:
-            if not isinstance(document, dict):
-                return None
-            try:
-                from providers.vehicle.models import PredicateObservation
-
-                observation = PredicateObservation.model_validate(document)
-            except Exception:
-                LOGGER.debug("ignored invalid vehicle predicate payload")
-                return None
-            if observation.predicate_id != demand.semantic_predicate.predicate_id:
-                return None
-            if not demand.event_time_interval.overlaps(observation.event_time_interval):
-                return None
-            # Every already-bound semantic role must agree with the provider's
-            # evidence. A provider-local result may introduce only roles that
-            # are explicitly unbound in this demand.
-            for role, entity_id in demand.bound_roles.items():
-                if role in observation.bindings and observation.bindings[role] != entity_id:
-                    return None
-            introduced = {
-                role: entity_id
-                for role, entity_id in observation.bindings.items()
-                if role in demand.unbound_roles
-            }
-            if demand.unbound_roles and not introduced:
-                return None
-            return (
-                observation.occurrence_id,
-                observation.event_time_interval,
-                introduced,
-                observation.confidence,
-            )
-
-        if adapter == ReplayOutputAdapter.MULTIMODAL_PREDICATE:
-            if not isinstance(document, dict):
-                return None
-            schema_version = str(document.get("schema_version") or "")
-            if schema_version == "audio_event_observation.v1":
-                try:
-                    from providers.multimodal.models import AudioEventObservation
-
-                    observation = AudioEventObservation.model_validate(document)
-                except Exception:
-                    LOGGER.debug("ignored invalid typed audio-event payload")
-                    return None
-                if demand.semantic_predicate.predicate_id != "AUDIO_EVENT":
-                    return None
-                requested = str(demand.semantic_predicate.parameters.get("label") or "any")
-                if requested not in ("any", "*") and requested != observation.label:
-                    return None
-                if not demand.event_time_interval.overlaps(observation.event_time_interval):
-                    return None
-                observed_location = observation.localized_zone_id or observation.source_id
-                bound_location = demand.bound_roles.get("location")
-                if bound_location is not None and bound_location != observed_location:
-                    return None
-                introduced = {}
-                if "location" in demand.unbound_roles:
-                    introduced["location"] = observed_location
-                return (
-                    observation.occurrence_id,
-                    observation.event_time_interval,
-                    introduced,
-                    observation.confidence,
-                )
-            if schema_version == "interaction_predicate_observation.v1":
-                try:
-                    from providers.multimodal.models import InteractionPredicateObservation
-
-                    observation = InteractionPredicateObservation.model_validate(document)
-                except Exception:
-                    LOGGER.debug("ignored invalid interaction predicate payload")
-                    return None
-                if observation.predicate_id != demand.semantic_predicate.predicate_id:
-                    return None
-                if not observation.truth:
-                    return None
-                if not demand.event_time_interval.overlaps(observation.event_time_interval):
-                    return None
-                for role, entity_id in demand.bound_roles.items():
-                    if role in observation.bindings and observation.bindings[role] != entity_id:
-                        return None
-                introduced = {
-                    role: entity_id
-                    for role, entity_id in observation.bindings.items()
-                    if role in demand.unbound_roles
-                }
-                if demand.unbound_roles and not introduced:
-                    return None
-                return (
-                    observation.occurrence_id,
-                    observation.event_time_interval,
-                    introduced,
-                    observation.confidence,
-                )
+        evidence = self.output_adapters.adapt(adapter, command, document)
+        if evidence is None:
             return None
-
-        if adapter == ReplayOutputAdapter.YOLO_OBJECT_PRESENT:
-            rows = document if isinstance(document, list) else [document]
-            rows = [row for row in rows if isinstance(row, dict)]
-            requested_raw = demand.semantic_predicate.parameters.get(
-                "class_allowlist",
-                demand.semantic_predicate.parameters.get("class", ()),
-            )
-            if isinstance(requested_raw, str):
-                requested = {requested_raw}
-            else:
-                requested = {str(item) for item in requested_raw or ()}
-            matching = [
-                row
-                for row in rows
-                if not requested or str(row.get("class") or row.get("label")) in requested
-            ]
-            if not matching:
-                return None
-            row = max(matching, key=lambda item: float(item.get("conf", 0.0)))
-            timestamp = _payload_event_time(row.get("t"))
-            interval = _instant_interval(timestamp)
-            if not demand.event_time_interval.overlaps(interval):
-                return None
-            object_label = str(row.get("class") or row.get("label") or "object")
-            object_id = str(
-                row.get("track_id")
-                or row.get("id")
-                or occurrence_anchor_id(
-                    source_id,
-                    f"object:{object_label}",
-                    timestamp,
-                    {"box": row.get("box", [])},
-                )
-            )
-            introduced: dict[str, str] = {}
-            if demand.unbound_roles:
-                introduced[demand.unbound_roles[0]] = object_id
-            occurrence = occurrence_anchor_id(
-                source_id,
-                demand.semantic_predicate.predicate_id,
-                timestamp,
-                {**demand.bound_roles, **introduced, "class": object_label},
-            )
-            return (
-                occurrence,
-                interval,
-                introduced,
-                max(0.0, min(1.0, float(row.get("conf", 1.0)))),
-            )
-        return None
-
-    def _create_reference_artifacts(
-        self, command: ActivateProviderCommand
-    ) -> tuple[ArtifactRef, ...]:
-        artifacts: list[ArtifactRef] = []
-        for artifact_type in command.runtime.reference_artifact_types:
-            artifact_id = uuid7()
-            path = self.artifact_dir / f"{artifact_id}.json"
-            path.write_text(
-                json.dumps(
-                    {
-                        "provider_instance_id": command.provider_instance_id,
-                        "demand_id": str(command.demand.demand_id),
-                        "artifact_type": artifact_type,
-                    },
-                    sort_keys=True,
-                ),
-                encoding="utf-8",
-            )
-            artifact = ArtifactRef(
-                artifact_id=artifact_id,
-                artifact_type=artifact_type,
-                artifact_schema_version="reference.v1",
-                producer=ArtifactProducer(
-                    provider_id=command.runtime.provider_id,
-                    provider_contract_version=command.runtime.provider_contract_version,
-                ),
-                event_time_interval=command.demand.event_time_interval,
-                bindings={
-                    **command.demand.bound_roles,
-                    **command.runtime.reference_bindings,
-                },
-                location=ArtifactLocation(
-                    kind=ArtifactLocationKind.LOCAL_PATH,
-                    node_id=self.node_id,
-                    uri=str(path),
-                ),
-                access_modes=(ArtifactAccessMode.LOCAL, ArtifactAccessMode.REMOTE_REFERENCE),
-                compatible_consumer_families=tuple(
-                    family
-                    for requirement in command.demand.continuation_requirements
-                    if requirement.artifact_type == artifact_type
-                    for family in requirement.compatible_consumer_families
-                ),
-                bytes=path.stat().st_size,
-                valid_until=command.demand.deadline.latest_useful_completion,
-                expires_at=command.demand.deadline.latest_useful_completion,
-            )
-            artifacts.append(artifact)
-            announcement = ArtifactAnnouncement(
-                node_id=self.node_id,
-                session_id=self.session_id,
-                artifact=artifact,
-            )
-            self.messenger.send_model(
-                command.artifact_topic,
-                announcement,
-                message_id=str(announcement.message_id),
-                qos=1,
-                require_application_ack=True,
-            )
-        return tuple(artifacts)
+        return (
+            evidence.occurrence_id,
+            evidence.event_interval,
+            evidence.introduced_bindings,
+            evidence.confidence,
+            evidence.source_ids,
+        )
 
     def forward_result(
         self,
@@ -809,26 +941,42 @@ class NodeAgent:
     def emit_heartbeat(self) -> Any:
         if time.monotonic() < self._pause_heartbeats_until:
             return None
-        with self._lock:
+        # Container adoption and inspection can hold the agent state lock for
+        # several seconds while a batch of provider leases is attached.  Node
+        # liveness must not disappear during that local critical section.  If
+        # a fresh snapshot cannot be obtained promptly, publish the most recent
+        # coherent snapshot; the following heartbeat will expose the new lease
+        # set after activation completes.
+        acquired = self._lock.acquire(timeout=min(0.05, self.heartbeat_interval / 4))
+        try:
             self._heartbeat_sequence += 1
-            active_provider_ids = tuple(
-                sorted(
-                    provider_id
-                    for provider_id, record in self.providers.items()
-                    if record.status
-                    not in (AgentProviderStatus.STOPPED, AgentProviderStatus.FAILED)
+            if acquired:
+                active_provider_ids = tuple(
+                    sorted(
+                        provider_id
+                        for provider_id, record in self.providers.items()
+                        if record.status
+                        not in (AgentProviderStatus.STOPPED, AgentProviderStatus.FAILED)
+                    )
                 )
-            )
-            active_demand_ids = tuple(
-                sorted(
-                    {
-                        command.demand.demand_id
-                        for record in self.providers.values()
-                        for command in record.active_leases.values()
-                    },
-                    key=str,
+                active_demand_ids = tuple(
+                    sorted(
+                        {
+                            command.demand.demand_id
+                            for record in self.providers.values()
+                            for command in record.active_leases.values()
+                        },
+                        key=str,
+                    )
                 )
-            )
+                self._last_heartbeat_provider_ids = active_provider_ids
+                self._last_heartbeat_demand_ids = active_demand_ids
+            else:
+                active_provider_ids = self._last_heartbeat_provider_ids
+                active_demand_ids = self._last_heartbeat_demand_ids
+        finally:
+            if acquired:
+                self._lock.release()
         heartbeat = build_node_heartbeat(
             node_id=self.node_id,
             session_id=self.session_id,
@@ -978,40 +1126,3 @@ def _readiness_matches(document: Any, field_path: str | None, ready_value: Any) 
             return False
         current = current[part]
     return current == ready_value
-
-
-def _payload_event_time(value: Any) -> datetime:
-    if isinstance(value, datetime):
-        return ensure_utc(value)
-    if isinstance(value, (int, float)):
-        numeric = float(value)
-        if numeric > 1e12:
-            numeric /= 1e6
-        return datetime.fromtimestamp(numeric, tz=UTC)
-    if value is None:
-        return utc_now()
-    text = str(value).strip()
-    try:
-        numeric = float(text)
-        if numeric > 1e12:
-            numeric /= 1e6
-        return datetime.fromtimestamp(numeric, tz=UTC)
-    except ValueError:
-        pass
-    try:
-        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
-        if parsed.tzinfo is None:
-            parsed = parsed.replace(tzinfo=UTC)
-        return parsed.astimezone(UTC)
-    except ValueError:
-        pass
-    try:
-        return datetime.strptime(text, "%Y/%m/%d %H:%M:%S.%f").replace(tzinfo=UTC)
-    except ValueError:
-        return utc_now()
-
-
-def _instant_interval(timestamp: datetime):
-    from fable.common.time import EventTimeInterval
-
-    return EventTimeInterval(start=timestamp, end=timestamp)

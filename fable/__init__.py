@@ -11,4 +11,4 @@ from .planning import *  # noqa: F401,F403
 from .scheduling import *  # noqa: F401,F403
 from .distributed import *  # noqa: F401,F403
 
-__version__ = "0.9.0"
+__version__ = "0.10.0"

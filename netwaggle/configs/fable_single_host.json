@@ -7,11 +7,34 @@
     "switch_ifname": "nwg-sw",
     "mtu": 1500
   },
-  "switches": ["s_orin11", "s_orin12", "s_edge", "s_cloud"],
+  "switches": [
+    "s_orin11",
+    "s_orin12",
+    "s_edge",
+    "s_cloud"
+  ],
   "links": [
-    {"from": "s_orin11", "to": "s_edge", "delay": "5ms", "bw": 100, "loss": 0},
-    {"from": "s_orin12", "to": "s_edge", "delay": "5ms", "bw": 100, "loss": 0},
-    {"from": "s_edge", "to": "s_cloud", "delay": "20ms", "bw": 1000, "loss": 0}
+    {
+      "from": "s_orin11",
+      "to": "s_edge",
+      "delay": "5ms",
+      "bw": 100,
+      "loss": 0
+    },
+    {
+      "from": "s_orin12",
+      "to": "s_edge",
+      "delay": "5ms",
+      "bw": 100,
+      "loss": 0
+    },
+    {
+      "from": "s_edge",
+      "to": "s_cloud",
+      "delay": "20ms",
+      "bw": 1000,
+      "loss": 0
+    }
   ],
   "mqtt_host_ip": "10.255.0.1",
   "logical_nodes": [
@@ -27,7 +50,8 @@
         "yolo-detector-orin11",
         "respeaker-replay-orin11",
         "audio-detector-orin11"
-      ]
+      ],
+      "fable_node_id": "dvpg_gq_orin_11"
     },
     {
       "name": "orin12",
@@ -50,7 +74,10 @@
       "switch": "s_cloud",
       "ip": "10.255.60.2/16",
       "gateway": "10.255.0.1",
-      "containers": ["gps-replay"]
+      "containers": [
+        "gps-replay"
+      ],
+      "fable_node_id": "x86server"
     },
     {
       "name": "cloud1",
@@ -59,7 +86,11 @@
       "switch": "s_cloud",
       "ip": "10.255.50.2/16",
       "gateway": "10.255.0.1",
-      "containers": ["complex-event-detector"]
+      "containers": [
+        "complex-event-detector"
+      ],
+      "fable_node_id": "cloud1"
     }
-  ]
+  ],
+  "fable_gateway_node_id": "cloud1"
 }

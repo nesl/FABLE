@@ -66,6 +66,9 @@ multimodal = [
   "tensorflow-hub>=0.16,<1",
 ]
 
+[tool.setuptools.package-data]
+fable = ["catalog/*.yaml"]
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["fable*", "providers*", "evaluation*"]

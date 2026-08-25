@@ -95,6 +95,120 @@ class TorchScriptVehicleReIDDescriptor:
         )
 
 
+class FastReidEntityDescriptor:
+    """FastReID adapter with an injectable extractor for deterministic tests."""
+
+    provider_id = "vehicle_reid_descriptor"
+
+    def __init__(
+        self,
+        *,
+        entity_kind: str,
+        config_path: str | Path,
+        model_path: str | Path,
+        model_id: str,
+        model_version: str,
+        preprocessing_id: str,
+        device: str = "cuda:0",
+        extractor: Callable[[list[Any]], Any] | None = None,
+    ) -> None:
+        if entity_kind not in {"person", "vehicle"}:
+            raise InvalidProviderInput("FastReID entity_kind must be person or vehicle")
+        self.entity_kind = entity_kind
+        self.config_path = Path(config_path)
+        self.model_path = Path(model_path)
+        self.model_id = model_id
+        self.model_version = model_version
+        self.preprocessing_id = preprocessing_id
+        self.device = device
+        self._extractor = extractor
+
+    def _load_extractor(self) -> Callable[[list[Any]], Any]:
+        if self._extractor is not None:
+            return self._extractor
+        if not self.config_path.is_file():
+            raise InvalidProviderInput(f"FastReID config does not exist: {self.config_path}")
+        if not self.model_path.is_file():
+            raise InvalidProviderInput(f"FastReID model does not exist: {self.model_path}")
+        try:
+            import cv2
+            import numpy as np
+            import torch
+            from fastreid.config import get_cfg
+            from fastreid.modeling.meta_arch import build_model
+            from fastreid.utils.checkpoint import Checkpointer
+        except ImportError as exc:  # pragma: no cover - image-only dependency
+            raise OptionalDependencyError("FastReID is required for this descriptor") from exc
+        cfg = get_cfg()
+        cfg.merge_from_file(str(self.config_path))
+        cfg.MODEL.WEIGHTS = str(self.model_path)
+        cfg.MODEL.DEVICE = self.device
+        cfg.MODEL.BACKBONE.PRETRAIN = False
+        cfg.freeze()
+
+        # Importing fastreid.engine.DefaultPredictor also imports the upstream
+        # training and evaluation stack (TensorBoard, sklearn and FAISS).  This
+        # service is inference-only, so construct the same model/checkpoint path
+        # directly and keep those unrelated dependencies outside its runtime
+        # contract.
+        model = build_model(cfg)
+        model.eval()
+        Checkpointer(model).load(str(self.model_path))
+        height, width = (int(value) for value in cfg.INPUT.SIZE_TEST)
+
+        def extract(images: list[Any]) -> list[Any]:
+            tensors = []
+            for image in images:
+                if not isinstance(image, np.ndarray) or image.ndim != 3:
+                    raise InvalidProviderInput("FastReID crops must be HxWxC NumPy images")
+                resized = cv2.resize(image, (width, height), interpolation=cv2.INTER_LINEAR)
+                tensors.append(
+                    torch.from_numpy(np.ascontiguousarray(resized.transpose(2, 0, 1))).float()
+                )
+            batch = torch.stack(tensors).to(model.device)
+            with torch.inference_mode():
+                return model({"images": batch}).cpu()
+
+        self._extractor = extract
+        return extract
+
+    def warmup(self) -> None:
+        """Load and validate the model stack before advertising readiness."""
+        self._load_extractor()
+
+    def encode(
+        self,
+        crops: Iterable[tuple[str, Any]],
+        *,
+        source_id: str,
+        event_time_interval: EventTimeInterval,
+    ) -> DescriptorSet:
+        rows = tuple(crops)
+        if not rows:
+            raise InvalidProviderInput("FastReID requires at least one crop")
+        vectors = _normalized_rows(self._load_extractor()([image for _, image in rows]))
+        if len(vectors) != len(rows):
+            raise InvalidProviderInput("FastReID emitted a different number of descriptors than crops")
+        return DescriptorSet(
+            schema_version=f"{self.entity_kind}_reid_embedding_set.v1",
+            source_id=source_id,
+            event_time_interval=event_time_interval,
+            descriptor_kind=f"{self.entity_kind}_reid",
+            entity_kind=self.entity_kind,
+            model_id=self.model_id,
+            model_version=self.model_version,
+            preprocessing_id=self.preprocessing_id,
+            dimension=len(vectors[0]),
+            normalization="l2",
+            distance_metric="cosine",
+            records=tuple(
+                DescriptorRecord(local_entity_id=entity_id, vector=tuple(vector))
+                for (entity_id, _), vector in zip(rows, vectors)
+            ),
+            calibrated_for_identity=True,
+        )
+
+
 class OpenClipVisualDescriptor:
     """General-purpose image embedding, deliberately distinct from ReID.
 
@@ -186,11 +300,13 @@ class DeterministicDescriptorProvider:
 
     provider_id = "deterministic_descriptor_test_provider"
 
-    def __init__(self, *, dimension: int = 4, calibrated_for_identity: bool = True) -> None:
+    def __init__(self, *, dimension: int = 4, calibrated_for_identity: bool = True,
+                 entity_kind: str = "vehicle") -> None:
         if dimension < 2:
             raise ValueError("descriptor dimension must be at least two")
         self.dimension = dimension
         self.calibrated_for_identity = calibrated_for_identity
+        self.entity_kind = entity_kind
 
     def encode_ids(
         self,
@@ -219,7 +335,11 @@ class DeterministicDescriptorProvider:
             ),
             source_id=source_id,
             event_time_interval=EventTimeInterval(start=timestamp, end=timestamp),
-            descriptor_kind=("vehicle_reid" if self.calibrated_for_identity else "general_visual"),
+            descriptor_kind=(
+                f"{self.entity_kind}_reid"
+                if self.calibrated_for_identity else "general_visual"
+            ),
+            entity_kind=self.entity_kind,
             model_id="deterministic-test-model",
             model_version="1",
             preprocessing_id="deterministic-v1",

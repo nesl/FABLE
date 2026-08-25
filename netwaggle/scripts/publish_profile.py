@@ -127,6 +127,7 @@ def build_payload(topology: Dict[str, Any], profile: Dict[str, Any]) -> Dict[str
         path, delay_ms, bw, loss = shortest_path(switches, links, sw, gateway_switch)
         node_payload[name] = {
             "node": name,
+            "fable_node_id": node.get("fable_node_id"),
             "tier": node.get("tier"),
             "anchor_container": node.get("anchor_container") or f"netwaggle-node-{name}",
             "ip": node.get("ip"),
@@ -147,6 +148,7 @@ def build_payload(topology: Dict[str, Any], profile: Dict[str, Any]) -> Dict[str
         "profile_description": profile.get("description"),
         "mqtt_host_ip": topology.get("mqtt_host_ip") or topology.get("gateway", {}).get("ip"),
         "gateway": topology.get("gateway", {}),
+        "fable_gateway_node_id": topology.get("fable_gateway_node_id"),
         "nodes": node_payload,
         "links": links,
         "note": "Configured delay is the Mininet/TC path delay from the logical node switch to the gateway switch; observed probes include MQTT broker and web-UI receive overhead.",

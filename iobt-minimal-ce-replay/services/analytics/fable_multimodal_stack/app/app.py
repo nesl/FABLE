@@ -157,11 +157,17 @@ class fable_multimodal_stack(iobt_max_service):
                 os.environ.get("FABLE_AV_TIME_TOLERANCE_SECONDS", "0.5")
             ),
         )
+        context_tracker = RoboflowTrackerAdapter(
+            algorithm=os.environ.get("TRACKER_ALGORITHM", "bytetrack")
+        )
+        # Readiness is an executable contract, not merely a subscription
+        # acknowledgement. Resolve optional tracking dependencies before the
+        # service can advertise itself as ready; otherwise every context/audio
+        # item fails only after replay has already started.
+        context_tracker._ensure_tracker()
         self.processor = MultimodalReplayProcessor(
             config=config,
-            context_tracker=RoboflowTrackerAdapter(
-                algorithm=os.environ.get("TRACKER_ALGORITHM", "bytetrack")
-            ),
+            context_tracker=context_tracker,
             audio_classifier=classifier,
             localizer=_geometry_from_json(os.environ.get("FABLE_AUDIO_GEOMETRY")),
         )

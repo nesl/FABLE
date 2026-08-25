@@ -21,10 +21,14 @@ from fable.semantic import (
     predicate_result_from_spec,
     seed_result_from_spec,
 )
+from fable.integrations.replay import build_replay_output_adapter_registry
 from fable.semantic.phase8_examples import (
     drive_up_shooting_graph,
     multimodal_robbery_graph,
     package_exchange_graph,
+)
+from fable.semantic.definitions.multimodal import (
+    multimodal_robbery_graph as authored_multimodal_robbery_graph,
 )
 from providers.multimodal.models import (
     AudioEventObservation,
@@ -158,6 +162,23 @@ def test_robbery_or_resolution_retires_losing_multimodal_work() -> None:
     assert keys == {"departure"}
 
 
+def test_robbery_departure_is_independent_then_identity_is_explicit() -> None:
+    graph = SemanticRuntime(
+        authored_multimodal_robbery_graph(),
+        config=SemanticRuntimeConfig(request_id="robbery-contract"),
+    ).graph
+    departure = graph.nodes_by_key["departure"]
+    same_vehicle = graph.nodes_by_key["same_vehicle"]
+
+    assert departure.predicate.predicate_id == "EXITS"
+    assert departure.predicate.roles[0].variable == "departing_vehicle"
+    assert same_vehicle.predicate.predicate_id == "SAME_ENTITY"
+    assert {
+        role.role_name: role.variable for role in same_vehicle.predicate.roles
+    } == {"left": "vehicle", "right": "departing_vehicle"}
+    assert same_vehicle.predicate.parameters["minimum_confidence"] == 0.40
+
+
 def test_package_graph_marks_high_resolution_checkpoint_and_compact_continuation() -> None:
     graph = package_exchange_graph()
     transfer = next(node for node in graph.nodes if node.authored_key == "transfer")
@@ -169,6 +190,7 @@ def test_package_graph_marks_high_resolution_checkpoint_and_compact_continuation
 def test_node_agent_adapts_typed_audio_and_interaction_outputs() -> None:
     agent = object.__new__(NodeAgent)
     agent.node_id = "dvpg_gq_orin_11"
+    agent.output_adapters = build_replay_output_adapter_registry()
     audio_demand = candidate("AUDIO_EVENT", label="gunshot").demands[0]
     interval = EventTimeInterval(start=BASE_TIME, end=BASE_TIME + timedelta(seconds=1))
     audio = AudioEventObservation(
@@ -187,6 +209,24 @@ def test_node_agent_adapts_typed_audio_and_interaction_outputs() -> None:
         audio.model_dump(mode="json"),
     )
     assert adapted is not None and adapted[2] == {"location": "store_front"}
+
+    aliased_role = audio_demand.semantic_predicate.roles[0].model_copy(
+        update={"variable": "trigger_location"}
+    )
+    aliased_demand = audio_demand.model_copy(
+        update={
+            "semantic_predicate": audio_demand.semantic_predicate.model_copy(
+                update={"roles": (aliased_role,)}
+            )
+        }
+    )
+    adapted_alias = agent._adapt_provider_output(
+        SimpleNamespace(demand=aliased_demand, runtime=SimpleNamespace(output_label_aliases={})),
+        ReplayOutputAdapter.MULTIMODAL_PREDICATE,
+        audio.model_dump(mode="json"),
+    )
+    assert adapted_alias is not None
+    assert adapted_alias[2] == {"trigger_location": "store_front"}
 
     transfer_demand = candidate("TRANSFER").demands[0]
     interaction = InteractionPredicateObservation(

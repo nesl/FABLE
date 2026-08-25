@@ -11,12 +11,14 @@ import signal
 import threading
 from uuid import uuid4
 
+from fable.integrations.reference_runtime import SyntheticReferenceRuntime
 from fable.distributed.docker_runtime import DockerSDKRuntime, FakeContainerRuntime
 from fable.distributed.heartbeat import CapacitySampler, ReplaySourceProgressTracker
 from fable.distributed.node_agent import NodeAgent
 from fable.distributed.outbox import SQLiteOutbox, SQLiteProcessedLedger
 from fable.distributed.segment_store import SegmentStore
 from fable.distributed.transport import PahoMQTTTransport, ReliableMessenger
+from fable.integrations.replay import build_replay_output_adapter_registry
 
 
 logging.basicConfig(
@@ -76,6 +78,8 @@ def main() -> int:
         heartbeat_interval=float(os.environ.get("FABLE_HEARTBEAT_INTERVAL_SEC", "1.0")),
         capacity_sampler=CapacitySampler(),
         allow_fault_injection=env_bool("FABLE_ALLOW_FAULT_INJECTION", False),
+        output_adapters=build_replay_output_adapter_registry(),
+        reference_runtime=SyntheticReferenceRuntime(),
     )
 
     stop = threading.Event()
