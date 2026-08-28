@@ -15,6 +15,7 @@ __pycache__/
 .coverage
 .coverage.*
 htmlcov/
+.ipynb_checkpoints/
 
 # Generated runtime and experiment data
 /runs/

@@ -57,6 +57,21 @@ A successful run ends with `1 passed`. The provider and message broker are
 deterministic in-process implementations, so this validates FABLE itself
 without claiming that a physical sensor, model, or network testbed was used.
 
+For an interactive version that exposes the event graph, active frontier,
+predicate demand, execution plan, scheduler decision, node-agent command,
+fake replay result, and updated hypothesis, install the notebook dependencies
+and open the architecture walkthrough:
+
+```bash
+python -m pip install -e '.[notebook]'
+jupyter lab examples/fable_architecture_pipeline.ipynb
+```
+
+The notebook locates the repository checkout automatically, so it does not
+require a separately registered `FABLE` Jupyter kernel. Its selected Python
+environment still needs the project dependencies; the editable install above
+provides both those dependencies and JupyterLab.
+
 To run every unit and integration test that does not require an externally
 configured physical deployment:
 

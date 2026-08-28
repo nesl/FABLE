@@ -22,6 +22,10 @@ dev = [
   "mypy>=1.10,<2",
   "ruff>=0.6,<1",
 ]
+notebook = [
+  "jupyterlab>=4,<5",
+  "ipykernel>=6,<7",
+]
 vehicle-tracking = [
   "numpy>=1.26,<3",
   "supervision>=0.25,<1",
