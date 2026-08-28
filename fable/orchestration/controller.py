@@ -203,6 +203,8 @@ class ControllerPlanningEvent:
     predicted_completion_ms: int
     predicted_transfer_bytes: int
     reason: str
+    planning_scope: str
+    frozen: bool
     commands: tuple[object, ...]
 
 
@@ -1158,9 +1160,14 @@ class FableController:
             planning_graphs = (graph,)
             discovery_demand = checkpoint_demands[0] if len(checkpoint_demands) == 1 else None
             if (
-                decision.policy_id == "FABLE"
-                and discovery_demand is not None
-                and _requires_source_discovery_fanout(discovery_demand)
+                discovery_demand is not None
+                and (
+                    decision.policy_id == "B0_PRODUCE_ALL"
+                    or (
+                        decision.policy_id == "FABLE"
+                        and _requires_source_discovery_fanout(discovery_demand)
+                    )
+                )
             ):
                 # With no bound location or spatial prior, selecting one cheap
                 # sensor is not evidence discovery: it is an unsupported guess.
@@ -1257,6 +1264,20 @@ class FableController:
                             selected=result.selected.selected_alternative_ids,
                             graph=remaining_graph,
                             reason=decision.reason,
+                            planning_scope=(
+                                "CE_AUTHORED_ALL_NODE_PROVIDER_UNION"
+                                if decision.policy_id == "B0_PRODUCE_ALL"
+                                else (
+                                    "HANDWRITTEN_STATIC_WHOLE_EVENT"
+                                    if decision.policy_id == "B1_HANDWRITTEN_STATIC"
+                                    else (
+                                        "FRONTIER_FIXED_REALIZATION"
+                                        if decision.policy_id == "B2_FRONTIER_FIXED_REALIZATION"
+                                        else "REDESIGNED_CONTROLLER_FRONTIER"
+                                    )
+                                )
+                            ),
+                            frozen=decision.frozen,
                             commands=tuple(emitted_commands),
                         )
                         checkpoint_admitted = True
@@ -1294,6 +1315,8 @@ class FableController:
         selected: tuple[str, ...],
         graph: PhysicalAlternativeGraph,
         reason: str,
+        planning_scope: str,
+        frozen: bool,
         commands: tuple[object, ...],
     ) -> None:
         if self.planning_event_sink is None:
@@ -1324,6 +1347,8 @@ class FableController:
                 item.estimated_transfer_bytes for item in alternatives
             ),
             reason=reason,
+            planning_scope=planning_scope,
+            frozen=frozen,
             commands=commands,
         )
         try:

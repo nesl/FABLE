@@ -13,8 +13,10 @@ from fable.distributed.models import ResourceChange, ResourceKind, RuntimeDistur
 
 
 BASELINE_ALIASES = {
+    "B0_PRODUCE_ALL": BaselineId.B0_PRODUCE_ALL,
     "B1_STATIC_WHOLE_EVENT": BaselineId.B1_HANDWRITTEN_STATIC,
     "B1_HANDWRITTEN_STATIC": BaselineId.B1_HANDWRITTEN_STATIC,
+    "B2_FRONTIER_FIXED_REALIZATION": BaselineId.B2_FRONTIER_FIXED_REALIZATION,
     "B3_TASK_RESOURCE_ADAPTIVE": BaselineId.B3_TASK_RESOURCE_ADAPTIVE,
     "FABLE": BaselineId.FABLE,
 }

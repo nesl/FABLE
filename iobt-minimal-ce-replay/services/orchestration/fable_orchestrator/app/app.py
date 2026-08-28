@@ -104,7 +104,7 @@ def bind_evaluation_compatibility(controller, orchestrator) -> None:
                 length=32,
             ),
             checkpoint_id=str(event.checkpoint_id),
-            planning_scope="REDESIGNED_CONTROLLER_FRONTIER",
+            planning_scope=event.planning_scope,
             selected_alternative_ids=event.selected_alternative_ids,
             selected_chain_ids=event.selected_chain_ids,
             selected_node_ids=event.selected_node_ids,
@@ -112,6 +112,7 @@ def bind_evaluation_compatibility(controller, orchestrator) -> None:
             predicted_completion_ms=event.predicted_completion_ms,
             predicted_transfer_bytes=event.predicted_transfer_bytes,
             reason=event.reason,
+            frozen=event.frozen,
             resource_epoch=event.resource_epoch,
             semantic_epoch=event.semantic_epoch,
             replan_trigger=event.trigger,
@@ -412,12 +413,20 @@ def main() -> int:
         ),
     )
     planning_policies = {
+        BaselineId.B0_PRODUCE_ALL.value: LiveBaselinePlanningPolicy(
+            BaselineId.B0_PRODUCE_ALL,
+            static_registry_path=static_registry,
+        ),
         BaselineId.B1_HANDWRITTEN_STATIC.value: LiveBaselinePlanningPolicy(
             BaselineId.B1_HANDWRITTEN_STATIC,
             static_registry_path=static_registry,
         ),
         BaselineId.B3_TASK_RESOURCE_ADAPTIVE.value: LiveBaselinePlanningPolicy(
             BaselineId.B3_TASK_RESOURCE_ADAPTIVE,
+            static_registry_path=static_registry,
+        ),
+        BaselineId.B2_FRONTIER_FIXED_REALIZATION.value: LiveBaselinePlanningPolicy(
+            BaselineId.B2_FRONTIER_FIXED_REALIZATION,
             static_registry_path=static_registry,
         ),
         BaselineId.B4_GREEDY_FRONTIER.value: LiveBaselinePlanningPolicy(

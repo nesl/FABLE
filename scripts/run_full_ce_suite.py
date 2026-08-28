@@ -37,6 +37,13 @@ MOBILE_AUGMENTED_VARIANTS = {
     "Two-visit stalking",
     "Vehicle rendezvous",
 }
+WEST_POINT_ZED_SERIALS = (
+    "31366375",
+    "35309867",
+    "36577075",
+    "37711387",
+    "39164952",
+)
 
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -75,6 +82,25 @@ def resolve_static_chain_id(chain_id: str) -> str:
     return STATIC_CHAIN_ALIASES.get(chain_id, chain_id)
 def run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
     return subprocess.run(command, cwd=ROOT, text=True, check=False, **kwargs)
+
+
+def require_zed_calibrations(campaign_year: int) -> None:
+    """Fail before stack startup when known SVO calibration is unavailable."""
+
+    if campaign_year != 2026:
+        return
+    settings = REPLAY_ROOT / "setup/zed_settings"
+    missing = [
+        f"SN{serial}.conf"
+        for serial in WEST_POINT_ZED_SERIALS
+        if not (settings / f"SN{serial}.conf").is_file()
+    ]
+    if missing:
+        raise RuntimeError(
+            "missing West Point ZED calibration files: "
+            + ", ".join(missing)
+            + "; run ./.venv/bin/python scripts/ensure_zed_calibrations.py"
+        )
 
 
 def command_without_options(
@@ -720,17 +746,50 @@ def pin_authored_static_provider_containers(
 
     if baseline_id not in STATIC_BASELINES:
         return []
-    placement = StaticPipelineRegistry.load(static_pipeline_registry_path()).get_placement(
-        placement_id, trace_id=trace_id
-    )
-    if placement is None or not placement.allowed_provider_ids:
+    registry = StaticPipelineRegistry.load(static_pipeline_registry_path())
+    placement = registry.get_placement(placement_id, trace_id=trace_id)
+    # B0 is an authored CE-specific broadcast baseline, not a calibrated
+    # placement baseline.  It therefore must remain executable when a trace
+    # has no successful FABLE calibration: derive the provider union from the
+    # durable CE chain template and broadcast that union to eligible sensors.
+    # B1 intentionally remains fail-closed without an exact frozen placement.
+    fallback_chain_ids: tuple[str, ...] = ()
+    fallback_provider_ids: set[str] = set()
+    if (
+        baseline_id == BaselineId.B0_PRODUCE_ALL.value
+        and (placement is None or not placement.allowed_provider_ids)
+    ):
+        pipeline = registry.get(placement_id)
+        if pipeline is not None:
+            fallback_chain_ids = pipeline.preferred_chain_ids
+            catalog = yaml.safe_load(
+                PROVIDER_CATALOG_PATH.read_text(encoding="utf-8")
+            ) or {}
+            chains = catalog.get("chains") or {}
+            for chain_id in fallback_chain_ids:
+                resolved_chain_id = resolve_static_chain_id(chain_id)
+                chain = chains.get(resolved_chain_id)
+                if not isinstance(chain, dict):
+                    raise RuntimeError(
+                        f"B0 pipeline {placement_id} references unknown chain "
+                        f"{chain_id} (resolved={resolved_chain_id})"
+                    )
+                fallback_provider_ids.update(
+                    str(step["provider"])
+                    for step in (chain.get("steps") or ())
+                    if isinstance(step, dict) and step.get("provider")
+                )
+    if (
+        (placement is None or not placement.allowed_provider_ids)
+        and not fallback_provider_ids
+    ):
         raise RuntimeError(
             f"static baseline {baseline_id} has no provider inventory for {placement_id}"
         )
     path = bundle / "fable_provider_runtimes.yaml"
     document = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     nodes = document.get("nodes") or {}
-    authored_nodes = set(placement.allowed_node_ids)
+    authored_nodes = set(placement.allowed_node_ids) if placement is not None else set()
     if baseline_id == BaselineId.B0_PRODUCE_ALL.value:
         authored_nodes = {
             str(node_id)
@@ -743,7 +802,11 @@ def pin_authored_static_provider_containers(
     # Combining all allowed providers with all allowed nodes would turn B1
     # into a partial fan-out baseline (for example pinning vehicle YOLO on an
     # audio-only node). Resolve each chain's providers independently instead.
-    provider_ids = set(placement.allowed_provider_ids)
+    provider_ids = (
+        set(placement.allowed_provider_ids)
+        if placement is not None and placement.allowed_provider_ids
+        else fallback_provider_ids
+    )
     providers_by_node: dict[str, set[str]] = {}
     if baseline_id == BaselineId.B1_STATIC_WHOLE_EVENT.value:
         if not placement.allowed_chain_node_ids:
@@ -1386,6 +1449,7 @@ def main() -> int:
                 continue
             row = scenarios[scenario]
             campaign_year = experiments[0].campaign_year
+            require_zed_calibrations(campaign_year)
             nodes = candidate_zed_nodes(row, campaign_year)
             if args.replay_node:
                 requested_nodes = {

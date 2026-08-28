@@ -9,6 +9,7 @@ from evaluation.schemas import BaselineId
 from scripts.run_full_ce_suite import (
     condition_recovery_budget_seconds,
     pin_authored_static_provider_containers,
+    require_zed_calibrations,
     resolve_static_chain_id,
 )
 
@@ -49,6 +50,11 @@ def test_trace_without_restore_does_not_extend_runner_budget(tmp_path) -> None:
     )
 
     assert condition_recovery_budget_seconds(trace) is None
+
+
+def test_zed_calibration_preflight_is_limited_to_west_point(monkeypatch) -> None:
+    # Historical campaigns do not use the West Point ZED serial inventory.
+    require_zed_calibrations(2025)
 
 
 def test_b1_pins_only_providers_for_each_authored_chain_node(
@@ -131,3 +137,67 @@ def test_b1_pins_only_providers_for_each_authored_chain_node(
     assert not runtime["nodes"]["video-node"]["providers"][
         "yolo_vehicle_fast_640"
     ]["stop_adopted_when_idle"]
+
+
+def test_b0_derives_ce_provider_union_without_trace_calibration(
+    tmp_path, monkeypatch
+) -> None:
+    bundle = tmp_path / "bundle"
+    bundle.mkdir()
+    provider_ids = (
+        "yolo_vehicle_fast_640",
+        "multi_object_tracker",
+        "camera_projection",
+        "pass_reference_evaluator",
+    )
+    (bundle / "fable_provider_runtimes.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "nodes": {
+                    node_id: {
+                        "providers": {
+                            provider_id: {
+                                "mode": "ADOPT_EXISTING",
+                                "stop_adopted_when_idle": True,
+                                "container_name": f"{provider_id}-{node_id}",
+                            }
+                            for provider_id in provider_ids
+                        }
+                    }
+                    for node_id in ("orin11", "orin14", "x86server")
+                }
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+    registry = tmp_path / "static.yaml"
+    registry.write_text(
+        yaml.safe_dump(
+            {
+                "pipelines": {
+                    "pass_follow_clear_convoy": {
+                        "preferred_chain_ids": ["passes_live_vehicle"],
+                        "fixed_sensor_policy": "all_replay_supported_orin",
+                        "fixed_representation_policy": "tracks",
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("FABLE_STATIC_PIPELINE_REGISTRY", str(registry))
+
+    pinned = pin_authored_static_provider_containers(
+        bundle,
+        baseline_id=BaselineId.B0_PRODUCE_ALL.value,
+        placement_id="Pass-follow-clear convoy",
+        trace_id="uncalibrated-trace",
+    )
+
+    assert pinned == sorted(
+        f"{provider_id}-{node_id}"
+        for node_id in ("orin11", "orin14")
+        for provider_id in provider_ids
+    )
+    assert not any(name.endswith("-x86server") for name in pinned)

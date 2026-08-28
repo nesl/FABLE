@@ -90,7 +90,9 @@ def _controller(
     policies = {
         baseline.value: LiveBaselinePlanningPolicy(baseline)
         for baseline in (
+            BaselineId.B0_PRODUCE_ALL,
             BaselineId.B1_HANDWRITTEN_STATIC,
+            BaselineId.B2_FRONTIER_FIXED_REALIZATION,
             BaselineId.B3_TASK_RESOURCE_ADAPTIVE,
             BaselineId.B4_GREEDY_FRONTIER,
         )
@@ -126,6 +128,8 @@ def test_redesigned_controller_emits_admitted_plan_telemetry(tmp_path: Path):
         assert event.selected_alternative_ids
         assert event.activated_provider_keys
         assert event.commands
+        assert event.planning_scope == "REDESIGNED_CONTROLLER_FRONTIER"
+        assert event.frozen is False
     finally:
         stack.stop()
 
@@ -146,7 +150,9 @@ def _submission(request_id: str, submitter_id: str, baseline: BaselineId):
 @pytest.mark.parametrize(
     "baseline",
     [
+        BaselineId.B0_PRODUCE_ALL,
         BaselineId.B1_HANDWRITTEN_STATIC,
+        BaselineId.B2_FRONTIER_FIXED_REALIZATION,
         BaselineId.B3_TASK_RESOURCE_ADAPTIVE,
         BaselineId.B4_GREEDY_FRONTIER,
     ],

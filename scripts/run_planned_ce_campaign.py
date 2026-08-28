@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -26,6 +27,30 @@ from scripts.derive_b1_trace_placement import install as install_b1_placement  #
 
 
 STATIC_PIPELINES = ROOT / "evaluation/manifests/baselines/static_pipelines.yaml"
+
+_EXECUTABLE_SOURCE_ROOTS = (
+    ROOT / "fable",
+    ROOT / "evaluation",
+    ROOT / "scripts",
+    ROOT / "providers",
+    ROOT / "iobt-minimal-ce-replay/services",
+    ROOT / "iobt-minimal-ce-replay/setup",
+)
+
+
+def executable_source_digest() -> str:
+    """Hash code/config inputs so one matrix cannot mix implementations."""
+
+    digest = hashlib.sha256()
+    for root in _EXECUTABLE_SOURCE_ROOTS:
+        for path in sorted(root.rglob("*")):
+            if not path.is_file() or path.suffix not in {".py", ".yaml", ".yml"}:
+                continue
+            digest.update(str(path.relative_to(ROOT)).encode("utf-8"))
+            digest.update(b"\0")
+            digest.update(path.read_bytes())
+            digest.update(b"\0")
+    return digest.hexdigest()
 
 
 def _condition_slug(run: PlannedRun) -> str:
@@ -530,6 +555,9 @@ def main() -> int:
         )
     events = output / "campaign-events.jsonl"
     failures = 0
+    source_digest = executable_source_digest()
+    aborted_reason = ""
+    consecutive_startup_failures = 0
     condition_overrides: dict[str, Path] = (
         {
             run.run_id: Path(str(run.condition_trace_path)).resolve()
@@ -578,6 +606,14 @@ def main() -> int:
         return placement
 
     for run in cells:
+        current_digest = executable_source_digest()
+        if current_digest != source_digest:
+            aborted_reason = (
+                "executable source changed during campaign; refusing to mix "
+                f"implementations ({source_digest} -> {current_digest})"
+            )
+            failures += 1
+            break
         baseline = run.baseline_id.value
         repetition = run.repetition
         experiment_id = run.experiment_id
@@ -697,6 +733,10 @@ def main() -> int:
         child_env["FABLE_STATIC_PIPELINE_REGISTRY"] = str(registry_path)
         completed = subprocess.run(command, cwd=ROOT, check=False, env=child_env)
         valid_result = _result_is_valid_for_run(result, run)
+        startup_failure = completed.returncode != 0 and not result.is_file()
+        consecutive_startup_failures = (
+            consecutive_startup_failures + 1 if startup_failure else 0
+        )
         calibration_placement = None
         if (
             valid_result
@@ -738,6 +778,12 @@ def main() -> int:
                 "finished_at": datetime.now(UTC).isoformat(),
                 "returncode": completed.returncode,
             }, sort_keys=True) + "\n")
+        if consecutive_startup_failures >= 3:
+            aborted_reason = (
+                "three consecutive child processes exited before writing a "
+                "result; campaign stopped to prevent an invalid failure cascade"
+            )
+            break
     report = {
         "schema_version": "fable.planned_ce_campaign.v1",
         "manifest": str(manifest),
@@ -745,6 +791,9 @@ def main() -> int:
         "execution_order": args.execution_order,
         "condition_order": args.condition_order,
         "failed_suites": failures,
+        "aborted": bool(aborted_reason),
+        "aborted_reason": aborted_reason,
+        "executable_source_sha256": source_digest,
         "frozen_static_pipeline_registry": str(registry_path),
         "finished_at": datetime.now(UTC).isoformat(),
     }

@@ -22,6 +22,7 @@ from fable.planning.models import PhysicalAlternative, PhysicalAlternativeGraph
 
 from evaluation.baselines.models import BaselinePlanningCase
 from evaluation.baselines.policies import (
+    FablePolicy,
     GreedyFrontierPolicy,
     HandwrittenStaticPolicy,
     TaskResourceAdaptivePolicy,
@@ -50,10 +51,15 @@ class _AlternativeTemplate:
 class _RequestTaskState:
     all_task_demands: tuple[PredicateDemand, ...]
     frozen_templates: tuple[_AlternativeTemplate, ...] | None = None
+    # B2 fixes the physical realization the first time each semantic graph
+    # node becomes active, while still following later semantic frontiers.
+    # Keying by authored graph node (rather than demand UUID) lets a grounded
+    # successor reuse that realization without adapting to resource changes.
+    frontier_templates: dict[str, tuple[_AlternativeTemplate, ...]] | None = None
 
 
 class LiveBaselinePlanningPolicy:
-    """B1/B3 live policy adapter for the redesigned controller.
+    """Live evaluation-policy adapter for the redesigned controller.
 
     B1 selects a task-level physical template once and keeps it frozen. B3 keeps
     the same task-level semantic work set but recomputes the physical template
@@ -69,11 +75,13 @@ class LiveBaselinePlanningPolicy:
         static_registry_path: str = "evaluation/manifests/baselines/static_pipelines.yaml",
     ) -> None:
         if baseline_id not in {
+            BaselineId.B0_PRODUCE_ALL,
             BaselineId.B1_HANDWRITTEN_STATIC,
+            BaselineId.B2_FRONTIER_FIXED_REALIZATION,
             BaselineId.B3_TASK_RESOURCE_ADAPTIVE,
             BaselineId.B4_GREEDY_FRONTIER,
         }:
-            raise ValueError("live baseline adapter currently supports B1, B3, and B4 only")
+            raise ValueError("unsupported redesigned live baseline adapter")
         self.baseline_id = baseline_id
         self.policy_id = baseline_id.value
         self.static_registry_path = static_registry_path
@@ -97,15 +105,22 @@ class LiveBaselinePlanningPolicy:
         is B1-only; B3 and FABLE retain their ordinary candidate universes.
         """
 
-        if self.baseline_id != BaselineId.B1_HANDWRITTEN_STATIC:
+        if self.baseline_id not in {
+            BaselineId.B0_PRODUCE_ALL,
+            BaselineId.B1_HANDWRITTEN_STATIC,
+        }:
             return demands
         placement = StaticPipelineRegistry.load(
             self.static_registry_path
         ).get_placement(placement_id, trace_id=trace_id)
         if placement is None:
             return demands
-        allowed_sources = set(placement.allowed_source_ids)
-        allowed_nodes = set(placement.allowed_node_ids)
+        # B1 freezes exact sources/nodes. B0 deliberately takes the same
+        # CE-specific provider/chain contract but broadcasts it, so applying
+        # B1's physical placement here would collapse B0 back into B1.
+        exact_placement = self.baseline_id == BaselineId.B1_HANDWRITTEN_STATIC
+        allowed_sources = set(placement.allowed_source_ids) if exact_placement else set()
+        allowed_nodes = set(placement.allowed_node_ids) if exact_placement else set()
         allowed_branches = set(placement.allowed_branch_ids)
         constrained: list[PredicateDemand] = []
         for demand in demands:
@@ -170,7 +185,10 @@ class LiveBaselinePlanningPolicy:
         endpoints; start every other structurally executable B1 provider now.
         """
 
-        if self.baseline_id != BaselineId.B1_HANDWRITTEN_STATIC:
+        if self.baseline_id not in {
+            BaselineId.B0_PRODUCE_ALL,
+            BaselineId.B1_HANDWRITTEN_STATIC,
+        }:
             return None
         compiler = DemandCompiler(
             predicate_registry=default_predicate_registry(),
@@ -204,6 +222,18 @@ class LiveBaselinePlanningPolicy:
         )
 
     def select(self, context: ControllerPlanningContext) -> ControllerPlanningDecision:
+        if self.baseline_id == BaselineId.B0_PRODUCE_ALL:
+            return ControllerPlanningDecision(
+                policy_id=self.policy_id,
+                allowed_alternative_ids=tuple(
+                    item.alternative_id for item in context.frontier_graph.alternatives
+                ),
+                reason=(
+                    "B0 executes the CE-specific authored provider-chain set on "
+                    "every eligible sensor node and freezes it for the request."
+                ),
+                frozen=True,
+            )
         if self.baseline_id == BaselineId.B1_HANDWRITTEN_STATIC:
             # The physical contract is frozen in the trace registry, while
             # role binding is owned by the semantic runtime.  Instantiating
@@ -235,6 +265,63 @@ class LiveBaselinePlanningPolicy:
                 allowed_alternative_ids=decision.selected_alternative_ids,
                 reason=decision.reason,
                 frozen=False,
+            )
+        elif self.baseline_id == BaselineId.B2_FRONTIER_FIXED_REALIZATION:
+            state = self._requests.get(context.request_id)
+            if state is None:
+                state = _RequestTaskState(
+                    all_task_demands=(), frontier_templates={}
+                )
+                self._requests[context.request_id] = state
+            if state.frontier_templates is None:
+                state.frontier_templates = {}
+            selected: list[str] = []
+            missing = []
+            for demand in context.frontier_demands:
+                templates = state.frontier_templates.get(demand.graph_node_id)
+                if templates is None:
+                    missing.append(demand)
+                    continue
+                selected.extend(
+                    _map_templates_to_frontier(
+                        templates,
+                        context.frontier_graph,
+                        (demand,),
+                    )
+                )
+            if missing:
+                planner = BoundedLabelPlanner(
+                    provider_registry=context.provider_registry,
+                    artifact_catalog=context.artifact_catalog,
+                    deployment=context.deployment,
+                )
+                decision = FablePolicy(planner).plan(
+                    _case(context, tuple(missing), context.frontier_graph)
+                )
+                templates = _templates_from_decision(
+                    decision.selected_alternative_ids,
+                    context.frontier_graph,
+                    tuple(missing),
+                )
+                for demand in missing:
+                    owned = tuple(
+                        item for item in templates
+                        if item.graph_node_id == demand.graph_node_id
+                    )
+                    state.frontier_templates[demand.graph_node_id] = owned
+                    selected.extend(
+                        _map_templates_to_frontier(
+                            owned, context.frontier_graph, (demand,)
+                        )
+                    )
+            return ControllerPlanningDecision(
+                policy_id=self.policy_id,
+                allowed_alternative_ids=tuple(dict.fromkeys(selected)),
+                reason=(
+                    "B2 selected each semantic frontier realization once and "
+                    "reused the frozen provider/placement/source template."
+                ),
+                frozen=True,
             )
         else:
             state = self._requests.get(context.request_id)
