@@ -60,17 +60,38 @@ without claiming that a physical sensor, model, or network testbed was used.
 For an interactive version that exposes the event graph, active frontier,
 predicate demand, execution plan, scheduler decision, node-agent command,
 fake replay result, and updated hypothesis, install the notebook dependencies
-and open the architecture walkthrough:
+and open the architecture walkthrough. FABLE requires Python 3.11 or newer;
+create the environment with an explicit 3.11 interpreter if the system
+`python3` command is older:
 
 ```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
 python -m pip install -e '.[notebook]'
-jupyter lab examples/fable_architecture_pipeline.ipynb
+python -m jupyter lab examples/fable_architecture_pipeline.ipynb
 ```
 
 The notebook locates the repository checkout automatically, so it does not
 require a separately registered `FABLE` Jupyter kernel. Its selected Python
 environment still needs the project dependencies; the editable install above
 provides both those dependencies and JupyterLab.
+
+Do not launch a user- or system-level `jupyter` executable backed by Python
+3.10. Python 3.10 does not provide `enum.StrEnum`, and the import cell will fail
+with `cannot import name 'StrEnum' from 'enum'`. Launching Jupyter as
+`python -m jupyter` from the activated environment ensures that the server and
+kernel use the intended interpreter. Verify the active kernel in the first
+notebook cell:
+
+```python
+import sys
+print(sys.executable)
+print(sys.version)
+```
+
+The executable should end in `FABLE/.venv/bin/python`, and the reported version
+must be 3.11 or newer. If it does not, stop the Jupyter server, activate
+`.venv`, and relaunch it with `python -m jupyter` as shown above.
 
 To run every unit and integration test that does not require an externally
 configured physical deployment:
