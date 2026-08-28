@@ -1,0 +1,25 @@
+MODEL:
+  META_ARCHITECTURE: Baseline
+  DEVICE: cpu
+  WEIGHTS: ""
+  BACKBONE:
+    NAME: build_resnet_backbone
+    NORM: BN
+    DEPTH: 50x
+    LAST_STRIDE: 1
+    FEAT_DIM: 2048
+    WITH_IBN: true
+    WITH_NL: true
+    PRETRAIN: false
+  HEADS:
+    NAME: EmbeddingHead
+    NORM: BN
+    WITH_BNNECK: true
+    POOL_LAYER: GeneralizedMeanPoolingP
+    NECK_FEAT: after
+    CLS_LAYER: CircleSoftmax
+    NUM_CLASSES: 576
+    SCALE: 64
+    MARGIN: 0.35
+INPUT:
+  SIZE_TEST: [256, 256]

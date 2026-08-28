@@ -1,0 +1,15 @@
+schema_version: fable.physical_provider_profile.v1
+profile_version: desktop-site-calibrated-reference-v1
+node_id: physical_host
+hardware_id: desktop_site_01
+status: FROZEN_CALIBRATION_PROFILE
+headline_evaluation_input: true
+calibration_scope: planner_input_only
+capacity:
+  cpu_cores: 16
+  memory_mb: 65536
+  gpu_memory_mb: 24576
+provider_profile_source: ../../evaluation/manifests/providers/calibrated_desktop_profiles.json
+notes:
+  - Exact provider measurements remain in the referenced calibrated profile.
+  - Reprofile the PC if hardware, CUDA, container image, or model version changes.

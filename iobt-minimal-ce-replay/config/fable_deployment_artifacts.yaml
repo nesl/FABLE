@@ -1,0 +1,18 @@
+schema_version: fable.deployment_artifacts.v1
+artifacts:
+  - artifact_type: camera_calibration.v1
+    path: iobt-minimal-ce-replay/config/fable_vehicle_geometry.json
+    runtime_uri: file:///workspace/replay/config/fable_vehicle_geometry.json
+    node_id: dvpg_gq_orin_11
+    bindings:
+      source_id: orin11_camera
+      coordinate_frame_id: image:dvpg_gq_orin_11
+    access_modes: [LOCAL]
+
+  - artifact_type: route_graph.v1
+    path: iobt-minimal-ce-replay/config/fable_vehicle_geometry.json
+    runtime_uri: file:///workspace/replay/config/fable_vehicle_geometry.json
+    node_id: dvpg_gq_orin_11
+    bindings:
+      deployment_id: replay_orin11
+    access_modes: [LOCAL]

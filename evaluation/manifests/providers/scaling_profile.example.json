@@ -1,0 +1,21 @@
+{
+  "schema_version": "fable.scaling_execution_profile.v1",
+  "profile_id": "implementation_validation_only",
+  "calibrated": false,
+  "calibration_source": "Illustrative coefficients; replace with completed E0 measurements.",
+  "base_planning_latency_ms": 2.0,
+  "latency_per_label_ms": 0.08,
+  "base_cpu_seconds_per_request": 0.01,
+  "cpu_seconds_per_label": 0.0005,
+  "base_memory_bytes": 134217728,
+  "memory_bytes_per_live_hypothesis": 65536,
+  "network_bytes_per_provider": 4096,
+  "nominal_timely_recall": 0.98,
+  "overload_label_threshold": 4096,
+  "overload_recall_penalty_per_threshold": 0.05,
+  "event_rate_multipliers": {
+    "low": 0.5,
+    "medium": 1.0,
+    "high": 2.0
+  }
+}

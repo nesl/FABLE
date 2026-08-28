@@ -29,6 +29,7 @@ from .definitions import (
     uncalibrated_repeated_pass_graph,
     vehicle_convergence_graph,
 )
+from .definitions.registry import PRODUCTION_DEFINITIONS
 
 
 class RequestCompileError(ValueError):
@@ -219,52 +220,33 @@ class EventRequestCompiler:
 
 
 def default_event_family_registry() -> AuthoredEventFamilyRegistry:
+    """Build the request registry from the canonical definition registry.
+
+    This is the only selection path used by :class:`EventRequestCompiler`:
+    normalize an exact family/alias, validate its family-specific parameters,
+    then invoke the canonical factory recorded in ``definitions.registry``.
+    """
+
     registry = AuthoredEventFamilyRegistry()
-    registry.register(
-        "convoy",
-        lambda parameters: _convoy_factory(parameters),
-        aliases=("detect convoy", "detect a convoy", "monitor convoy", "route convoy"),
-        warning=(
-            "The unparameterized convoy alias selects the authored pass-follow-clear "
-            "variant. Use a structured request when route, group size, following gap, "
-            "or duration must be specified explicitly."
+    adapters: dict[str, GraphFactory] = {
+        "convoy": _convoy_factory,
+        "robbery": _robbery_factory,
+        "package_exchange": lambda parameters: _no_parameters(
+            "package_exchange", parameters, package_exchange_graph
         ),
-    )
-    registry.register(
-        "robbery",
-        _robbery_factory,
-        aliases=("detect robbery", "detect a robbery", "robbery with alarm"),
-    )
-    registry.register(
-        "package_exchange",
-        lambda parameters: _no_parameters("package_exchange", parameters, package_exchange_graph),
-        aliases=("detect package exchange", "package exchange"),
-    )
-    registry.register(
-        "drive_up_shooting",
-        _drive_up_shooting_factory,
-        aliases=("detect drive up shooting", "drive-up shooting"),
-    )
-    registry.register(
-        "repeated_visit",
-        _repeated_visit_factory,
-        aliases=("detect repeated visit", "detect stalking", "repeated vehicle visit"),
-    )
-    registry.register(
-        "rendezvous",
-        _rendezvous_factory,
-        aliases=("detect rendezvous", "talking rendezvous"),
-    )
-    registry.register(
-        "vehicle_convergence",
-        _vehicle_convergence_factory,
-        aliases=("detect vehicle convergence", "vehicle rendezvous"),
-    )
-    registry.register(
-        "two_vehicle_chase",
-        _two_vehicle_chase_factory,
-        aliases=("detect two vehicle chase", "two vehicle chase"),
-    )
+        "drive_up_shooting": _drive_up_shooting_factory,
+        "repeated_visit": _repeated_visit_factory,
+        "rendezvous": _rendezvous_factory,
+        "vehicle_convergence": _vehicle_convergence_factory,
+        "two_vehicle_chase": _two_vehicle_chase_factory,
+    }
+    for definition in PRODUCTION_DEFINITIONS:
+        registry.register(
+            definition.family_id,
+            adapters[definition.family_id],
+            aliases=definition.aliases,
+            warning=definition.warning,
+        )
     return registry
 
 
@@ -349,7 +331,10 @@ def _repeated_visit_factory(parameters: Mapping[str, JSONValue]) -> SemanticGrap
 
 
 def _rendezvous_factory(parameters: Mapping[str, JSONValue]) -> SemanticGraph:
-    _reject_unknown("rendezvous", parameters, {"evaluation_profile"})
+    _reject_unknown("rendezvous", parameters, {"evaluation_profile", "interaction"})
+    interaction = str(parameters.get("interaction", "either"))
+    if interaction not in {"either", "conversation", "transfer"}:
+        raise RequestCompileError(f"unsupported rendezvous interaction: {interaction}")
     profile = str(parameters.get("evaluation_profile", "full_talking"))
     if profile != "full_talking":
         raise RequestCompileError(f"unsupported rendezvous evaluation_profile: {profile}")

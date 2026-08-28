@@ -19,6 +19,8 @@ from .provider_registry import (
     ProviderRegistryError,
     default_provider_profiles,
 )
+from .planner import PhysicalPlanner, PlanningResult
+from .source_grounding import SourceGrounder
 
 __all__ = [
     "AlternativeBuildConfig",
@@ -35,6 +37,9 @@ __all__ = [
     "PredicateSchemaRegistry",
     "ProviderRegistry",
     "ProviderRegistryError",
+    "PhysicalPlanner",
+    "PlanningResult",
+    "SourceGrounder",
     "default_predicate_registry",
     "default_provider_profiles",
 ]

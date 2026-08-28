@@ -424,10 +424,15 @@ class VehicleMqttService:
                         qos=1,
                     )
                 LOGGER.info(
-                    "bounded identity crop replay demand_id=%s requested=%d emitted=%d",
+                    "bounded identity crop replay demand_id=%s requested=%d emitted=%d missing=%s",
                     document.get("demand_id"),
                     len(requested),
                     len(crop_sets),
+                    sorted(
+                        entity_id
+                        for entity_id in requested
+                        if entity_id not in self.processor._identity_crop_cache
+                    ),
                 )
                 return
             tracks, observations = self.processor.process(document)

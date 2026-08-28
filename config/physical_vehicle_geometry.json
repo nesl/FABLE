@@ -1,0 +1,18 @@
+{
+  "schema_version": "fable.vehicle_geometry.v1",
+  "description": "Uncalibrated full-frame proxy for the physical Raspberry Pi replay camera. This is planning metadata, not surveyed world geometry.",
+  "references": [],
+  "zones": [
+    {
+      "zone_id": "physical_rpi_camera_fov",
+      "coordinate_frame_id": "image:physical_rpi_camera_replay",
+      "polygon": [
+        {"x": 0.0, "y": 0.0, "coordinate_frame_id": "image:physical_rpi_camera_replay"},
+        {"x": 1280.0, "y": 0.0, "coordinate_frame_id": "image:physical_rpi_camera_replay"},
+        {"x": 1280.0, "y": 720.0, "coordinate_frame_id": "image:physical_rpi_camera_replay"},
+        {"x": 0.0, "y": 720.0, "coordinate_frame_id": "image:physical_rpi_camera_replay"}
+      ]
+    }
+  ],
+  "routes": []
+}

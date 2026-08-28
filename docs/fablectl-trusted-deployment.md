@@ -4,7 +4,8 @@ The repository checkout is a development input, not a daemon import path.
 Build a reviewed release as an ordinary user:
 
 ```bash
-cd /home/brianw/Documents/FABLE
+export FABLE_ROOT="$(git rev-parse --show-toplevel)"
+cd "$FABLE_ROOT"
 python3 scripts/build_fablectl_release.py \
   --commit <FULL_REVIEWED_40_CHARACTER_COMMIT> \
   --deployment-id smoke-v1 \
@@ -15,12 +16,12 @@ python3 scripts/build_fablectl_release.py \
   --compose-file iobt-minimal-ce-replay/compose.fable.phase7.yaml \
   --compose-file iobt-minimal-ce-replay/compose.fable.phase8.yaml \
   --compose-file iobt-minimal-ce-replay/compose.fable.evaluation.yaml \
-  --asset iobt-minimal-ce-replay/setup/zed_settings/SN31366375.conf \
-  --asset iobt-minimal-ce-replay/setup/zed_settings/SN35309867.conf \
-  --asset iobt-minimal-ce-replay/setup/zed_settings/SN36577075.conf \
-  --asset iobt-minimal-ce-replay/setup/zed_settings/SN37711387.conf \
-  --asset iobt-minimal-ce-replay/setup/zed_settings/SN39164952.conf \
-  --asset iobt-minimal-ce-replay/setup/zed_settings/SN39424035.conf \
+  --asset iobt-minimal-ce-replay/setup/zed_settings/camera-a.conf \
+  --asset iobt-minimal-ce-replay/setup/zed_settings/camera-b.conf \
+  --asset iobt-minimal-ce-replay/setup/zed_settings/camera-c.conf \
+  --asset iobt-minimal-ce-replay/setup/zed_settings/camera-d.conf \
+  --asset iobt-minimal-ce-replay/setup/zed_settings/camera-e.conf \
+  --asset iobt-minimal-ce-replay/setup/zed_settings/camera-f.conf \
   --script scripts/compile_request.py \
   --script iobt-minimal-ce-replay/tools/replay_control.py
 ```

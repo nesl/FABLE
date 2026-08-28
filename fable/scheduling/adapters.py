@@ -1,4 +1,9 @@
-"""Adapters between Phase-4 search results and Phase-5 admission candidates."""
+"""Convert physical-planner output into scheduler-facing plan candidates.
+
+This is an adapter, not an ordering or admission algorithm. Its input is a
+selected/fallback search result plus demands and selected alternatives; its
+output packages the concrete plan and predicted costs as ``PlanCandidate``.
+"""
 
 from __future__ import annotations
 
@@ -185,6 +190,8 @@ def candidate_from_alternatives(
             for values in resources.values()
         ),
         transfer_bytes=transfer_bytes,
+        alternatives=alternatives,
+        replicated_demand_execution=allow_replicated_demand,
     )
 
 
@@ -196,6 +203,13 @@ def candidate_from_search_result(
     task_policy: TaskSchedulingPolicy,
     fallback_index: int | None = None,
 ) -> PlanCandidate:
+    """Build a scheduling candidate from one selected or fallback search label.
+
+    The selected label is projected to ``ExecutionPlan`` when necessary, its
+    referenced alternatives are resolved, and plan/demands/policy plus startup,
+    completion, transfer, and resource estimates are packaged for ordering and
+    admission. No worker is started here.
+    """
     demand_tuple = tuple(demands)
     if fallback_index is None:
         state = result.selected
@@ -223,4 +237,8 @@ def candidate_from_search_result(
         incremental_resource_cost_units=state.label.cost.resource_cost_units,
         transfer_bytes=state.label.cost.transfer_bytes,
         fallback_rank=fallback_rank,
+        alternatives=tuple(
+            item for item in graph.alternatives
+            if item.alternative_id in set(state.selected_alternative_ids)
+        ),
     )

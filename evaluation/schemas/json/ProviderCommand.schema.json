@@ -1,0 +1,189 @@
+{
+  "$defs": {
+    "BaselineId": {
+      "enum": [
+        "B0_PRODUCE_ALL",
+        "B1_STATIC_WHOLE_EVENT",
+        "B2_FRONTIER_FIXED_REALIZATION",
+        "B0_ALWAYS_ON",
+        "B1_HANDWRITTEN_STATIC",
+        "B2_STATIC_WHOLE_EVENT",
+        "B3_TASK_RESOURCE_ADAPTIVE",
+        "B4_GREEDY_FRONTIER",
+        "FABLE",
+        "FABLE_NO_SHARING",
+        "O1_EXHAUSTIVE_ORACLE",
+        "C0_CHEAP_ONLY",
+        "C1_STRONG_ONLY",
+        "C2_FIXED_CASCADE",
+        "C3_FABLE_ESCALATION",
+        "C4_FABLE_NO_ESCALATION",
+        "SPATIAL_BROADCAST",
+        "SPATIAL_TOPOLOGY_SHORTLIST",
+        "SPATIAL_RESOURCE_ONLY",
+        "SPATIAL_FABLE",
+        "SPATIAL_ORACLE"
+      ],
+      "title": "BaselineId",
+      "type": "string"
+    },
+    "JsonValue": {}
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "default": "fable.evaluation_record.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "record_type": {
+      "const": "provider_command",
+      "default": "provider_command",
+      "title": "Record Type",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "baseline_id": {
+      "$ref": "#/$defs/BaselineId"
+    },
+    "trace_id": {
+      "minLength": 1,
+      "title": "Trace Id",
+      "type": "string"
+    },
+    "request_id": {
+      "minLength": 1,
+      "title": "Request Id",
+      "type": "string"
+    },
+    "hypothesis_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Hypothesis Id"
+    },
+    "sensor_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sensor Id"
+    },
+    "provider_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Provider Id"
+    },
+    "event_time": {
+      "format": "date-time",
+      "title": "Event Time",
+      "type": "string"
+    },
+    "monotonic_timestamp_ns": {
+      "minimum": 0,
+      "title": "Monotonic Timestamp Ns",
+      "type": "integer"
+    },
+    "wall_timestamp": {
+      "format": "date-time",
+      "title": "Wall Timestamp",
+      "type": "string"
+    },
+    "metadata": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "title": "Metadata",
+      "type": "object"
+    },
+    "command_id": {
+      "minLength": 1,
+      "title": "Command Id",
+      "type": "string"
+    },
+    "command": {
+      "minLength": 1,
+      "title": "Command",
+      "type": "string"
+    },
+    "provider_instance_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Provider Instance Id"
+    },
+    "demand_ids": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Demand Ids",
+      "type": "array"
+    },
+    "node_id": {
+      "minLength": 1,
+      "title": "Node Id",
+      "type": "string"
+    },
+    "emitted_at": {
+      "format": "date-time",
+      "title": "Emitted At",
+      "type": "string"
+    },
+    "received_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Received At"
+    }
+  },
+  "required": [
+    "run_id",
+    "baseline_id",
+    "trace_id",
+    "request_id",
+    "event_time",
+    "monotonic_timestamp_ns",
+    "command_id",
+    "command",
+    "node_id",
+    "emitted_at"
+  ],
+  "title": "ProviderCommand",
+  "type": "object"
+}

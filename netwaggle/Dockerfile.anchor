@@ -1,0 +1,8 @@
+FROM alpine:3.20
+
+RUN apk add --no-cache iperf3 iproute2 iputils
+
+HEALTHCHECK --interval=10s --timeout=3s --retries=3 \
+  CMD command -v ping >/dev/null && command -v iperf3 >/dev/null
+
+CMD ["sh", "-c", "iperf3 --server --daemon && trap : TERM INT; sleep infinity & wait"]

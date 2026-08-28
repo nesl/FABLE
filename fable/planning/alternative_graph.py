@@ -1,7 +1,10 @@
-"""Construct checkpoint-bounded physical alternative graphs.
+"""Construct checkpoint-bounded physical implementation alternatives.
 
-This phase enumerates and annotates feasible alternatives; it deliberately does
-not rank them.  Phase 4 consumes this graph with bounded label-driven search.
+Nodes describe external inputs, provider steps, artifacts/transfers, and result
+outputs; edges describe typed data dependencies. The graph is not a copy of the
+semantic Event Graph. It materializes provider-chain DAGs for diagnostics and
+search, while ``alternatives`` is the directly selectable unit. This phase
+enumerates and annotates alternatives but deliberately does not rank them.
 """
 
 from __future__ import annotations
@@ -56,6 +59,8 @@ from .alternatives.placement import PlacementEnumerator
 
 
 class PhysicalAlternativeGraphBuilder:
+    """Enumerate feasible provider-chain realizations without ranking them."""
+
     def __init__(
         self,
         *,
@@ -76,6 +81,8 @@ class PhysicalAlternativeGraphBuilder:
                 key=lambda item: item.provider_instance_id,
             )
         )
+        # Split input resolution, placement enumeration, and graph projection
+        # into collaborators so each constraint has one authoritative owner.
         self.placement_eligible = placement_eligible
         self.input_resolver = AlternativeInputResolver(
             provider_registry=self.providers,
@@ -100,7 +107,11 @@ class PhysicalAlternativeGraphBuilder:
         *,
         now: datetime | None = None,
     ) -> PhysicalAlternativeGraph:
+        """Materialize every bounded realization and its explicit prune reason."""
+
         observed_now = ensure_utc(now or utc_now())
+        # Demand order affects artifact serialization only; alternatives for
+        # different demands are independent at this construction phase.
         ordered_demands = tuple(sorted(demands, key=lambda demand: str(demand.demand_id)))
         if not ordered_demands:
             raise AlternativeGraphError("at least one predicate demand is required")
@@ -111,6 +122,8 @@ class PhysicalAlternativeGraphBuilder:
         pruned: list[PrunedAlternative] = []
 
         for demand in ordered_demands:
+            # Expired demands remain visible as typed pruning evidence rather
+            # than disappearing from diagnostics.
             if observed_now >= demand.deadline.latest_useful_completion:
                 pruned.append(
                     PrunedAlternative(
@@ -137,11 +150,16 @@ class PhysicalAlternativeGraphBuilder:
 
             for chain in chains:
                 chain_alternative_count = 0
+                # Resolve live sources and retained/static artifacts before
+                # placement because access mode and artifact location constrain
+                # which nodes can legally host the first provider step.
                 assignments, assignment_pruned = self.input_resolver._external_assignments(
                     demand, chain.chain_id, now=observed_now
                 )
                 pruned.extend(assignment_pruned)
                 for assignment in assignments:
+                    # Placement enumeration walks the typed chain and adds any
+                    # required transfers between chosen nodes.
                     placement_states, placement_pruned = self.placement_enumerator._placement_states(
                         demand=demand,
                         chain_id=chain.chain_id,
@@ -149,6 +167,8 @@ class PhysicalAlternativeGraphBuilder:
                     )
                     pruned.extend(placement_pruned)
                     for state in placement_states:
+                        # Candidate identity includes all physical choices so
+                        # equivalent realizations deduplicate deterministically.
                         candidate_id = deterministic_id(
                             "candidate",
                             {
@@ -232,10 +252,22 @@ class PhysicalAlternativeGraphBuilder:
                         )
                         nodes.update({node.node_id: node for node in alt_nodes})
                         edges.update({edge.edge_id: edge for edge in alt_edges})
+                        # Execution mode describes *when* the demand operates,
+                        # not merely how its recording is addressed. A node-
+                        # local replay source is represented as LIVE_SOURCE in
+                        # deployment metadata, but a retrospective semantic
+                        # demand must still issue a bounded replay command.
                         execution_mode = (
-                            ExecutionMode.LIVE
-                            if any(item.kind == ExternalInputKind.LIVE_SOURCE for item in assignment)
-                            else ExecutionMode.RETROSPECTIVE
+                            ExecutionMode.RETROSPECTIVE
+                            if demand.retrospective_context
+                            else (
+                                ExecutionMode.LIVE
+                                if any(
+                                    item.kind == ExternalInputKind.LIVE_SOURCE
+                                    for item in assignment
+                                )
+                                else ExecutionMode.RETROSPECTIVE
+                            )
                         )
                         result_type = chain.output_types["result"]
                         spatial_penalty, spatial_reason = _spatial_preference(

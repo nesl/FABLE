@@ -41,6 +41,7 @@ class BaselineId(StrEnum):
 class EvaluationMode(StrEnum):
     COMMON_PERCEPTION = "COMMON_PERCEPTION"
     FULL_STACK = "FULL_STACK"
+    PLANNING_REPLAY = "PLANNING_REPLAY"
 
 
 class EvaluationRecord(FableModel):

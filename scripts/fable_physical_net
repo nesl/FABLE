@@ -1,0 +1,64 @@
+#!/bin/sh
+# Root-owned, fixed-scope traffic-control adapter for the physical Pi path.
+set -eu
+
+interface=eth0
+unit=fable-physical-net-restore
+video_port=8090
+
+status() {
+    /sbin/tc -j qdisc show dev "$interface"
+}
+
+restore() {
+    /sbin/iptables -D INPUT -i "$interface" -p tcp --dport "$video_port" \
+        -j REJECT --reject-with tcp-reset 2>/dev/null || true
+    /sbin/tc qdisc del dev "$interface" root 2>/dev/null || true
+    status
+}
+
+disconnect() {
+    restore >/dev/null
+    /sbin/iptables -I INPUT 1 -i "$interface" -p tcp --dport "$video_port" \
+        -j REJECT --reject-with tcp-reset
+    /bin/systemctl stop "$unit.timer" "$unit.service" 2>/dev/null || true
+    /bin/systemctl reset-failed "$unit.timer" "$unit.service" 2>/dev/null || true
+    /bin/systemd-run --quiet --unit="$unit" --on-active=180s \
+        /usr/local/sbin/fable-physical-net restore watchdog
+    /sbin/iptables -C INPUT -i "$interface" -p tcp --dport "$video_port" \
+        -j REJECT --reject-with tcp-reset
+}
+
+case "${1:-}" in
+    capabilities)
+        echo "status restore degrade disconnect"
+        ;;
+    status)
+        status
+        ;;
+    restore)
+        restore
+        if test "${2:-}" != watchdog; then
+            /bin/systemctl stop "$unit.timer" "$unit.service" 2>/dev/null || true
+            /bin/systemctl reset-failed "$unit.timer" "$unit.service" 2>/dev/null || true
+        fi
+        ;;
+    apply)
+        test "${2:-}" = P1_JETSON_PATH_DEGRADED
+        /sbin/tc qdisc replace dev "$interface" root netem rate 20mbit delay 25ms loss 0%
+        # A transient root timer restores the interface even if the runner,
+        # SSH session, or host dies. Reapplying replaces the prior timer.
+        /bin/systemctl stop "$unit.timer" "$unit.service" 2>/dev/null || true
+        /bin/systemctl reset-failed "$unit.timer" "$unit.service" 2>/dev/null || true
+        /bin/systemd-run --quiet --unit="$unit" --on-active=180s \
+            /usr/local/sbin/fable-physical-net restore watchdog
+        status
+        ;;
+    disconnect)
+        disconnect
+        ;;
+    *)
+        echo "usage: fable-physical-net {capabilities|status|restore|disconnect|apply P1_JETSON_PATH_DEGRADED}" >&2
+        exit 64
+        ;;
+esac

@@ -17,6 +17,9 @@ class ExperimentQuestion(StrEnum):
     RQ3_SPATIAL_COORDINATION = "RQ3_SPATIAL_COORDINATION"
     RQ3_CONTINUATION = "RQ3_CONTINUATION"
     RQ4_SCALING = "RQ4_SCALING"
+    # Compatibility name used by the implemented E4 escalation experiment.
+    # E4 is an experiment family, not a newly numbered paper RQ.
+    RQ_PROVIDER_ESCALATION = "RQ_PROVIDER_ESCALATION"
 
 
 class ExperimentSpec(FableModel):
@@ -143,6 +146,33 @@ def default_experiment_specs() -> tuple[ExperimentSpec, ...]:
                 "memory_per_hypothesis",
                 "provider_reuse_rate",
                 "deadline_miss_rate",
+            ),
+        ),
+        ExperimentSpec(
+            question=ExperimentQuestion.RQ_PROVIDER_ESCALATION,
+            modes=(EvaluationMode.COMMON_PERCEPTION,),
+            baselines=(
+                BaselineId.C0_CHEAP_ONLY,
+                BaselineId.C1_STRONG_ONLY,
+                BaselineId.C2_FIXED_CASCADE,
+                BaselineId.C3_FABLE_ESCALATION,
+                BaselineId.C4_FABLE_NO_ESCALATION,
+            ),
+            workload_families=(
+                "route_convoy",
+                "vehicle_convergence",
+                "talking_rendezvous",
+                "robbery_with_alarm",
+                "repeated_visit_stalking",
+                "package_exchange",
+            ),
+            primary_metrics=(
+                "identity_accuracy",
+                "resolution_rate",
+                "escalation_rate",
+                "latency_ms",
+                "cost_per_correct_binding",
+                "transmitted_bytes",
             ),
         ),
     )

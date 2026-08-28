@@ -26,7 +26,7 @@ nodes:
       cpu_cores: 16
       memory_mb: 65536
       gpu_memory_mb: 24576
-    capabilities: [vision, audio, gpu, orchestration, replay]
+    capabilities: [vision, audio, gpu, orchestration, replay, hosted_vlm]
 
 sources:
   orin11_camera:

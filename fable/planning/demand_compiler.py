@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from datetime import datetime
+from datetime import datetime, timedelta
 from uuid import UUID
 
 from pydantic import Field
@@ -23,6 +23,7 @@ from fable.common.schemas import (
     PredicateDemand,
     SourcePreference,
 )
+from fable.common.time import EventTimeInterval
 from fable.semantic.compiled import CompiledSemanticGraph
 from fable.semantic.models import DerivedFrontier
 from fable.spatial.models import SpatialFilterMode, SpatialObservation, SpatialSensorBindings
@@ -30,6 +31,7 @@ from fable.spatial.transition_model import SiteSensorTransitionModel
 
 from .deployment import DeploymentGraph
 from .predicate_registry import PredicateSchemaError, PredicateSchemaRegistry
+from .source_grounding import SourceGrounder
 
 
 class DemandCompileError(ValueError):
@@ -52,16 +54,25 @@ class DemandCompileContext(FableModel):
 
 
 class DemandCompiler:
+    """Translate an Active Frontier into provider-independent evidence needs."""
     def __init__(
         self,
         *,
         predicate_registry: PredicateSchemaRegistry,
-        deployment: DeploymentGraph,
+        deployment: DeploymentGraph | None = None,
+        source_grounder: SourceGrounder | None = None,
         spatial_model: SiteSensorTransitionModel | None = None,
         spatial_bindings: SpatialSensorBindings | None = None,
     ) -> None:
         self.predicate_registry = predicate_registry
+        # A caller may inject a custom grounder for simulation/testing, but it
+        # must not also provide a deployment whose source rules could disagree.
+        if deployment is not None and source_grounder is not None:
+            raise ValueError("provide deployment or source_grounder, not both")
         self.deployment = deployment
+        self.source_grounder = source_grounder or (
+            SourceGrounder(deployment) if deployment is not None else None
+        )
         self.spatial_model = spatial_model
         self.spatial_bindings = spatial_bindings or SpatialSensorBindings()
 
@@ -73,7 +84,16 @@ class DemandCompiler:
         frontier: DerivedFrontier,
         context: DemandCompileContext | None = None,
     ) -> tuple[PredicateDemand, ...]:
+        """Compile every active predicate in deterministic order.
+
+        Graph, hypothesis, and frontier identity/version are validated first.
+        Each active node delegates to :meth:`compile_node`; for a FOLLOWS node,
+        an already-bound leader is copied from the hypothesis while an unbound
+        follower remains an introducible role in the resulting demand.
+        """
         context = context or DemandCompileContext()
+        # These checks are the semantic/physical handoff fence. Planning from a
+        # stale frontier could otherwise launch work for a retired branch.
         if frontier.snapshot.hypothesis_id != hypothesis.hypothesis_id:
             raise DemandCompileError("frontier and hypothesis identifiers do not match")
         if frontier.snapshot.hypothesis_version != hypothesis.version:
@@ -91,6 +111,8 @@ class DemandCompiler:
             )
             for node_id in frontier.snapshot.enabled_node_ids
         ]
+        # Stable ordering makes plan traces and deterministic IDs reproducible
+        # regardless of dictionary or graph traversal order.
         return tuple(sorted(demands, key=lambda demand: (str(demand.checkpoint_id), demand.graph_node_id)))
 
     def compile_node(
@@ -103,7 +125,13 @@ class DemandCompiler:
         context: DemandCompileContext,
         structural_universe: bool = False,
     ) -> PredicateDemand:
-        """Compile one authored primitive.
+        """Compile one active predicate node into one ``PredicateDemand``.
+
+        The method resolves current role bindings, derives introduce/validate
+        behavior, attaches checkpoint time/deadline/cancellation information,
+        and records required capabilities and acceptable result types. Source
+        grounding is currently isolated in the latter half of this method and
+        remains deployment-aware for serialized compatibility.
 
         ``structural_universe`` marks compilation performed before a concrete
         branch/identity is selected (static whole-event baselines). Consumer-
@@ -118,6 +146,8 @@ class DemandCompiler:
         if node.predicate is None:
             raise DemandCompileError(f"active graph node is not an executable predicate: {graph_node_id}")
         try:
+            # Schema validation is intentionally provider-independent. It
+            # validates the logical vocabulary before any chain is considered.
             predicate_schema = self.predicate_registry.validate(node.predicate)
         except PredicateSchemaError as exc:
             raise DemandCompileError(str(exc)) from exc
@@ -134,6 +164,8 @@ class DemandCompiler:
             variable = predicate_role.variable
             binding = hypothesis.role_bindings.get(variable)
             if binding is not None:
+                # Bound semantic variables become validation requirements for
+                # providers; they are never silently reintroduced.
                 bound_roles[predicate_role.role_name] = binding.canonical_entity_id
                 role_modes[predicate_role.role_name] = _bound_mode(role_schema.binding_capabilities)
                 continue
@@ -149,13 +181,10 @@ class DemandCompiler:
                     role_schema.binding_capabilities
                 )
             except DemandCompileError as exc:
-                if (
-                    structural_universe
-                    and node.predicate.predicate_id == "SAME_ENTITY"
-                ):
+                if structural_universe:
                     unbound_roles.pop()
                     bound_roles[predicate_role.role_name] = (
-                        f"structural:{variable}"
+                        f"__structural_unbound__:{variable}"
                     )
                     role_modes[predicate_role.role_name] = _bound_mode(
                         role_schema.binding_capabilities
@@ -173,7 +202,15 @@ class DemandCompiler:
         )
         eligible_sources = context.eligible_source_ids_by_node.get(graph_node_id)
         if eligible_sources is None:
-            eligible_sources = self._infer_sources(predicate_schema.required_capabilities)
+            # Automatic source grounding consults deployment capabilities, not
+            # provider implementations. Chain selection remains a later phase.
+            eligible_sources = (
+                self.source_grounder.infer_sources(
+                    predicate_schema.required_capabilities
+                )
+                if self.source_grounder is not None
+                else ()
+            )
         # Some predicates consume identities whose namespace is local to the
         # sensor/tracker which introduced them.  Authored source-affinity roles
         # make that locality explicit.  A spatial prediction may rank where to
@@ -343,6 +380,82 @@ class DemandCompiler:
             if checkpoint.kind == CheckpointKind.OR_RESOLUTION
             else CancellationScope.HYPOTHESIS,
         )
+        event_time_interval = checkpoint.event_time_interval
+        if node.annotations.get("execution_mode") == "retrospective":
+            anchor_spec = node.annotations.get("retrospective_anchor") or {}
+            authored_keys = anchor_spec.get("trigger_authored_keys") or ()
+            if anchor_spec.get("trigger_authored_key"):
+                authored_keys = (*authored_keys, anchor_spec["trigger_authored_key"])
+            anchor_intervals = [
+                interval
+                for authored_key in authored_keys
+                if authored_key in graph.nodes_by_key
+                for interval in hypothesis.node_states[
+                    graph.nodes_by_key[authored_key].node_id
+                ].event_time_intervals
+            ]
+            if anchor_intervals:
+                anchor_time = max(interval.end for interval in anchor_intervals)
+                start = anchor_time - timedelta(
+                    milliseconds=int(node.annotations.get("lookback_ms", 0))
+                )
+                if anchor_spec.get("clamp_to_hypothesis_window", True):
+                    start = max(start, hypothesis.event_time_window.start)
+                event_time_interval = EventTimeInterval(
+                    start=start,
+                    end=(
+                        max(anchor_time, checkpoint.event_time_interval.end)
+                        if node.annotations.get("catch_up_and_follow", False)
+                        else anchor_time
+                    ),
+                )
+
+        retrospective_context = None
+        if node.annotations.get("execution_mode") == "retrospective":
+            anchor_spec = node.annotations.get("retrospective_anchor") or {}
+            authored_keys = tuple(anchor_spec.get("trigger_authored_keys") or ())
+            if anchor_spec.get("trigger_authored_key"):
+                authored_keys = (*authored_keys, anchor_spec["trigger_authored_key"])
+            resolved_key = next(
+                (
+                    key
+                    for key in authored_keys
+                    if key in graph.nodes_by_key
+                    and hypothesis.node_states[
+                        graph.nodes_by_key[key].node_id
+                    ].event_time_intervals
+                ),
+                authored_keys[0] if authored_keys else None,
+            )
+            resolved_intervals = (
+                hypothesis.node_states[
+                    graph.nodes_by_key[resolved_key].node_id
+                ].event_time_intervals
+                if resolved_key is not None and resolved_key in graph.nodes_by_key
+                else ()
+            )
+            anchor_time = (
+                max(interval.end for interval in resolved_intervals)
+                if resolved_intervals
+                else event_time_interval.end
+            )
+            retrospective_context = {
+                "anchor_node_id": (
+                    graph.nodes_by_key[resolved_key].node_id
+                    if resolved_key is not None
+                    else graph_node_id
+                ),
+                "anchor_authored_key": resolved_key or node.authored_key,
+                "anchor_event_time": anchor_time.isoformat(),
+                "anchor_kind": anchor_spec.get("kind", "trigger_node_end"),
+                "lookback_ms": int(node.annotations.get("lookback_ms", 0)),
+                "catch_up_and_follow": bool(
+                    node.annotations.get("catch_up_and_follow", False)
+                ),
+            }
+            if structural_universe:
+                retrospective_context["structural_template"] = anchor_spec
+
         return PredicateDemand(
             request_id=hypothesis.request_id,
             graph_hash=hypothesis.graph_hash,
@@ -354,7 +467,7 @@ class DemandCompiler:
             semantic_predicate=node.predicate,
             bound_roles=bound_roles,
             unbound_roles=tuple(unbound_roles),
-            event_time_interval=checkpoint.event_time_interval,
+            event_time_interval=event_time_interval,
             deadline=hypothesis.deadline,
             eligible_source_ids=tuple(eligible_sources),
             eligible_regions=tuple(eligible_regions),
@@ -366,6 +479,7 @@ class DemandCompiler:
             hard_constraints=hard_constraints,
             continuation_requirements=continuation_requirements,
             desired_continuation_types=predicate_schema.default_continuation_types,
+            retrospective_context=retrospective_context,
             binding_policy=DemandBindingPolicy(
                 role_modes=role_modes,
                 forkable_roles=forkable,
@@ -374,53 +488,51 @@ class DemandCompiler:
             cancellation_scope=cancellation_scope,
         )
 
-    def _infer_sources(self, capabilities: tuple[str, ...]) -> tuple[str, ...]:
-        wants_audio = "audio" in capabilities
-        selected = []
-        for source in self.deployment.sources.values():
-            if not source.available:
-                continue
-            if wants_audio and "audio" not in source.modalities:
-                continue
-            if not wants_audio and "vision" not in source.modalities:
-                continue
-            selected.append(source.source_id)
-        return tuple(sorted(selected))
-
     def _identity_source_id(
         self,
         canonical_entity_id: str,
         *,
         eligible_sources: tuple[str, ...],
     ) -> str | None:
-        """Resolve the source namespace of a sensor-local canonical identity."""
-
         if canonical_entity_id.startswith("camera_fov:"):
-            camera_owner = canonical_entity_id.removeprefix("camera_fov:")
-            if camera_owner in self.deployment.sources:
-                return camera_owner
-            node_sources = tuple(
-                source.source_id
-                for source in self.deployment.sources.values()
-                if source.node_id == camera_owner and "vision" in source.modalities
+            camera = canonical_entity_id.partition(":")[2]
+            matches = tuple(
+                source_id
+                for source_id in eligible_sources
+                if (source := self.deployment.sources.get(source_id)) is not None
+                and "vision" in source.modalities
+                and camera
+                in {
+                    source.node_id,
+                    source.node_id.removeprefix("dvpg_gq_"),
+                    "orin"
+                    + source.node_id.removeprefix("dvpg_gq_orin_"),
+                }
             )
-            if len(node_sources) == 1:
-                return node_sources[0]
-            return None
-        namespace, separator, _ = canonical_entity_id.partition(":")
-        if not separator:
-            return None
-        if namespace in self.deployment.sources or namespace in set(eligible_sources):
-            return namespace
-        node_sources = tuple(
-            source.source_id
-            for source in self.deployment.sources.values()
-            if source.node_id == namespace and "vision" in source.modalities
+            return matches[0] if len(matches) == 1 else None
+        if self.source_grounder is None:
+            namespace, separator, _ = canonical_entity_id.partition(":")
+            return namespace if separator and namespace in set(eligible_sources) else None
+        return self.source_grounder.identity_source_id(
+            canonical_entity_id, eligible_sources=eligible_sources
         )
-        if len(node_sources) == 1:
-            return node_sources[0]
-        return None
 
+    def compile(
+        self,
+        *,
+        graph: CompiledSemanticGraph,
+        hypothesis: Hypothesis,
+        frontier: DerivedFrontier,
+        context: DemandCompileContext | None = None,
+    ) -> tuple[PredicateDemand, ...]:
+        """Architecture-level alias for :meth:`compile_frontier`."""
+
+        return self.compile_frontier(
+            graph=graph,
+            hypothesis=hypothesis,
+            frontier=frontier,
+            context=context,
+        )
 
 def _bound_mode(capabilities: tuple[BindingCapability, ...]) -> BindingCapability:
     for candidate in (

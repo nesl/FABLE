@@ -1,0 +1,71 @@
+{
+  "expected_predicate_id": "ENTERS",
+  "tracks": [
+    {
+      "bbox": {
+        "x1": -3,
+        "x2": -1,
+        "y1": 0,
+        "y2": 4
+      },
+      "class_name": "car",
+      "confidence": 0.95,
+      "event_time": "2026-01-01T00:00:00+00:00",
+      "local_track_id": 1,
+      "scoped_track_id": "camera:session:1",
+      "source_id": "camera",
+      "tracker_session_id": "session",
+      "world_point": {
+        "coordinate_frame_id": "world",
+        "x": -3,
+        "y": 0
+      }
+    },
+    {
+      "bbox": {
+        "x1": 2,
+        "x2": 4,
+        "y1": 0,
+        "y2": 4
+      },
+      "class_name": "car",
+      "confidence": 0.95,
+      "event_time": "2026-01-01T00:00:01+00:00",
+      "local_track_id": 1,
+      "scoped_track_id": "camera:session:1",
+      "source_id": "camera",
+      "tracker_session_id": "session",
+      "world_point": {
+        "coordinate_frame_id": "world",
+        "x": 2,
+        "y": 0
+      }
+    }
+  ],
+  "zone": {
+    "coordinate_frame_id": "world",
+    "polygon": [
+      {
+        "coordinate_frame_id": "world",
+        "x": 0,
+        "y": -2
+      },
+      {
+        "coordinate_frame_id": "world",
+        "x": 5,
+        "y": -2
+      },
+      {
+        "coordinate_frame_id": "world",
+        "x": 5,
+        "y": 5
+      },
+      {
+        "coordinate_frame_id": "world",
+        "x": 0,
+        "y": 5
+      }
+    ],
+    "zone_id": "door"
+  }
+}

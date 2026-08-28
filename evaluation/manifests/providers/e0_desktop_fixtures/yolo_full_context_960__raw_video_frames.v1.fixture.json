@@ -1,0 +1,6 @@
+{
+  "device": "cpu",
+  "image_path": "/calibration/frame.jpg",
+  "minimum_detection_count": 1,
+  "model_path": "/calibration/yolov8s.pt"
+}

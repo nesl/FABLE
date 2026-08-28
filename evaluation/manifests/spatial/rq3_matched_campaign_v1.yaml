@@ -1,0 +1,28 @@
+schema_version: fable.rq3_matched_campaign.v1
+freeze_id: rq3-matched-20260820
+execution_order: trace_major_policy_minor
+random_seed: 0
+repetitions: 1
+network_profile: good_network
+spatial:
+  manifest: evaluation/results/rq3_all_campaigns_20260731/manifests/rq3b.jsonl
+  sha256: 09d297670debadd5bba8d5a672975325f7861e00b157ec3afd1c8251183dbcbf
+  rows: 50
+  traces: 10
+  policies:
+    - SPATIAL_BROADCAST
+    - SPATIAL_FABLE
+    - SPATIAL_ORACLE
+    - SPATIAL_RESOURCE_ONLY
+    - SPATIAL_TOPOLOGY_SHORTLIST
+retrospective:
+  manifest: evaluation/results/rq3_all_campaigns_20260731/manifests/rq3c.jsonl
+  sha256: f97b4d5290e6eb4aa4320f652bafad8a6fa429a10f4feb77ac1f7032308343bb
+  rows: 20
+  traces: 10
+  policies: [B1_HANDWRITTEN_STATIC, FABLE]
+matching_rules:
+  - Every policy within a question uses the identical trace set.
+  - Every cell uses nominal network and realtime playback.
+  - Existing results do not authorize reuse; the future headline root must be fresh.
+execution_authorized: false

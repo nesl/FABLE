@@ -81,7 +81,15 @@ def match_replay_scenario(
     candidates: list[tuple[float, ReplayScenario]] = []
     for scenario in scenarios:
         delta = abs((scenario.start_datetime - experiment.recording_start).total_seconds())
-        if delta <= tolerance_seconds:
+        overlaps_observed_recording = not (
+            scenario.observed_start_datetime is not None
+            and scenario.observed_end_datetime is not None
+            and (
+                scenario.observed_end_datetime < experiment.recording_start
+                or scenario.observed_start_datetime > experiment.recording_end
+            )
+        )
+        if delta <= tolerance_seconds and overlaps_observed_recording:
             candidates.append((delta, scenario))
     warnings = list(experiment.spatial_notes)
     if not candidates:

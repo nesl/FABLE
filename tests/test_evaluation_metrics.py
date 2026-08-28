@@ -73,6 +73,72 @@ def test_event_matching_rejects_negative_boundary_tolerance() -> None:
         raise AssertionError("negative tolerance must be rejected")
 
 
+def test_event_presence_clusters_alternative_identity_hypotheses() -> None:
+    truth = GroundTruthEvent(
+        event_id="gt-1",
+        event_family="robbery",
+        start_time=BASE_TIME,
+        end_time=BASE_TIME + timedelta(seconds=10),
+    )
+    results = tuple(
+        ComplexEventResult(
+            run_id="run",
+            baseline_id=BaselineId.FABLE,
+            trace_id="trace",
+            request_id="request",
+            hypothesis_id=f"hypothesis-{index}",
+            event_time=BASE_TIME + timedelta(seconds=10),
+            monotonic_timestamp_ns=index,
+            result_id=f"result-{index}",
+            event_family="robbery",
+            event_start_time=BASE_TIME,
+            event_end_time=BASE_TIME + timedelta(seconds=10),
+            emitted_at=BASE_TIME + timedelta(seconds=11),
+            bindings={"vehicle": f"vehicle-{index}"},
+        )
+        for index in range(3)
+    )
+    metrics = evaluate_event_results((truth,), results)
+    assert metrics.true_positives == 1
+    assert metrics.false_positives == 2
+    assert metrics.identity_hypothesis_count == 3
+    assert metrics.alternative_hypothesis_count == 2
+    assert metrics.event_presence is not None
+    assert metrics.event_presence.true_positives == 1
+    assert metrics.event_presence.false_positives == 0
+    assert metrics.event_presence.occurrence_count == 1
+
+
+def test_event_presence_retains_separate_temporal_occurrences() -> None:
+    truth = GroundTruthEvent(
+        event_id="gt-1",
+        event_family="convoy",
+        start_time=BASE_TIME,
+        end_time=BASE_TIME + timedelta(seconds=10),
+    )
+    results = tuple(
+        ComplexEventResult(
+            run_id="run",
+            baseline_id=BaselineId.FABLE,
+            trace_id="trace",
+            request_id="request",
+            event_time=BASE_TIME + timedelta(seconds=offset + 1),
+            monotonic_timestamp_ns=index,
+            result_id=f"result-{index}",
+            event_family="convoy",
+            event_start_time=BASE_TIME + timedelta(seconds=offset),
+            event_end_time=BASE_TIME + timedelta(seconds=offset + 1),
+            emitted_at=BASE_TIME + timedelta(seconds=offset + 2),
+        )
+        for index, offset in enumerate((1, 30))
+    )
+    metrics = evaluate_event_results((truth,), results)
+    assert metrics.event_presence is not None
+    assert metrics.event_presence.true_positives == 1
+    assert metrics.event_presence.false_positives == 1
+    assert metrics.event_presence.occurrence_count == 2
+
+
 def _episode(**updates):
     values = dict(
         run_id="run",

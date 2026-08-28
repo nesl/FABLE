@@ -19,9 +19,36 @@ htmlcov/
 # Generated runtime and experiment data
 /runs/
 /evaluation/results/
+/evaluation/results.local-migration-backup/
 /debug/
 /debug.local-migration-backup/
 /iobt-minimal-ce-replay/generated/
+
+# Generated campaign matrices and deployable bundles may contain absolute
+# paths, physical topology, host telemetry, or copied runtime configuration.
+/evaluation/manifests/adaptation/**/preflight_bundle/
+/evaluation/manifests/adaptation/
+/evaluation/manifests/spatial/e3_prepared_*/
+/evaluation/manifests/providers/calibrated_desktop_profiles.json
+/evaluation/manifests/baselines/fable_derived_ce_templates.yaml
+/evaluation/manifests/baselines/*.summary.json
+/evaluation/manifests/workloads/*.jsonl
+/evaluation/manifests/workloads/*.summary.json
+/evaluation/RQ3_RUNBOOK.txt
+/evaluation/RQ3A_UPDATED_RUNBOOK.txt
+
+# Lab-local physical deployment details. Commit the corresponding *.example
+# files, not inventories, addresses, serial-number calibration, or raw probes.
+/config/physical_network_profiles.yaml
+/config/physical_provider_runtimes.yaml
+/config/physical_retention.yaml
+/profiles/physical/inventory*.json
+/profiles/physical/raw/
+/profiles/physical/rpi_device_*.yaml
+/iobt-minimal-ce-replay/setup/zed_settings/SN*.conf
+/netwaggle/configs/physical_external_*.json
+/netwaggle/configs/profiles/physical_external_*.json
+/netwaggle/compose.physical_external_*.yaml
 
 # Machine-specific storage migration record. config/storage.yaml is portable
 # through the FABLE_STORAGE_ROOT environment override and remains versioned.
@@ -33,6 +60,9 @@ htmlcov/
 *.onnx
 *.engine
 *.weights
+
+# Local archives and copied source trees are not source-of-truth code.
+/fable/semantic/definitions.zip
 
 # Local research inputs, generated answers, and assembled result reports
 /paper.pdf

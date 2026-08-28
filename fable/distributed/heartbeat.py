@@ -332,6 +332,7 @@ def build_node_heartbeat(
     availability: NodeAvailability = NodeAvailability.AVAILABLE,
     sent_at: datetime | None = None,
 ) -> NodeHeartbeat:
+    """Create the typed heartbeat that NodeAgent publishes once per interval."""
     return NodeHeartbeat(
         node_id=node_id,
         session_id=session_id,

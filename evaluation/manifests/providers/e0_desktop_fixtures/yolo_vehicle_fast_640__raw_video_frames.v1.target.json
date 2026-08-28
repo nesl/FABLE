@@ -1,0 +1,6 @@
+{
+  "input_class": "raw_video_frames.v1",
+  "provider_id": "yolo_vehicle_fast_640",
+  "target_id": "calibration_target_7df6ca32af9ad32cac30e910",
+  "tier": "sensor"
+}

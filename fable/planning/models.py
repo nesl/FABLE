@@ -181,6 +181,7 @@ class DeploymentNode(FableModel):
     node_class: str = Field(min_length=1)
     region: str = Field(min_length=1)
     capacity: ComputeCapacity
+    resource_pool_id: str | None = None
     capabilities: tuple[str, ...] = ()
     policy_tags: tuple[str, ...] = ()
     available: bool = True
@@ -290,6 +291,7 @@ class AlternativeEdgeKind(StrEnum):
 
 
 class AlternativeGraphNode(FableModel):
+    """One source, provider operation, transfer, continuation, or result sink."""
     node_id: str = Field(min_length=1)
     kind: AlternativeNodeKind
     label: str = Field(min_length=1)
@@ -305,6 +307,7 @@ class AlternativeGraphNode(FableModel):
 
 
 class AlternativeGraphEdge(FableModel):
+    """Typed data/production/satisfaction dependency in a provider-chain DAG."""
     edge_id: str = Field(min_length=1)
     source_node_id: str = Field(min_length=1)
     target_node_id: str = Field(min_length=1)
@@ -314,6 +317,7 @@ class AlternativeGraphEdge(FableModel):
 
 
 class PhysicalAlternative(FableModel):
+    """One complete selectable physical realization of a PredicateDemand."""
     alternative_id: str = Field(min_length=1)
     demand_id: UUID
     checkpoint_id: UUID
@@ -342,6 +346,11 @@ class PrunedAlternative(FableModel):
 
 
 class PhysicalAlternativeGraph(FableModel):
+    """Materialized implementation DAGs and selectable alternatives for demands.
+
+    It is not the semantic Event Graph. ``alternatives`` drives search; nodes
+    and edges retain typed dataflow structure for validation and diagnostics.
+    """
     graph_id: str = Field(min_length=1)
     checkpoint_ids: tuple[UUID, ...]
     demand_ids: tuple[UUID, ...]

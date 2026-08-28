@@ -160,6 +160,7 @@ def load_deployment_graph(path: str | Path) -> DeploymentGraph:
             node_class=raw["node_class"],
             region=raw["region"],
             capacity=ComputeCapacity.model_validate(raw["capacity"]),
+            resource_pool_id=raw.get("resource_pool_id"),
             capabilities=tuple(raw.get("capabilities", ())),
             policy_tags=tuple(raw.get("policy_tags", ())),
             available=bool(raw.get("available", True)),
@@ -187,7 +188,14 @@ def load_deployment_graph(path: str | Path) -> DeploymentGraph:
     links = tuple(
         NetworkLink.model_validate(item) for item in document.get("links", ())
     )
-    return DeploymentGraph(nodes=nodes, sources=sources, links=links)
+    resource_pools = {
+        pool_id: ComputeCapacity.model_validate(raw["capacity"])
+        for pool_id, raw in document.get("resource_pools", {}).items()
+    }
+    return DeploymentGraph(
+        nodes=nodes, sources=sources, links=links,
+        resource_pools=resource_pools or None,
+    )
 
 
 def _load_yaml(path: str | Path) -> dict[str, Any]:

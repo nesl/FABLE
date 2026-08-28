@@ -184,6 +184,81 @@ def test_tracker_matches_multi_car_metadata_by_iou_not_semantic_class_id():
     assert output.tracks[0].attributes["reid"]["crop_data_url"].endswith("right")
 
 
+def test_tracker_retains_detector_crop_while_track_is_prediction_only():
+    detection = Detection(
+        detection_id="vehicle-detection",
+        class_name="car",
+        confidence=0.9,
+        bbox=BoundingBox(x1=0, y1=0, x2=10, y2=10),
+        attributes={"reid": {"crop_data_url": "data:image/jpeg;base64,vehicle"}},
+    )
+    first_frame = detection_frame(0).model_copy(update={"detections": (detection,)})
+    second_frame = detection_frame(1).model_copy(update={"detections": ()})
+    outputs = iter(
+        (
+            SimpleNamespace(
+                xyxy=[[0.0, 0.0, 10.0, 10.0]],
+                tracker_id=[4],
+                confidence=[0.9],
+                class_id=[0],
+            ),
+            SimpleNamespace(
+                xyxy=[[1.0, 0.0, 11.0, 10.0]],
+                tracker_id=[4],
+                confidence=[0.8],
+                class_id=[0],
+            ),
+        )
+    )
+    adapter = RoboflowTrackerAdapter(
+        tracker=SimpleNamespace(update=lambda *args, **kwargs: next(outputs), reset=lambda: None),
+        detections_factory=lambda _: object(),
+        session_id="prediction-only",
+    )
+
+    adapter.update(first_frame)
+    predicted = adapter.update(second_frame)
+
+    assert predicted.tracks[0].attributes["matched_detection_id"] == "vehicle-detection"
+    assert predicted.tracks[0].attributes["reid"]["crop_data_url"].endswith("vehicle")
+    assert predicted.tracks[0].attributes["detector_matched_current_frame"] is False
+
+
+def test_tracker_recovers_crop_when_identity_is_first_published_after_detection():
+    detection = Detection(
+        detection_id="tentative-vehicle",
+        class_name="car",
+        confidence=0.9,
+        bbox=BoundingBox(x1=0, y1=0, x2=10, y2=10),
+        attributes={"reid": {"crop_data_url": "data:image/jpeg;base64,tentative"}},
+    )
+    first_frame = detection_frame(0).model_copy(update={"detections": (detection,)})
+    second_frame = detection_frame(1).model_copy(update={"detections": ()})
+    outputs = iter(
+        (
+            SimpleNamespace(xyxy=[], tracker_id=[], confidence=[], class_id=[]),
+            SimpleNamespace(
+                xyxy=[[1.0, 0.0, 11.0, 10.0]],
+                tracker_id=[8],
+                confidence=[0.8],
+                class_id=[0],
+            ),
+        )
+    )
+    adapter = RoboflowTrackerAdapter(
+        tracker=SimpleNamespace(update=lambda *args, **kwargs: next(outputs), reset=lambda: None),
+        detections_factory=lambda _: object(),
+        session_id="delayed-publication",
+    )
+
+    assert adapter.update(first_frame).tracks == ()
+    delayed = adapter.update(second_frame)
+
+    assert delayed.tracks[0].attributes["matched_detection_id"] == "tentative-vehicle"
+    assert delayed.tracks[0].attributes["reid"]["crop_data_url"].endswith("tentative")
+    assert delayed.tracks[0].attributes["detector_matched_current_frame"] is False
+
+
 def test_tracker_rejects_out_of_order_event_time():
     adapter = RoboflowTrackerAdapter(
         tracker=FakeTracker(), detections_factory=lambda _: object(), session_id="session_a"

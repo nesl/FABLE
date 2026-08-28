@@ -1,0 +1,42 @@
+schema_version: fable.dynamic_evidence_ce_classification.v1
+purpose: >-
+  Predeclared grouping for RQ3a. Dynamic evidence means that semantic progress
+  changes the live evidence frontier through retained identity, retrospective
+  lookup, spatial handoff, or a later predicate bound to earlier evidence.
+classes:
+  strong_dynamic:
+    - ce_variant: Cross-sensor robbery
+      spatial: cross-camera vehicle identity association and departure
+      temporal: trigger-directed lookback followed by forward identity reuse
+    - ce_variant: Vehicle convergence
+      spatial: pairwise convergence from projected or image-space tracks
+      temporal: converged vehicle identities persist through asynchronous exits
+    - ce_variant: Vehicle rendezvous
+      spatial: two vehicles converge in a shared or coordinated view
+      temporal: arrival identities persist through interaction and departure
+    - ce_variant: Three-visit stalking
+      spatial: execution may fan out across cameras without requiring calibration
+      temporal: canonical vehicle identity recurs across three separated visits
+  mixed_dynamic:
+    - ce_variant: Talking/rendezvous
+      spatial: visual and audio evidence may originate at different sensors
+      temporal: arrival precedes interaction and the bound vehicle departure
+    - ce_variant: Pass-follow-clear convoy
+      spatial: full definition supports route-aware cross-camera following
+      temporal: leader, follower, and scene-clear frontiers progress in sequence
+      caveat: RQ1 and the current replay profile use simplified sequential passes
+    - ce_variant: Two-vehicle chase
+      spatial: full definition can use route-aware FOLLOWS
+      temporal: a leader observation activates a distinct follower requirement
+      caveat: the current replay profile uses simplified sequential passes
+  non_dynamic_controls:
+    - ce_variant: Robbery with alarm
+      spatial: no cross-camera identity is required by the alarm_departure profile
+      temporal: alarm precedes departure, but prior identity is not retained
+    - ce_variant: Route convoy
+      spatial: the current evaluation profile does not require spatial handoff
+      temporal: sequential distinct vehicle passes only
+selection_policy:
+  execution_order: strong_dynamic_then_mixed_dynamic_then_non_dynamic_controls
+  within_trace_order: disturbance_then_B2_then_B3_then_FABLE
+  note: Package exchange/rendezvous is dynamically structured but has no selected RQ1 trace.

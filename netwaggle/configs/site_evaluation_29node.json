@@ -1,0 +1,828 @@
+{
+  "schema_version": "fable.deployment_topology.v1",
+  "name": "site-evaluation-29node",
+  "device_count": 29,
+  "gateway": {
+    "ip": "10.255.0.1/16",
+    "switch": "s_cloud",
+    "host_ifname": "nwg-host",
+    "switch_ifname": "nwg-sw",
+    "mtu": 1500
+  },
+  "mqtt_host_ip": "10.255.0.1",
+  "switches": [
+    "s_orin1",
+    "s_orin4",
+    "s_orin7",
+    "s_orin11",
+    "s_orin12",
+    "s_orin13",
+    "s_orin14",
+    "s_orin15",
+    "s_orin16",
+    "s_orin17",
+    "s_orin18",
+    "s_orin19",
+    "s_orin20",
+    "s_orin21",
+    "s_orin22",
+    "s_orin23",
+    "s_orin24",
+    "s_orin25",
+    "s_orin26",
+    "s_orin27",
+    "s_orin28",
+    "s_orin29",
+    "s_orin30",
+    "s_mob1",
+    "s_mob2",
+    "s_mob3",
+    "s_mob4",
+    "s_mob5",
+    "s_mob6",
+    "s_edge",
+    "s_site",
+    "s_cloud"
+  ],
+  "links": [
+    {
+      "from": "s_orin1",
+      "to": "s_edge",
+      "bw": 100,
+      "delay": "5ms",
+      "jitter": "1ms",
+      "loss": 0.1
+    },
+    {
+      "from": "s_orin4",
+      "to": "s_edge",
+      "bw": 100,
+      "delay": "5ms",
+      "jitter": "1ms",
+      "loss": 0.1
+    },
+    {
+      "from": "s_orin7",
+      "to": "s_edge",
+      "bw": 100,
+      "delay": "5ms",
+      "jitter": "1ms",
+      "loss": 0.1
+    },
+    {
+      "from": "s_orin11",
+      "to": "s_edge",
+      "bw": 100,
+      "delay": "5ms",
+      "jitter": "1ms",
+      "loss": 0.1
+    },
+    {
+      "from": "s_orin12",
+      "to": "s_edge",
+      "bw": 100,
+      "delay": "5ms",
+      "jitter": "1ms",
+      "loss": 0.1
+    },
+    {
+      "from": "s_orin13",
+      "to": "s_edge",
+      "bw": 100,
+      "delay": "5ms",
+      "jitter": "1ms",
+      "loss": 0.1
+    },
+    {
+      "from": "s_orin14",
+      "to": "s_edge",
+      "bw": 100,
+      "delay": "5ms",
+      "jitter": "1ms",
+      "loss": 0.1
+    },
+    {
+      "from": "s_orin15",
+      "to": "s_edge",
+      "bw": 100,
+      "delay": "5ms",
+      "jitter": "1ms",
+      "loss": 0.1
+    },
+    {
+      "from": "s_orin16",
+      "to": "s_edge",
+      "bw": 100,
+      "delay": "5ms",
+      "jitter": "1ms",
+      "loss": 0.1
+    },
+    {
+      "from": "s_orin17",
+      "to": "s_edge",
+      "bw": 100,
+      "delay": "5ms",
+      "jitter": "1ms",
+      "loss": 0.1
+    },
+    {
+      "from": "s_orin18",
+      "to": "s_edge",
+      "bw": 100,
+      "delay": "5ms",
+      "jitter": "1ms",
+      "loss": 0.1
+    },
+    {
+      "from": "s_orin19",
+      "to": "s_edge",
+      "bw": 100,
+      "delay": "5ms",
+      "jitter": "1ms",
+      "loss": 0.1
+    },
+    {
+      "from": "s_orin20",
+      "to": "s_edge",
+      "bw": 100,
+      "delay": "5ms",
+      "jitter": "1ms",
+      "loss": 0.1
+    },
+    {
+      "from": "s_orin21",
+      "to": "s_edge",
+      "bw": 100,
+      "delay": "5ms",
+      "jitter": "1ms",
+      "loss": 0.1
+    },
+    {
+      "from": "s_orin22",
+      "to": "s_edge",
+      "bw": 100,
+      "delay": "5ms",
+      "jitter": "1ms",
+      "loss": 0.1
+    },
+    {
+      "from": "s_orin23",
+      "to": "s_edge",
+      "bw": 100,
+      "delay": "5ms",
+      "jitter": "1ms",
+      "loss": 0.1
+    },
+    {
+      "from": "s_orin24",
+      "to": "s_edge",
+      "bw": 100,
+      "delay": "5ms",
+      "jitter": "1ms",
+      "loss": 0.1
+    },
+    {
+      "from": "s_orin25",
+      "to": "s_edge",
+      "bw": 100,
+      "delay": "5ms",
+      "jitter": "1ms",
+      "loss": 0.1
+    },
+    {
+      "from": "s_orin26",
+      "to": "s_edge",
+      "bw": 100,
+      "delay": "5ms",
+      "jitter": "1ms",
+      "loss": 0.1
+    },
+    {
+      "from": "s_orin27",
+      "to": "s_edge",
+      "bw": 100,
+      "delay": "5ms",
+      "jitter": "1ms",
+      "loss": 0.1
+    },
+    {
+      "from": "s_orin28",
+      "to": "s_edge",
+      "bw": 100,
+      "delay": "5ms",
+      "jitter": "1ms",
+      "loss": 0.1
+    },
+    {
+      "from": "s_orin29",
+      "to": "s_edge",
+      "bw": 100,
+      "delay": "5ms",
+      "jitter": "1ms",
+      "loss": 0.1
+    },
+    {
+      "from": "s_orin30",
+      "to": "s_edge",
+      "bw": 100,
+      "delay": "5ms",
+      "jitter": "1ms",
+      "loss": 0.1
+    },
+    {
+      "from": "s_mob1",
+      "to": "s_edge",
+      "bw": 100,
+      "delay": "5ms",
+      "jitter": "1ms",
+      "loss": 0.1
+    },
+    {
+      "from": "s_mob2",
+      "to": "s_edge",
+      "bw": 100,
+      "delay": "5ms",
+      "jitter": "1ms",
+      "loss": 0.1
+    },
+    {
+      "from": "s_mob3",
+      "to": "s_edge",
+      "bw": 100,
+      "delay": "5ms",
+      "jitter": "1ms",
+      "loss": 0.1
+    },
+    {
+      "from": "s_mob4",
+      "to": "s_edge",
+      "bw": 100,
+      "delay": "5ms",
+      "jitter": "1ms",
+      "loss": 0.1
+    },
+    {
+      "from": "s_mob5",
+      "to": "s_edge",
+      "bw": 100,
+      "delay": "5ms",
+      "jitter": "1ms",
+      "loss": 0.1
+    },
+    {
+      "from": "s_mob6",
+      "to": "s_edge",
+      "bw": 100,
+      "delay": "5ms",
+      "jitter": "1ms",
+      "loss": 0.1
+    },
+    {
+      "from": "s_edge",
+      "to": "s_site",
+      "bw": 1000,
+      "delay": "0.5ms",
+      "jitter": "0.1ms",
+      "loss": 0
+    },
+    {
+      "from": "s_site",
+      "to": "s_cloud",
+      "bw": 200,
+      "delay": "25ms",
+      "jitter": "3ms",
+      "loss": 0.1
+    }
+  ],
+  "logical_nodes": [
+    {
+      "name": "orin1",
+      "tier": "embedded",
+      "anchor_container": "netwaggle-node-orin1",
+      "switch": "s_orin1",
+      "ip": "10.255.1.2/16",
+      "gateway": "10.255.0.1",
+      "containers": [
+        "zed-replay-orin1",
+        "yolo-detector-orin1",
+        "respeaker-replay-orin1",
+        "audio-detector-orin1",
+        "fable-agent-orin1",
+        "fable-vehicle-orin1",
+        "fable-multimodal-orin1"
+      ]
+    },
+    {
+      "name": "orin4",
+      "tier": "embedded",
+      "anchor_container": "netwaggle-node-orin4",
+      "switch": "s_orin4",
+      "ip": "10.255.4.2/16",
+      "gateway": "10.255.0.1",
+      "containers": [
+        "zed-replay-orin4",
+        "yolo-detector-orin4",
+        "respeaker-replay-orin4",
+        "audio-detector-orin4",
+        "fable-agent-orin4",
+        "fable-vehicle-orin4",
+        "fable-multimodal-orin4"
+      ]
+    },
+    {
+      "name": "orin7",
+      "tier": "embedded",
+      "anchor_container": "netwaggle-node-orin7",
+      "switch": "s_orin7",
+      "ip": "10.255.7.2/16",
+      "gateway": "10.255.0.1",
+      "containers": [
+        "zed-replay-orin7",
+        "yolo-detector-orin7",
+        "respeaker-replay-orin7",
+        "audio-detector-orin7",
+        "fable-agent-orin7",
+        "fable-vehicle-orin7",
+        "fable-multimodal-orin7"
+      ]
+    },
+    {
+      "name": "orin11",
+      "tier": "embedded",
+      "anchor_container": "netwaggle-node-orin11",
+      "switch": "s_orin11",
+      "ip": "10.255.11.2/16",
+      "gateway": "10.255.0.1",
+      "containers": [
+        "zed-replay-orin11",
+        "yolo-detector-orin11",
+        "respeaker-replay-orin11",
+        "audio-detector-orin11",
+        "fable-agent-orin11",
+        "fable-vehicle-orin11",
+        "fable-multimodal-orin11"
+      ]
+    },
+    {
+      "name": "orin12",
+      "tier": "embedded",
+      "anchor_container": "netwaggle-node-orin12",
+      "switch": "s_orin12",
+      "ip": "10.255.12.2/16",
+      "gateway": "10.255.0.1",
+      "containers": [
+        "zed-replay-orin12",
+        "yolo-detector-orin12",
+        "respeaker-replay-orin12",
+        "audio-detector-orin12",
+        "fable-agent-orin12",
+        "fable-vehicle-orin12",
+        "fable-multimodal-orin12"
+      ]
+    },
+    {
+      "name": "orin13",
+      "tier": "embedded",
+      "anchor_container": "netwaggle-node-orin13",
+      "switch": "s_orin13",
+      "ip": "10.255.13.2/16",
+      "gateway": "10.255.0.1",
+      "containers": [
+        "zed-replay-orin13",
+        "yolo-detector-orin13",
+        "respeaker-replay-orin13",
+        "audio-detector-orin13",
+        "fable-agent-orin13",
+        "fable-vehicle-orin13",
+        "fable-multimodal-orin13"
+      ]
+    },
+    {
+      "name": "orin14",
+      "tier": "embedded",
+      "anchor_container": "netwaggle-node-orin14",
+      "switch": "s_orin14",
+      "ip": "10.255.14.2/16",
+      "gateway": "10.255.0.1",
+      "containers": [
+        "zed-replay-orin14",
+        "yolo-detector-orin14",
+        "respeaker-replay-orin14",
+        "audio-detector-orin14",
+        "fable-agent-orin14",
+        "fable-vehicle-orin14",
+        "fable-multimodal-orin14"
+      ]
+    },
+    {
+      "name": "orin15",
+      "tier": "embedded",
+      "anchor_container": "netwaggle-node-orin15",
+      "switch": "s_orin15",
+      "ip": "10.255.15.2/16",
+      "gateway": "10.255.0.1",
+      "containers": [
+        "zed-replay-orin15",
+        "yolo-detector-orin15",
+        "respeaker-replay-orin15",
+        "audio-detector-orin15",
+        "fable-agent-orin15",
+        "fable-vehicle-orin15",
+        "fable-multimodal-orin15"
+      ]
+    },
+    {
+      "name": "orin16",
+      "tier": "embedded",
+      "anchor_container": "netwaggle-node-orin16",
+      "switch": "s_orin16",
+      "ip": "10.255.16.2/16",
+      "gateway": "10.255.0.1",
+      "containers": [
+        "zed-replay-orin16",
+        "yolo-detector-orin16",
+        "respeaker-replay-orin16",
+        "audio-detector-orin16",
+        "fable-agent-orin16",
+        "fable-vehicle-orin16",
+        "fable-multimodal-orin16"
+      ]
+    },
+    {
+      "name": "orin17",
+      "tier": "embedded",
+      "anchor_container": "netwaggle-node-orin17",
+      "switch": "s_orin17",
+      "ip": "10.255.17.2/16",
+      "gateway": "10.255.0.1",
+      "containers": [
+        "zed-replay-orin17",
+        "yolo-detector-orin17",
+        "respeaker-replay-orin17",
+        "audio-detector-orin17",
+        "fable-agent-orin17",
+        "fable-vehicle-orin17",
+        "fable-multimodal-orin17"
+      ]
+    },
+    {
+      "name": "orin18",
+      "tier": "embedded",
+      "anchor_container": "netwaggle-node-orin18",
+      "switch": "s_orin18",
+      "ip": "10.255.18.2/16",
+      "gateway": "10.255.0.1",
+      "containers": [
+        "zed-replay-orin18",
+        "yolo-detector-orin18",
+        "respeaker-replay-orin18",
+        "audio-detector-orin18",
+        "fable-agent-orin18",
+        "fable-vehicle-orin18",
+        "fable-multimodal-orin18"
+      ]
+    },
+    {
+      "name": "orin19",
+      "tier": "embedded",
+      "anchor_container": "netwaggle-node-orin19",
+      "switch": "s_orin19",
+      "ip": "10.255.19.2/16",
+      "gateway": "10.255.0.1",
+      "containers": [
+        "zed-replay-orin19",
+        "yolo-detector-orin19",
+        "respeaker-replay-orin19",
+        "audio-detector-orin19",
+        "fable-agent-orin19",
+        "fable-vehicle-orin19",
+        "fable-multimodal-orin19"
+      ]
+    },
+    {
+      "name": "orin20",
+      "tier": "embedded",
+      "anchor_container": "netwaggle-node-orin20",
+      "switch": "s_orin20",
+      "ip": "10.255.20.2/16",
+      "gateway": "10.255.0.1",
+      "containers": [
+        "zed-replay-orin20",
+        "yolo-detector-orin20",
+        "respeaker-replay-orin20",
+        "audio-detector-orin20",
+        "fable-agent-orin20",
+        "fable-vehicle-orin20",
+        "fable-multimodal-orin20"
+      ]
+    },
+    {
+      "name": "orin21",
+      "tier": "embedded",
+      "anchor_container": "netwaggle-node-orin21",
+      "switch": "s_orin21",
+      "ip": "10.255.21.2/16",
+      "gateway": "10.255.0.1",
+      "containers": [
+        "zed-replay-orin21",
+        "yolo-detector-orin21",
+        "respeaker-replay-orin21",
+        "audio-detector-orin21",
+        "fable-agent-orin21",
+        "fable-vehicle-orin21",
+        "fable-multimodal-orin21"
+      ]
+    },
+    {
+      "name": "orin22",
+      "tier": "embedded",
+      "anchor_container": "netwaggle-node-orin22",
+      "switch": "s_orin22",
+      "ip": "10.255.22.2/16",
+      "gateway": "10.255.0.1",
+      "containers": [
+        "zed-replay-orin22",
+        "yolo-detector-orin22",
+        "respeaker-replay-orin22",
+        "audio-detector-orin22",
+        "fable-agent-orin22",
+        "fable-vehicle-orin22",
+        "fable-multimodal-orin22"
+      ]
+    },
+    {
+      "name": "orin23",
+      "tier": "embedded",
+      "anchor_container": "netwaggle-node-orin23",
+      "switch": "s_orin23",
+      "ip": "10.255.23.2/16",
+      "gateway": "10.255.0.1",
+      "containers": [
+        "zed-replay-orin23",
+        "yolo-detector-orin23",
+        "respeaker-replay-orin23",
+        "audio-detector-orin23",
+        "fable-agent-orin23",
+        "fable-vehicle-orin23",
+        "fable-multimodal-orin23"
+      ]
+    },
+    {
+      "name": "orin24",
+      "tier": "embedded",
+      "anchor_container": "netwaggle-node-orin24",
+      "switch": "s_orin24",
+      "ip": "10.255.24.2/16",
+      "gateway": "10.255.0.1",
+      "containers": [
+        "zed-replay-orin24",
+        "yolo-detector-orin24",
+        "respeaker-replay-orin24",
+        "audio-detector-orin24",
+        "fable-agent-orin24",
+        "fable-vehicle-orin24",
+        "fable-multimodal-orin24"
+      ]
+    },
+    {
+      "name": "orin25",
+      "tier": "embedded",
+      "anchor_container": "netwaggle-node-orin25",
+      "switch": "s_orin25",
+      "ip": "10.255.25.2/16",
+      "gateway": "10.255.0.1",
+      "containers": [
+        "zed-replay-orin25",
+        "yolo-detector-orin25",
+        "respeaker-replay-orin25",
+        "audio-detector-orin25",
+        "fable-agent-orin25",
+        "fable-vehicle-orin25",
+        "fable-multimodal-orin25"
+      ]
+    },
+    {
+      "name": "orin26",
+      "tier": "embedded",
+      "anchor_container": "netwaggle-node-orin26",
+      "switch": "s_orin26",
+      "ip": "10.255.26.2/16",
+      "gateway": "10.255.0.1",
+      "containers": [
+        "zed-replay-orin26",
+        "yolo-detector-orin26",
+        "respeaker-replay-orin26",
+        "audio-detector-orin26",
+        "fable-agent-orin26",
+        "fable-vehicle-orin26",
+        "fable-multimodal-orin26"
+      ]
+    },
+    {
+      "name": "orin27",
+      "tier": "embedded",
+      "anchor_container": "netwaggle-node-orin27",
+      "switch": "s_orin27",
+      "ip": "10.255.27.2/16",
+      "gateway": "10.255.0.1",
+      "containers": [
+        "zed-replay-orin27",
+        "yolo-detector-orin27",
+        "respeaker-replay-orin27",
+        "audio-detector-orin27",
+        "fable-agent-orin27",
+        "fable-vehicle-orin27",
+        "fable-multimodal-orin27"
+      ]
+    },
+    {
+      "name": "orin28",
+      "tier": "embedded",
+      "anchor_container": "netwaggle-node-orin28",
+      "switch": "s_orin28",
+      "ip": "10.255.28.2/16",
+      "gateway": "10.255.0.1",
+      "containers": [
+        "zed-replay-orin28",
+        "yolo-detector-orin28",
+        "respeaker-replay-orin28",
+        "audio-detector-orin28",
+        "fable-agent-orin28",
+        "fable-vehicle-orin28",
+        "fable-multimodal-orin28"
+      ]
+    },
+    {
+      "name": "orin29",
+      "tier": "embedded",
+      "anchor_container": "netwaggle-node-orin29",
+      "switch": "s_orin29",
+      "ip": "10.255.29.2/16",
+      "gateway": "10.255.0.1",
+      "containers": [
+        "zed-replay-orin29",
+        "yolo-detector-orin29",
+        "respeaker-replay-orin29",
+        "audio-detector-orin29",
+        "fable-agent-orin29",
+        "fable-vehicle-orin29",
+        "fable-multimodal-orin29"
+      ]
+    },
+    {
+      "name": "orin30",
+      "tier": "embedded",
+      "anchor_container": "netwaggle-node-orin30",
+      "switch": "s_orin30",
+      "ip": "10.255.30.2/16",
+      "gateway": "10.255.0.1",
+      "containers": [
+        "zed-replay-orin30",
+        "yolo-detector-orin30",
+        "respeaker-replay-orin30",
+        "audio-detector-orin30",
+        "fable-agent-orin30",
+        "fable-vehicle-orin30",
+        "fable-multimodal-orin30"
+      ]
+    },
+    {
+      "name": "mobile_archive_1",
+      "tier": "mobile",
+      "anchor_container": "netwaggle-node-mobile_archive_1",
+      "switch": "s_mob1",
+      "ip": "10.255.101.2/16",
+      "gateway": "10.255.0.1",
+      "containers": [
+        "mobile-replay-mobile_archive_1",
+        "yolo-detector-mobile_archive_1",
+        "fable-agent-mobile_archive_1",
+        "fable-vehicle-mobile_archive_1",
+        "fable-multimodal-mobile_archive_1"
+      ]
+    },
+    {
+      "name": "mobile_archive_2",
+      "tier": "mobile",
+      "anchor_container": "netwaggle-node-mobile_archive_2",
+      "switch": "s_mob2",
+      "ip": "10.255.102.2/16",
+      "gateway": "10.255.0.1",
+      "containers": [
+        "mobile-replay-mobile_archive_2",
+        "yolo-detector-mobile_archive_2",
+        "fable-agent-mobile_archive_2",
+        "fable-vehicle-mobile_archive_2",
+        "fable-multimodal-mobile_archive_2"
+      ]
+    },
+    {
+      "name": "mobile_archive_3",
+      "tier": "mobile",
+      "anchor_container": "netwaggle-node-mobile_archive_3",
+      "switch": "s_mob3",
+      "ip": "10.255.103.2/16",
+      "gateway": "10.255.0.1",
+      "containers": [
+        "mobile-replay-mobile_archive_3",
+        "yolo-detector-mobile_archive_3",
+        "fable-agent-mobile_archive_3",
+        "fable-vehicle-mobile_archive_3",
+        "fable-multimodal-mobile_archive_3"
+      ]
+    },
+    {
+      "name": "mobile_archive_4",
+      "tier": "mobile",
+      "anchor_container": "netwaggle-node-mobile_archive_4",
+      "switch": "s_mob4",
+      "ip": "10.255.104.2/16",
+      "gateway": "10.255.0.1",
+      "containers": [
+        "mobile-replay-mobile_archive_4",
+        "yolo-detector-mobile_archive_4",
+        "fable-agent-mobile_archive_4",
+        "fable-vehicle-mobile_archive_4",
+        "fable-multimodal-mobile_archive_4"
+      ]
+    },
+    {
+      "name": "mobile_archive_5",
+      "tier": "mobile",
+      "anchor_container": "netwaggle-node-mobile_archive_5",
+      "switch": "s_mob5",
+      "ip": "10.255.105.2/16",
+      "gateway": "10.255.0.1",
+      "containers": [
+        "mobile-replay-mobile_archive_5",
+        "yolo-detector-mobile_archive_5",
+        "fable-agent-mobile_archive_5",
+        "fable-vehicle-mobile_archive_5",
+        "fable-multimodal-mobile_archive_5"
+      ]
+    },
+    {
+      "name": "mobile_archive_6",
+      "tier": "mobile",
+      "anchor_container": "netwaggle-node-mobile_archive_6",
+      "switch": "s_mob6",
+      "ip": "10.255.106.2/16",
+      "gateway": "10.255.0.1",
+      "containers": [
+        "mobile-replay-mobile_archive_6",
+        "yolo-detector-mobile_archive_6",
+        "fable-agent-mobile_archive_6",
+        "fable-vehicle-mobile_archive_6",
+        "fable-multimodal-mobile_archive_6"
+      ]
+    },
+    {
+      "name": "site_local",
+      "tier": "server",
+      "anchor_container": "netwaggle-node-site-local",
+      "switch": "s_site",
+      "ip": "10.255.240.2/16",
+      "gateway": "10.255.0.1",
+      "containers": [
+        "fable-agent-x86server",
+        "fable-identity-x86server",
+        "fable-vehicle-x86server-orin1",
+        "fable-vehicle-x86server-orin4",
+        "fable-vehicle-x86server-orin7",
+        "fable-vehicle-x86server-orin11",
+        "fable-vehicle-x86server-orin12",
+        "fable-vehicle-x86server-orin13",
+        "fable-vehicle-x86server-orin14",
+        "fable-vehicle-x86server-orin15",
+        "fable-vehicle-x86server-orin16",
+        "fable-vehicle-x86server-orin17",
+        "fable-vehicle-x86server-orin18",
+        "fable-vehicle-x86server-orin19",
+        "fable-vehicle-x86server-orin20",
+        "fable-vehicle-x86server-orin21",
+        "fable-vehicle-x86server-orin22",
+        "fable-vehicle-x86server-orin23",
+        "fable-vehicle-x86server-orin24",
+        "fable-vehicle-x86server-orin25",
+        "fable-vehicle-x86server-orin26",
+        "fable-vehicle-x86server-orin27",
+        "fable-vehicle-x86server-orin28",
+        "fable-vehicle-x86server-orin29",
+        "fable-vehicle-x86server-orin30"
+      ]
+    },
+    {
+      "name": "cloud1",
+      "tier": "cloud",
+      "anchor_container": "netwaggle-node-cloud1",
+      "switch": "s_cloud",
+      "ip": "10.255.250.2/16",
+      "gateway": "10.255.0.1",
+      "containers": [
+        "complex-event-detector",
+        "fable-agent-cloud1",
+        "fable-vlm-cloud1"
+      ]
+    }
+  ]
+}

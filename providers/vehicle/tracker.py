@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import defaultdict, deque
 from datetime import datetime
 from typing import Any, Callable, Iterable, Protocol
 from uuid import uuid4
@@ -51,6 +51,19 @@ class RoboflowTrackerAdapter:
         self._tracker = tracker
         self._detections_factory = detections_factory
         self._ages: dict[int, int] = defaultdict(int)
+        # ByteTrack can continue returning a live track on frames where its
+        # predicted box has no corresponding detector row.  Preserve the last
+        # detector-aligned metadata for that tracker-local identity so a later
+        # lifecycle/EXITS observation can still request the exact YOLO crop.
+        # This is deliberately tracker-session local and is cleared on reset.
+        self._last_detection_by_track: dict[int, Detection] = {}
+        # Trackers may withhold a tentative identity until a later frame. Keep
+        # a short detector-only history so that first publication can still be
+        # tied to its originating YOLO crop. Entries never cross replay/session
+        # resets and matching requires compatible class plus spatial overlap.
+        self._recent_detections: deque[tuple[datetime, Detection]] = deque(
+            maxlen=max(8, int(round(self.frame_rate)))
+        )
         self._last_event_time: datetime | None = None
         self._last_frame_id: str | None = None
         self._last_source_sequence: int | None = None
@@ -141,6 +154,9 @@ class RoboflowTrackerAdapter:
             self._to_supervision(frame),
             frame=image,
         )
+        self._recent_detections.extend(
+            (frame.event_time, detection) for detection in frame.detections
+        )
         output = self._from_tracked(frame, tracked)
         return TrackSet(
             source_id=frame.source_id,
@@ -156,6 +172,8 @@ class RoboflowTrackerAdapter:
         if self._tracker is not None:
             self._tracker.reset()
         self._ages.clear()
+        self._last_detection_by_track.clear()
+        self._recent_detections.clear()
         self._last_event_time = None
         self._last_frame_id = None
         self._last_source_sequence = None
@@ -179,7 +197,23 @@ class RoboflowTrackerAdapter:
             if track_id < 0:
                 continue
             bbox = BoundingBox(x1=coords[0], y1=coords[1], x2=coords[2], y2=coords[3])
-            matched = _match_input_detection(source.detections, bbox, class_ids[index])
+            current_match = _match_input_detection(
+                source.detections, bbox, class_ids[index]
+            )
+            matched = current_match
+            if current_match is not None:
+                self._last_detection_by_track[track_id] = current_match
+            else:
+                matched = self._last_detection_by_track.get(track_id)
+                if matched is None:
+                    matched = _match_recent_detection(
+                        self._recent_detections,
+                        bbox,
+                        class_ids[index],
+                        event_time=source.event_time,
+                    )
+                    if matched is not None:
+                        self._last_detection_by_track[track_id] = matched
             self._ages[track_id] += 1
             rows.append(
                 TrackObservation(
@@ -195,6 +229,7 @@ class RoboflowTrackerAdapter:
                     age_frames=self._ages[track_id],
                     attributes={
                         "matched_detection_id": matched.detection_id if matched else "",
+                        "detector_matched_current_frame": current_match is not None,
                         **(
                             {"reid": matched.attributes.get("reid")}
                             if matched and matched.attributes.get("reid")
@@ -285,6 +320,44 @@ def _match_input_detection(
     # tracked box, so IoU is the correct way to recover its corresponding YOLO
     # detection and detector-aligned ReID crop.
     return max(detections, key=lambda item: _iou(item.bbox, bbox))
+
+
+def _match_recent_detection(
+    detections: Iterable[tuple[datetime, Detection]],
+    bbox: BoundingBox,
+    class_index: int,
+    *,
+    event_time: datetime,
+    maximum_age_seconds: float = 2.0,
+    minimum_iou: float = 0.20,
+) -> Detection | None:
+    """Recover provenance for a tracker identity published after detection.
+
+    This is not appearance inference and does not create evidence. It only
+    attaches a recent typed YOLO observation of the same semantic class whose
+    detector box overlaps the tracker prediction.
+    """
+    compatible = [
+        detection
+        for detected_at, detection in detections
+        if 0.0 <= (event_time - detected_at).total_seconds() <= maximum_age_seconds
+        and _semantic_class_id(detection.class_name) == class_index
+        and _iou(detection.bbox, bbox) >= minimum_iou
+    ]
+    if not compatible:
+        return None
+    return max(compatible, key=lambda item: _iou(item.bbox, bbox))
+
+
+def _semantic_class_id(class_name: str) -> int:
+    return {
+        "car": 0,
+        "truck": 1,
+        "bus": 2,
+        "motorcycle": 3,
+        "person": 4,
+        "object": 5,
+    }.get(class_name, 6)
 
 
 def _iou(left: BoundingBox, right: BoundingBox) -> float:

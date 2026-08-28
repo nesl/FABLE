@@ -1,0 +1,205 @@
+{
+  "$defs": {
+    "BaselineId": {
+      "enum": [
+        "B0_PRODUCE_ALL",
+        "B1_STATIC_WHOLE_EVENT",
+        "B2_FRONTIER_FIXED_REALIZATION",
+        "B0_ALWAYS_ON",
+        "B1_HANDWRITTEN_STATIC",
+        "B2_STATIC_WHOLE_EVENT",
+        "B3_TASK_RESOURCE_ADAPTIVE",
+        "B4_GREEDY_FRONTIER",
+        "FABLE",
+        "FABLE_NO_SHARING",
+        "O1_EXHAUSTIVE_ORACLE",
+        "C0_CHEAP_ONLY",
+        "C1_STRONG_ONLY",
+        "C2_FIXED_CASCADE",
+        "C3_FABLE_ESCALATION",
+        "C4_FABLE_NO_ESCALATION",
+        "SPATIAL_BROADCAST",
+        "SPATIAL_TOPOLOGY_SHORTLIST",
+        "SPATIAL_RESOURCE_ONLY",
+        "SPATIAL_FABLE",
+        "SPATIAL_ORACLE"
+      ],
+      "title": "BaselineId",
+      "type": "string"
+    },
+    "JsonValue": {}
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "default": "fable.evaluation_record.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "record_type": {
+      "const": "retrospective_attempt",
+      "default": "retrospective_attempt",
+      "title": "Record Type",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "baseline_id": {
+      "$ref": "#/$defs/BaselineId"
+    },
+    "trace_id": {
+      "minLength": 1,
+      "title": "Trace Id",
+      "type": "string"
+    },
+    "request_id": {
+      "minLength": 1,
+      "title": "Request Id",
+      "type": "string"
+    },
+    "hypothesis_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Hypothesis Id"
+    },
+    "sensor_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sensor Id"
+    },
+    "provider_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Provider Id"
+    },
+    "event_time": {
+      "format": "date-time",
+      "title": "Event Time",
+      "type": "string"
+    },
+    "monotonic_timestamp_ns": {
+      "minimum": 0,
+      "title": "Monotonic Timestamp Ns",
+      "type": "integer"
+    },
+    "wall_timestamp": {
+      "format": "date-time",
+      "title": "Wall Timestamp",
+      "type": "string"
+    },
+    "metadata": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "title": "Metadata",
+      "type": "object"
+    },
+    "attempt_id": {
+      "minLength": 1,
+      "title": "Attempt Id",
+      "type": "string"
+    },
+    "checkpoint_id": {
+      "minLength": 1,
+      "title": "Checkpoint Id",
+      "type": "string"
+    },
+    "predicate_id": {
+      "minLength": 1,
+      "title": "Predicate Id",
+      "type": "string"
+    },
+    "replay_policy": {
+      "minLength": 1,
+      "title": "Replay Policy",
+      "type": "string"
+    },
+    "retained_interval_start": {
+      "format": "date-time",
+      "title": "Retained Interval Start",
+      "type": "string"
+    },
+    "retained_interval_end": {
+      "format": "date-time",
+      "title": "Retained Interval End",
+      "type": "string"
+    },
+    "outcome": {
+      "minLength": 1,
+      "title": "Outcome",
+      "type": "string"
+    },
+    "artifact_ids": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Artifact Ids",
+      "type": "array"
+    },
+    "raw_bytes_read": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Raw Bytes Read",
+      "type": "integer"
+    },
+    "transferred_bytes": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Transferred Bytes",
+      "type": "integer"
+    },
+    "processing_seconds": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Processing Seconds",
+      "type": "number"
+    },
+    "buffer_expiration_reason": {
+      "default": "",
+      "title": "Buffer Expiration Reason",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "baseline_id",
+    "trace_id",
+    "request_id",
+    "event_time",
+    "monotonic_timestamp_ns",
+    "attempt_id",
+    "checkpoint_id",
+    "predicate_id",
+    "replay_policy",
+    "retained_interval_start",
+    "retained_interval_end",
+    "outcome"
+  ],
+  "title": "RetrospectiveAttempt",
+  "type": "object"
+}

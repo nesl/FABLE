@@ -1,4 +1,4 @@
-"""Deterministic multi-tenant admission ordering."""
+"""Priority, urgency, and fairness ordering for waiting plan candidates."""
 
 from __future__ import annotations
 

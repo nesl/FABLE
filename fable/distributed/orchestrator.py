@@ -103,6 +103,8 @@ class ExecutionDispatcher:
         """
 
         overrides = dict(runtime_overrides or {})
+        # Registration snapshots the dependency DAG and returns only root steps;
+        # downstream commands wait for result/artifact completion callbacks.
         self._candidates[candidate.plan.plan_id] = candidate
         self._runtime_overrides[candidate.plan.plan_id] = overrides
         ready_step_ids = self.execution.register(candidate)
@@ -110,6 +112,8 @@ class ExecutionDispatcher:
         return self._dispatch_steps(candidate, ready_step_ids, overrides)
 
     def complete_step(self, plan_id: UUID, step_id: str) -> tuple[ActivateProviderCommand, ...]:
+        """Mark a physical step complete and dispatch newly unblocked successors."""
+
         ready = self.execution.complete_step(plan_id, step_id)
         self._persist_execution_state(plan_id)
         candidate = self._candidates.get(plan_id)
@@ -127,7 +131,11 @@ class ExecutionDispatcher:
         step_ids: Iterable[str],
         runtime_overrides: dict[str, ProviderRuntimeSpec],
     ) -> tuple[ActivateProviderCommand, ...]:
+        """Resolve runtimes and publish commands for dependency-ready steps."""
+
         selected = set(step_ids)
+        # Lifecycle intents reconnect immutable plan steps to the leases created
+        # during admission; dispatch never creates an unreserved execution.
         intents = tuple(
             intent
             for intent in self.lifecycle.preview_candidate(candidate)
@@ -171,6 +179,8 @@ class ExecutionDispatcher:
                 application_ack_topic=ack_topic(self.orchestrator_id),
                 issued_hypothesis_version=demand.hypothesis_version,
             )
+            # Persist before publish so a fast acknowledgment/result can always
+            # be correlated with durable command state.
             self.store.put("commands", str(command.message_id), command)
             self.messenger.send_model(
                 activate_topic(command.node_id),
@@ -211,6 +221,8 @@ class ExecutionDispatcher:
         reason: str,
         stop_if_idle: bool = True,
     ) -> CancelProviderCommand:
+        """Publish a lease-scoped cancellation to the owning node agent."""
+
         command = CancelProviderCommand(
             orchestrator_id=self.orchestrator_id,
             node_id=managed.lease.node_id,
@@ -353,6 +365,8 @@ class DistributedOrchestrator:
         self.replan_requests: list[tuple[str, tuple[UUID, ...], str]] = []
 
     def start(self) -> None:
+        """Subscribe control/data callbacks before connecting the transport."""
+
         if self._started:
             return
         self._started = True
@@ -383,6 +397,10 @@ class DistributedOrchestrator:
         runtime_overrides: dict[str, ProviderRuntimeSpec] | None = None,
         now: datetime | None = None,
     ) -> tuple[Any, tuple[ActivateProviderCommand, ...]]:
+        """Admit candidates, persist admitted state, and dispatch ready roots."""
+
+        # Materialize once because admission and candidate lookup must operate
+        # over the exact same batch even when the caller supplied a generator.
         candidate_tuple = tuple(candidates)
         batch = self.scheduler.admit(candidate_tuple, now=now)
         by_id = {candidate.candidate_id: candidate for candidate in candidate_tuple}
@@ -392,6 +410,8 @@ class DistributedOrchestrator:
                 continue
             candidate = by_id[record.candidate_id]
             self.dispatcher.persist_candidate_state(candidate)
+            # Dispatch may return fewer commands than plan steps because the
+            # execution tracker honors inter-worker data dependencies.
             commands.extend(
                 self.dispatcher.dispatch_candidate(
                     candidate,
@@ -525,6 +545,8 @@ class DistributedOrchestrator:
                 )
 
     def _process_result_message(self, topic: str, payload: bytes) -> None:
+        """Durably accept one reliable result before invoking semantic feedback."""
+
         try:
             wrapper = decode_model(payload, ReliablePredicateResult)
         except Exception:
@@ -540,6 +562,8 @@ class DistributedOrchestrator:
             )
             return
         result_key = str(wrapper.result.result_id)
+        # Message IDs protect transport retries; result IDs protect equivalent
+        # evidence wrapped in a different reliable-delivery envelope.
         if self.store.contains("results", result_key):
             outcome = "duplicate result_id suppressed"
             self.processed.record(
@@ -562,6 +586,9 @@ class DistributedOrchestrator:
                 reason=outcome,
             )
             return
+        # Durability precedes acknowledgment and callbacks. A crash after this
+        # point can replay downstream handling without asking the node to infer
+        # the observation again.
         self.store.put("results", result_key, wrapper)
         self.received_results[wrapper.result.result_id] = wrapper.result
         outcome = "result durably accepted"
@@ -716,12 +743,16 @@ class DistributedOrchestrator:
         )
 
     def _on_heartbeat(self, topic: str, payload: bytes) -> None:
+        """Overlay node telemetry, update capacity, and trigger transitions."""
+
         try:
             heartbeat = decode_model(payload, NodeHeartbeat)
         except Exception:
             LOGGER.exception("invalid node heartbeat topic=%s", topic)
             return
         received_at = utc_now()
+        # Ingress lag is diagnostic only; availability hysteresis below remains
+        # authoritative and prevents a delayed packet from immediately flapping.
         ingress_lag_ms = max(
             0.0,
             (received_at - ensure_utc(heartbeat.sent_at)).total_seconds() * 1000.0,
@@ -744,6 +775,8 @@ class DistributedOrchestrator:
             )
             return
         transitions = self.heartbeats.record(heartbeat)
+        # Persist effective hysteresis-derived availability while retaining the
+        # node's original capacity/source telemetry fields.
         effective = heartbeat.model_copy(
             update={
                 "availability": self.heartbeats.availability(heartbeat.node_id)
@@ -752,6 +785,8 @@ class DistributedOrchestrator:
         )
         self.store.put("nodes", heartbeat.node_id, effective)
         try:
+            # The scheduler maintains its own reservation ledger; heartbeat
+            # free capacity is a runtime cap layered on top of those reservations.
             self.lifecycle.capacity.update_runtime_free(
                 heartbeat.node_id,
                 cpu_free_cores=heartbeat.capacity.cpu_free_cores,
@@ -879,6 +914,8 @@ class DistributedOrchestrator:
         demand_ids: tuple[UUID, ...],
         reason: str,
     ) -> None:
+        """Record and emit a physical replan request without changing semantics."""
+
         if not demand_ids:
             return
         request = (node_id, demand_ids, reason)

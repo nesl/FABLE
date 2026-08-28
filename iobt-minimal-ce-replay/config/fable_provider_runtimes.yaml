@@ -393,9 +393,45 @@ nodes:
         reference_delay_ms: 20
         reference_truth: true
       yolo_vehicle_fast_640:
-        mode: REFERENCE
-        reference_delay_ms: 30
-        reference_truth: true
+        mode: ADOPT_EXISTING
+        container_name: yolo-detector-x86server
+        stop_adopted_when_idle: false
+        output_topics:
+        - /x86server/analytics/yolo/bbox
+        output_adapter: YOLO_OBJECT_PRESENT
+        worker_id: site-yolo-worker
+        worker_resource_limits:
+          cpu_cores: 2.0
+          memory_mb: 4096
+          gpu_memory_mb: 1792
+          gpu_count: 1
+      multi_object_tracker:
+        mode: ADOPT_EXISTING
+        container_name: fable-vehicle-x86server
+        stop_adopted_when_idle: false
+        readiness: &site_vehicle_readiness
+          mqtt_topic: /readiness/x86server/fable_vehicle
+          ready_field: ready
+          ready_value: true
+          timeout_ms: 60000
+        output_adapter: NONE
+        worker_id: site-vehicle-worker
+      camera_projection:
+        mode: ADOPT_EXISTING
+        container_name: fable-vehicle-x86server
+        stop_adopted_when_idle: false
+        readiness: *site_vehicle_readiness
+        output_adapter: NONE
+        worker_id: site-vehicle-worker
+      pass_reference_evaluator:
+        mode: ADOPT_EXISTING
+        container_name: fable-vehicle-x86server
+        stop_adopted_when_idle: false
+        readiness: *site_vehicle_readiness
+        output_topics:
+        - /x86server/fable/vehicle/predicates
+        output_adapter: VEHICLE_PREDICATE
+        worker_id: site-vehicle-worker
       vehicle_reid_descriptor:
         mode: REFERENCE
         reference_delay_ms: 40
@@ -405,9 +441,18 @@ nodes:
         reference_delay_ms: 55
         reference_truth: true
       cross_sensor_identity_association:
-        mode: REFERENCE
-        reference_delay_ms: 20
-        reference_truth: true
+        mode: ADOPT_EXISTING
+        container_name: fable-identity-x86server
+        stop_adopted_when_idle: false
+        readiness:
+          mqtt_topic: /readiness/x86server/fable_identity
+          ready_field: ready
+          ready_value: true
+          timeout_ms: 60000
+        output_topics:
+        - /fable/identity/associations
+        output_adapter: IDENTITY_ASSOCIATION
+        worker_id: site-identity-worker
       follows_cross_sensor:
         mode: REFERENCE
         reference_delay_ms: 20
@@ -462,6 +507,16 @@ nodes:
         reference_truth: true
   cloud1:
     providers:
+      hosted_vlm_identity_comparator:
+        mode: ADOPT_EXISTING
+        container_name: fable-vlm-cloud1
+        stop_adopted_when_idle: true
+        readiness:
+          container_health_required: true
+          timeout_ms: 30000
+        output_topics:
+        - /fable/identity/associations
+        output_adapter: IDENTITY_ASSOCIATION
       audio_event_classifier:
         mode: REFERENCE
         reference_delay_ms: 20

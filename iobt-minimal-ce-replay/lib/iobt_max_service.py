@@ -2,7 +2,7 @@
 import os
 import time
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import socket
 import os, sys
 import signal
@@ -184,7 +184,9 @@ class iobt_max_service(ABC):
             Timestamp in canonical string representation using the format "%Y-%m-%d %H:%M:%S.%f"
         """
         #
-        return datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S.%f")
+        return datetime.fromtimestamp(ts, tz=timezone.utc).strftime(
+            "%Y-%m-%dT%H:%M:%S.%fZ"
+        )
 
     @final
     def _on_mqtt_connect(self, client:mqtt.Client, userdata:Any, flags: Dict[str, Any], rc: mqtt.ReasonCodes)->None:

@@ -1,4 +1,4 @@
-"""Transactional capacity accounting for provider-instance reservations."""
+"""Transactional CPU/RAM/GPU accounting for provider-instance reservations."""
 
 from __future__ import annotations
 

@@ -18,7 +18,11 @@ from fable.planning.search_models import LabelSearchState, PlanSearchResult
 from evaluation.schemas import BaselineId
 
 from .models import BaselineDecision, BaselinePlanningCase
-from .static_registry import StaticPipelineRegistry, resolve_static_chain_id
+from .static_registry import (
+    StaticPipelineRegistry,
+    resolve_static_chain_id,
+    resolve_static_provider_id,
+)
 
 
 class BaselinePolicy(Protocol):
@@ -146,9 +150,32 @@ def _static_placement_mismatch(
     step_nodes = {step.node_id for step in alternative.step_placements}
     if not step_nodes or not step_nodes.issubset(chain_nodes):
         return "NODE"
-    allowed_providers = set(placement.allowed_provider_ids)
+    exact_provider_nodes = next(
+        (
+            providers
+            for chain_id, providers in placement.allowed_chain_provider_node_ids.items()
+            if resolve_static_chain_id(chain_id) == runtime_chain_id
+        ),
+        {},
+    )
+    if exact_provider_nodes and any(
+        step.node_id
+        not in {
+            node_id
+            for provider_id, node_ids in exact_provider_nodes.items()
+            if resolve_static_provider_id(provider_id)
+            == resolve_static_provider_id(step.provider_id)
+            for node_id in node_ids
+        }
+        for step in alternative.step_placements
+    ):
+        return "PROVIDER_NODE"
+    allowed_providers = {
+        resolve_static_provider_id(provider_id)
+        for provider_id in placement.allowed_provider_ids
+    }
     if allowed_providers and any(
-        step.provider_id not in allowed_providers
+        resolve_static_provider_id(step.provider_id) not in allowed_providers
         for step in alternative.step_placements
     ):
         return "PROVIDER"
@@ -420,6 +447,13 @@ def _decision_from_search(
     reason: str,
     frozen: bool = False,
 ) -> BaselineDecision:
+    pruning_counts: dict[str, int] = defaultdict(int)
+    pruning_samples: list[str] = []
+    for boundary in result.trace.boundaries:
+        for record in boundary.pruning_records:
+            pruning_counts[str(record.code)] += 1
+            if len(pruning_samples) < 8:
+                pruning_samples.append(f"{record.code}: {record.reason}")
     if result.selected is None:
         return BaselineDecision(
             baseline_id=baseline_id,
@@ -429,6 +463,8 @@ def _decision_from_search(
             labels_generated=sum(len(item.generated_label_ids) for item in result.trace.boundaries),
             labels_pruned=sum(len(item.pruning_records) for item in result.trace.boundaries),
             labels_retained=sum(len(item.retained_label_ids) for item in result.trace.boundaries),
+            pruning_counts=dict(pruning_counts),
+            pruning_samples=tuple(pruning_samples),
             oracle_gap_ms=result.trace.oracle.completion_gap_ms,
             frozen=frozen,
             resource_epoch=case.resource_epoch,
@@ -447,6 +483,8 @@ def _decision_from_search(
         labels_pruned=sum(len(item.pruning_records) for item in result.trace.boundaries),
         labels_retained=sum(len(item.retained_label_ids) for item in result.trace.boundaries),
         oracle_gap_ms=result.trace.oracle.completion_gap_ms,
+        pruning_counts=dict(pruning_counts),
+        pruning_samples=tuple(pruning_samples),
     )
 
 
@@ -464,6 +502,8 @@ def _decision_from_state(
     labels_retained: int = 0,
     oracle_gap_ms: int | None = None,
     planning_latency_ms: float = 0.0,
+    pruning_counts: dict[str, int] | None = None,
+    pruning_samples: tuple[str, ...] = (),
 ) -> BaselineDecision:
     alternatives = _lookup_alternatives(graph, state.selected_alternative_ids)
     return _decision_from_alternatives(
@@ -477,6 +517,8 @@ def _decision_from_state(
         labels_generated=labels_generated,
         labels_pruned=labels_pruned,
         labels_retained=labels_retained,
+        pruning_counts=pruning_counts or {},
+        pruning_samples=pruning_samples,
         oracle_gap_ms=oracle_gap_ms,
         predicted_completion_ms=state.label.cost.predicted_completion_ms,
         predicted_transfer_bytes=state.label.cost.transfer_bytes,
@@ -499,6 +541,8 @@ def _decision_from_alternatives(
     predicted_completion_ms: int | None = None,
     predicted_transfer_bytes: int | None = None,
     planning_latency_ms: float = 0.0,
+    pruning_counts: dict[str, int] | None = None,
+    pruning_samples: tuple[str, ...] = (),
 ) -> BaselineDecision:
     nodes = sorted({step.node_id for item in alternatives for step in item.step_placements})
     sources = sorted(
@@ -548,6 +592,8 @@ def _decision_from_alternatives(
         labels_generated=labels_generated,
         labels_pruned=labels_pruned,
         labels_retained=labels_retained,
+        pruning_counts=pruning_counts or {},
+        pruning_samples=pruning_samples,
         oracle_gap_ms=oracle_gap_ms,
         frozen=frozen,
         resource_epoch=case.resource_epoch,

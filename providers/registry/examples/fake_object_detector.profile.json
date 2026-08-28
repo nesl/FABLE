@@ -1,0 +1,15 @@
+{
+  "schema_version": "fable.provider_profiles.v1",
+  "profiles": [{
+    "schema_version": "fable.provider_profile.v1",
+    "provider_id": "fake_object_detector",
+    "node_class": "reference_cpu",
+    "cold_start_samples_ms": [1.0],
+    "warm_execution_samples_ms": [1.0],
+    "cpu_cores": 0.1,
+    "memory_mb": 32,
+    "gpu_memory_mb": 0,
+    "quality_score": 1.0,
+    "metadata": {"source": "onboarding example only"}
+  }]
+}

@@ -1,0 +1,71 @@
+{
+  "detection_frames": [
+    {
+      "detections": [
+        {
+          "bbox": {
+            "x1": 100,
+            "x2": 220,
+            "y1": 100,
+            "y2": 220
+          },
+          "class_name": "car",
+          "confidence": 0.95,
+          "detection_id": "car-0"
+        }
+      ],
+      "detector_id": "fixture",
+      "detector_version": "1",
+      "event_time": "2026-01-01T00:00:00+00:00",
+      "frame_id": "frame-0",
+      "image_height": 480,
+      "image_width": 640,
+      "source_id": "camera"
+    },
+    {
+      "detections": [
+        {
+          "bbox": {
+            "x1": 101,
+            "x2": 221,
+            "y1": 100,
+            "y2": 220
+          },
+          "class_name": "car",
+          "confidence": 0.95,
+          "detection_id": "car-1"
+        }
+      ],
+      "detector_id": "fixture",
+      "detector_version": "1",
+      "event_time": "2026-01-01T00:00:01+00:00",
+      "frame_id": "frame-1",
+      "image_height": 480,
+      "image_width": 640,
+      "source_id": "camera"
+    },
+    {
+      "detections": [
+        {
+          "bbox": {
+            "x1": 102,
+            "x2": 222,
+            "y1": 100,
+            "y2": 220
+          },
+          "class_name": "car",
+          "confidence": 0.95,
+          "detection_id": "car-2"
+        }
+      ],
+      "detector_id": "fixture",
+      "detector_version": "1",
+      "event_time": "2026-01-01T00:00:02+00:00",
+      "frame_id": "frame-2",
+      "image_height": 480,
+      "image_width": 640,
+      "source_id": "camera"
+    }
+  ],
+  "minimum_track_count": 1
+}

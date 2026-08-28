@@ -420,6 +420,10 @@ def main() -> int:
             BaselineId.B3_TASK_RESOURCE_ADAPTIVE,
             static_registry_path=static_registry,
         ),
+        BaselineId.B4_GREEDY_FRONTIER.value: LiveBaselinePlanningPolicy(
+            BaselineId.B4_GREEDY_FRONTIER,
+            static_registry_path=static_registry,
+        ),
     }
     artifact_config = os.environ.get("FABLE_ARTIFACT_CONFIG")
     artifact_catalog = (
@@ -439,6 +443,9 @@ def main() -> int:
         artifact_catalog=artifact_catalog,
         execution_profile=execution_profile,
         network_telemetry=NetWaggleTelemetrySource(),
+        retrospective_policy_id=os.environ.get(
+            "FABLE_RETROSPECTIVE_POLICY", "R2_FABLE_TYPED_REPLAY"
+        ),
         planning_policies=planning_policies,
     )
     controller.bind()

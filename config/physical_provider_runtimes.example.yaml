@@ -1,0 +1,40 @@
+schema_version: fable.provider_runtimes.v1
+
+# Copy this file to physical_provider_runtimes.yaml and replace the example
+# paths/addresses locally. The destination is ignored because it describes a
+# specific lab deployment.
+nodes:
+  physical_jetson:
+    providers:
+      yolo_vehicle_fast_640:
+        mode: MANAGED_PROCESS
+        command:
+          - /usr/bin/python3
+          - /opt/fable/scripts/physical_jetson_yolo.py
+          - --stream-url
+          - http://replay-relay.example.invalid:8091/stream.ts
+          - --model
+          - /opt/fable/models/yolov8n.pt
+          - --broker
+          - mqtt.example.invalid
+          - --source-id
+          - physical_rpi
+          - --maximum-rate-hz
+          - "2"
+          - --controlled-replay
+        working_dir: /opt/fable
+        output_topics: [/physical_rpi/analytics/yolo/bbox]
+        output_adapter: YOLO_OBJECT_PRESENT
+        readiness:
+          mqtt_topic: /readiness/physical_rpi/yolo
+          ready_field: ready
+          ready_value: true
+          timeout_ms: 60000
+
+  physical_rpi:
+    providers:
+      audio_event_classifier:
+        mode: REFERENCE
+        reference_delay_ms: 50
+        reference_truth: true
+        reference_artifact_types: [audio_event_set.v1]

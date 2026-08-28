@@ -1,0 +1,14 @@
+.git
+.venv
+venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.mypy_cache
+.ruff_cache
+
+# Generated evaluation/runtime artifacts are mounted or read from the host;
+# they must never inflate immutable application image build contexts.
+runs
+debug
+evaluation/results

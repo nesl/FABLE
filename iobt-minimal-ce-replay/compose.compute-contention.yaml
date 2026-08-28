@@ -1,0 +1,22 @@
+services:
+  fable-gpu-contention:
+    image: iobt-minimal/yolo-detector:latest
+    container_name: fable-gpu-contention
+    profiles: [compute-contention]
+    command: ["python3", "-u", "/app/rq3a_contention.py"]
+    network_mode: none
+    gpus:
+      - driver: nvidia
+        device_ids:
+          - "${FABLE_SITE_GPU_UUID:?site-local GPU UUID is required}"
+    cpus: 2.0
+    mem_limit: 8g
+    environment:
+      YOLO_DEVICE: "0"
+      NVIDIA_VISIBLE_DEVICES: "${FABLE_SITE_GPU_UUID:?site-local GPU UUID is required}"
+      FABLE_CONTENTION_GPU_UUID: "${FABLE_SITE_GPU_UUID}"
+      FABLE_ASSIGNED_GPU_UUID: "${FABLE_SITE_GPU_UUID}"
+      FABLE_COMPUTE_TIER: site_local
+      FABLE_CONTENTION_BATCH_SIZE: "${FABLE_CONTENTION_BATCH_SIZE:-8}"
+      FABLE_CONTENTION_STREAMS: "${FABLE_CONTENTION_STREAMS:-4}"
+      RQ3A_GPU_DUTY: "${FABLE_CONTENTION_GPU_DUTY:-0.80}"

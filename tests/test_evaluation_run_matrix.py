@@ -23,8 +23,10 @@ def test_spatial_run_matrix_uses_only_2024_2025_known_topology() -> None:
     assert all(item.spatial_metrics_enabled for item in runs)
 
 
-def test_end_to_end_matrix_includes_repeated_visit_aliases() -> None:
+def test_end_to_end_matrix_matches_current_recommended_catalog() -> None:
     catalog = _catalog()
     runs = build_run_matrix(catalog, ExperimentQuestion.RQ1_END_TO_END)
     ids = {item.experiment_id for item in runs}
-    assert any("two-visit-stalking" in item for item in ids)
+    recommended = {item.experiment_id for item in catalog.recommended()}
+    assert ids <= recommended
+    assert any("three-visit-stalking" in item for item in ids)

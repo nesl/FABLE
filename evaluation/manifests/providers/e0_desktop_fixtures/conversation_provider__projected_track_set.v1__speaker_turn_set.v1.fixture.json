@@ -1,0 +1,134 @@
+{
+  "expected_truth": true,
+  "minimum_duration_seconds": 0,
+  "speaker_turn_set": {
+    "diarization_model_id": "fixture",
+    "diarization_model_version": "1",
+    "event_time_interval": {
+      "end": "2026-01-01T00:00:02+00:00",
+      "start": "2026-01-01T00:00:00+00:00"
+    },
+    "source_id": "microphone",
+    "speaker_count": 2,
+    "turns": [
+      {
+        "event_time_interval": {
+          "end": "2026-01-01T00:00:01+00:00",
+          "start": "2026-01-01T00:00:00+00:00"
+        },
+        "speaker_id": "speaker-a",
+        "speech_probability": 0.95,
+        "turn_id": "turn-a"
+      },
+      {
+        "event_time_interval": {
+          "end": "2026-01-01T00:00:02+00:00",
+          "start": "2026-01-01T00:00:01+00:00"
+        },
+        "speaker_id": "speaker-b",
+        "speech_probability": 0.95,
+        "turn_id": "turn-b"
+      }
+    ]
+  },
+  "track_sets": [
+    {
+      "event_time": "2026-01-01T00:00:00+00:00",
+      "source_id": "camera",
+      "tracker_family": "fixture",
+      "tracker_session_id": "session",
+      "tracker_version": "1",
+      "tracks": [
+        {
+          "bbox": {
+            "x1": 0,
+            "x2": 2,
+            "y1": 0,
+            "y2": 4
+          },
+          "class_name": "person",
+          "confidence": 0.95,
+          "event_time": "2026-01-01T00:00:00+00:00",
+          "local_track_id": 3,
+          "scoped_track_id": "camera:session:3",
+          "source_id": "camera",
+          "tracker_session_id": "session",
+          "world_point": {
+            "coordinate_frame_id": "world",
+            "x": 0,
+            "y": 0
+          }
+        },
+        {
+          "bbox": {
+            "x1": 1,
+            "x2": 3,
+            "y1": 0,
+            "y2": 4
+          },
+          "class_name": "person",
+          "confidence": 0.95,
+          "event_time": "2026-01-01T00:00:00+00:00",
+          "local_track_id": 4,
+          "scoped_track_id": "camera:session:4",
+          "source_id": "camera",
+          "tracker_session_id": "session",
+          "world_point": {
+            "coordinate_frame_id": "world",
+            "x": 1,
+            "y": 0
+          }
+        }
+      ]
+    },
+    {
+      "event_time": "2026-01-01T00:00:01+00:00",
+      "source_id": "camera",
+      "tracker_family": "fixture",
+      "tracker_session_id": "session",
+      "tracker_version": "1",
+      "tracks": [
+        {
+          "bbox": {
+            "x1": 0,
+            "x2": 2,
+            "y1": 0,
+            "y2": 4
+          },
+          "class_name": "person",
+          "confidence": 0.95,
+          "event_time": "2026-01-01T00:00:01+00:00",
+          "local_track_id": 3,
+          "scoped_track_id": "camera:session:3",
+          "source_id": "camera",
+          "tracker_session_id": "session",
+          "world_point": {
+            "coordinate_frame_id": "world",
+            "x": 0,
+            "y": 0
+          }
+        },
+        {
+          "bbox": {
+            "x1": 1,
+            "x2": 3,
+            "y1": 0,
+            "y2": 4
+          },
+          "class_name": "person",
+          "confidence": 0.95,
+          "event_time": "2026-01-01T00:00:01+00:00",
+          "local_track_id": 4,
+          "scoped_track_id": "camera:session:4",
+          "source_id": "camera",
+          "tracker_session_id": "session",
+          "world_point": {
+            "coordinate_frame_id": "world",
+            "x": 1,
+            "y": 0
+          }
+        }
+      ]
+    }
+  ]
+}

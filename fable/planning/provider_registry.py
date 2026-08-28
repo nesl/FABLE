@@ -86,9 +86,12 @@ class ProviderRegistry:
         if profiles_path is not None:
             from fable.catalog.profiles import load_profile_records
 
-            resolved_profiles = tuple(
-                record.to_planner_profile()
-                for record in load_profile_records(profiles_path)
+            resolved_profiles = (
+                *default_provider_profiles(),
+                *tuple(
+                    record.to_planner_profile()
+                    for record in load_profile_records(profiles_path)
+                ),
             )
         else:
             resolved_profiles = profiles or default_provider_profiles()

@@ -1,0 +1,72 @@
+schema_version: fable.bounded_pilot.v1
+pilot_id: bounded_pilot_v1_20260728
+description: >
+  Two positive examples with two repetitions for each historically unstable
+  family, plus one cross-family negative control. Runs are sequential and
+  bounded by both driver and process timeouts.
+settings:
+  baseline: FABLE
+  model_id: yolov8s.pt
+  repetitions: 2
+  max_seconds: 180
+  ready_seconds: 30
+  playback_mode: max
+  playback_speed: 1.0
+  deadline_seconds: 30
+  minimum_temporal_iou: 0.1
+  required_ready_services: zed
+  replay_nodes: [orin11, orin13, orin14, orin15, orin16]
+  inter_run_seconds: 5
+  process_grace_seconds: 20
+cases:
+  - case_id: robbery_31
+    family: robbery
+    experiment_id: 20260414-cross-sensor-robbery-robbery-31-r031
+  - case_id: robbery_32
+    family: robbery
+    experiment_id: 20260414-cross-sensor-robbery-robbery-32-r032
+  - case_id: robbery_control_stalking
+    family: robbery
+    scenario: "20260414_144723"
+    variant: Cross-sensor robbery
+    expected_positive: false
+    repetitions: 1
+  - case_id: stalking_28
+    family: stalking
+    experiment_id: 20260414-three-visit-stalking-stalking-28-r028
+  - case_id: stalking_29
+    family: stalking
+    experiment_id: 20260414-three-visit-stalking-stalking-29-r029
+  - case_id: stalking_control_robbery
+    family: stalking
+    scenario: "20260414_152233"
+    variant: Three-visit stalking
+    expected_positive: false
+    repetitions: 1
+  - case_id: convoy_c1
+    family: convoy
+    experiment_id: 20260413-pass-follow-clear-convoy-c1-test-r003
+    replay_nodes: [orin14]
+  - case_id: convoy_ce1_9
+    family: convoy
+    experiment_id: 20260415-pass-follow-clear-convoy-3-car-convoy-ce1-9-r009
+  - case_id: convoy_control_robbery
+    family: convoy
+    scenario: "20260414_152233"
+    variant: Pass-follow-clear convoy
+    expected_positive: false
+    repetitions: 1
+  - case_id: rendezvous_brianjulian_1
+    family: rendezvous
+    experiment_id: 20250812-talking-rendezvous-rendezvous-brianjulian-1-r029
+    replay_nodes: [orin1, orin2, orin3, orin4, orin5, orin6, orin7, orin8, orin9, orin10]
+  - case_id: rendezvous_brianjulian_3
+    family: rendezvous
+    experiment_id: 20250812-talking-rendezvous-rendezvous-brianjulian-3-r031
+    replay_nodes: [orin1, orin2, orin3, orin4, orin5, orin6, orin7, orin8, orin9, orin10]
+  - case_id: rendezvous_control_robbery
+    family: rendezvous
+    scenario: "20260414_152233"
+    variant: Talking/rendezvous
+    expected_positive: false
+    repetitions: 1

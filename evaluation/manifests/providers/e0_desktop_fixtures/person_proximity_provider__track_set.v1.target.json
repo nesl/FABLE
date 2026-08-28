@@ -1,0 +1,6 @@
+{
+  "input_class": "track_set.v1",
+  "provider_id": "person_proximity_provider",
+  "target_id": "calibration_target_8eaf9c0405f6c6ab62bafff5",
+  "tier": "sensor"
+}

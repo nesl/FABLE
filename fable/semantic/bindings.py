@@ -144,6 +144,19 @@ class CanonicalBindingManager:
         """
 
         variable_types = graph.predicate_variables(node_id)
+        predicate = graph.nodes_by_id[node_id].predicate
+        local_to_variable = {
+            role.role_name: role.variable for role in (predicate.roles if predicate else ())
+        }
+
+        def normalize(values: Mapping[str, str]) -> dict[str, str]:
+            return {
+                (key if key in variable_types else local_to_variable.get(key, key)): value
+                for key, value in values.items()
+            }
+
+        introduced = normalize(introduced)
+        validated = normalize(validated)
         unknown = (set(introduced) | set(validated)) - set(variable_types)
         if unknown:
             raise BindingError(f"binding delta references unknown predicate variables: {sorted(unknown)}")

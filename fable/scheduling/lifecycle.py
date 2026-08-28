@@ -1,4 +1,9 @@
-"""Provider-token sharing, leases, and lifecycle management."""
+"""Create/reuse provider instances and attach/release demand-scoped leases.
+
+This module owns logical lifecycle and capacity reservations. It does not start
+containers or processes; NodeAgent/runtime execution performs that work after
+admission.
+"""
 
 from __future__ import annotations
 
@@ -125,6 +130,8 @@ class ProviderLifecycleManager:
         """
 
         demand_map = {demand.demand_id: demand for demand in candidate.demands}
+        # Legacy single-demand steps may omit demand_id. Ambiguity is rejected
+        # for multi-demand checkpoint plans rather than guessed.
         sole_demand = candidate.demands[0] if len(candidate.demands) == 1 else None
         intents: list[StepLeaseIntent] = []
         for plan_step in sorted(candidate.plan.steps, key=lambda item: item.step_id):
@@ -148,6 +155,8 @@ class ProviderLifecycleManager:
                 plan_step=plan_step,
             )
             intents.append(
+                # An intent is still side-effect free: it describes the lease
+                # and reservation that attachment would create.
                 StepLeaseIntent(
                     demand_id=demand.demand_id,
                     request_id=demand.request_id,
@@ -172,11 +181,15 @@ class ProviderLifecycleManager:
         self,
         candidate: PlanCandidate,
     ) -> tuple[tuple[str, ResourceReservation], ...]:
+        """Return only capacity not already covered by reusable workers."""
+
         result: dict[str, ResourceReservation] = {}
         for intent in self.preview_candidate(candidate):
             key_id = intent.share_key.key_id
             assert key_id is not None
             if self._find_reusable(intent.share_key) is not None:
+                # Sharing attaches a new logical lease to an existing physical
+                # reservation, so charging again would artificially exhaust it.
                 continue
             owner_id, reservation = self._capacity_group(
                 intent.plan_step.node_id,
@@ -198,6 +211,8 @@ class ProviderLifecycleManager:
         *,
         now: datetime | None = None,
     ) -> AttachResult:
+        """Create/reuse provider instances and attach all plan leases atomically."""
+
         observed_now = ensure_utc(now or utc_now())
         intents = self.preview_candidate(candidate)
         reservation_preview = self.preview_incremental_reservations(candidate)
@@ -214,6 +229,8 @@ class ProviderLifecycleManager:
             for intent in intents:
                 instance = self._find_reusable(intent.share_key)
                 if instance is None:
+                    # Instance creation owns capacity reservation; lease
+                    # creation below only references that reserved instance.
                     instance = self._create_instance(
                         intent.share_key,
                         intent.reservation,
@@ -223,6 +240,8 @@ class ProviderLifecycleManager:
                     newly_created_instances.append(instance.provider_instance_id)
                     incremental.append(instance.reservation)
                 else:
+                    # Reusing an idle-but-warm instance avoids startup cost and
+                    # preserves the existing capacity group.
                     reused.add(instance.provider_instance_id)
                     if instance.lifecycle == ProviderInstanceLifecycle.IDLE_LEASE:
                         self._transition(
@@ -242,6 +261,7 @@ class ProviderLifecycleManager:
 
             existing_plan = self.plans.get(candidate.plan.plan_id)
             if existing_plan is None:
+                # Plans become ADMITTED only after every step has a lease.
                 admitted_plan = candidate.plan.model_copy(update={"status": PlanStatus.ADMITTED})
                 self.plans[admitted_plan.plan_id] = ManagedPlan(
                     candidate_id=candidate.candidate_id or "",
@@ -257,6 +277,8 @@ class ProviderLifecycleManager:
                 ),
             )
         except Exception:
+            # Reverse-order release mirrors attachment and prevents a failed
+            # multi-step plan from leaking leases or capacity.
             for lease_id in reversed(attached):
                 self.release_lease(lease_id, now=observed_now, immediate=True)
             for instance_id in newly_created_instances:
@@ -301,6 +323,8 @@ class ProviderLifecycleManager:
         now: datetime | None = None,
         immediate: bool = False,
     ) -> str | None:
+        """Detach one logical lease and optionally retire its physical instance."""
+
         observed_now = ensure_utc(now or utc_now())
         managed = self.leases.get(lease_id)
         if managed is None:
@@ -319,8 +343,12 @@ class ProviderLifecycleManager:
         instance.updated_at = observed_now
         if not instance.active_lease_ids:
             if immediate:
+                # Immediate rollback/failure skips warm reuse and releases the
+                # capacity group now.
                 self._retire_immediately(instance, now=observed_now)
             else:
+                # Normal completion keeps the worker reusable for a bounded
+                # grace period; `tick` performs eventual draining.
                 instance.idle_until = observed_now + timedelta(milliseconds=self.idle_grace_ms)
                 self._transition(
                     instance,
@@ -341,6 +369,8 @@ class ProviderLifecycleManager:
         return tuple(released)
 
     def tick(self, *, now: datetime | None = None) -> tuple[str, ...]:
+        """Advance expired idle-grace instances to draining and free capacity."""
+
         observed_now = ensure_utc(now or utc_now())
         draining: list[str] = []
         for instance in self.instances.values():
@@ -392,12 +422,15 @@ class ProviderLifecycleManager:
         instance: ProviderInstanceRecord,
         now: datetime,
     ) -> ManagedLease:
+        """Attach an idempotent, deadline-bounded lease to an instance."""
+
         idempotency_key = (intent.demand_id, candidate.plan.plan_id, intent.plan_step.step_id)
         existing_id = self._lease_idempotency.get(idempotency_key)
         if existing_id is not None:
             return self.leases[existing_id]
         demand = next(item for item in candidate.demands if item.demand_id == intent.demand_id)
         expires_at = demand.deadline.latest_useful_completion
+        # A lease cannot outlive either its semantic usefulness or its plan.
         if candidate.plan.expires_at is not None:
             expires_at = min(expires_at, candidate.plan.expires_at)
         if expires_at <= now:
@@ -432,6 +465,8 @@ class ProviderLifecycleManager:
             created_at=now,
         )
         self.leases[lease.lease_id] = managed
+        # Store the idempotency mapping before exposing the lease on the
+        # instance, all under the lifecycle manager's serialized call path.
         self._lease_idempotency[idempotency_key] = lease.lease_id
         instance.active_lease_ids = tuple(
             sorted((*instance.active_lease_ids, lease.lease_id), key=str)
@@ -448,7 +483,11 @@ class ProviderLifecycleManager:
         *,
         now: datetime,
     ) -> ProviderInstanceRecord:
+        """Reserve capacity and register a new logical provider instance."""
+
         key_id = share_key.key_id or ""
+        # Generation prevents an instance retired earlier from reusing the same
+        # ID when an identical share key is created again.
         generation = self._generation_by_key.get(key_id, 0) + 1
         self._generation_by_key[key_id] = generation
         provider_instance_id = deterministic_id(
@@ -463,6 +502,8 @@ class ProviderLifecycleManager:
             fallback_owner_id=provider_instance_id,
         )
         if self._capacity_group_refcounts.get(capacity_owner_id, 0) == 0:
+            # Multiple logical instances may map to one named physical worker;
+            # reserve its resource bundle only for the first reference.
             self.capacity.reserve(capacity_owner_id, capacity_reservation)
         self._capacity_group_refcounts[capacity_owner_id] = (
             self._capacity_group_refcounts.get(capacity_owner_id, 0) + 1
@@ -503,6 +544,8 @@ class ProviderLifecycleManager:
         demand,
         plan_step: PlanStep,
     ) -> ProviderShareKey:
+        """Build the exact equivalence key under which execution may be shared."""
+
         provider = self.providers.provider(plan_step.provider_id)
         configuration_hash = deterministic_id(
             "config",
@@ -522,10 +565,14 @@ class ProviderLifecycleManager:
             in provider.semantic_capabilities.predicate_ids
         )
         binding_signature = (
+            # Only a provider that directly evaluates the predicate is scoped
+            # by semantic bindings. Generic upstream transforms can be shared.
             tuple(sorted(demand.bound_roles.items())) if directly_semantic else ()
         )
         discriminator = None
         if not provider.execution_capabilities.supports_shared_execution:
+            # A demand/step discriminator deliberately prevents key collision
+            # for providers whose contract forbids shared execution.
             discriminator = f"{demand.demand_id}:{plan_step.step_id}"
         return ProviderShareKey(
             provider_id=plan_step.provider_id,

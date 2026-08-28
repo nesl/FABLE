@@ -67,7 +67,14 @@ from .search.projection import ExecutionPlanProjector
 
 
 class BoundedLabelPlanner:
-    """Bounded multi-label planner with hard filtering and dominance pruning."""
+    """Beam plan search with hard filtering, deduplication, and dominance.
+
+    At each demand boundary it enumerates extensions, rejects infeasible ones,
+    creates immutable partial-plan labels, deduplicates equivalent labels,
+    removes dominated states, ranks the survivors lexicographically, and keeps
+    ``beam_width`` candidates. Ranking is part of beam search—not a second
+    planner run afterward. The winning label is projected to ``ExecutionPlan``.
+    """
 
     def __init__(
         self,
@@ -108,7 +115,15 @@ class BoundedLabelPlanner:
         now: datetime | None = None,
         required_checkpoint_consumers: Iterable[str] = (),
     ) -> PlanSearchResult:
+        """Search one checkpoint with bounded nondominated labels.
+
+        Each boundary adds exactly one demand realization. Feasibility is
+        checked before extension; duplicate, dominated, and over-width labels
+        are retained as traceable pruning records rather than silently lost.
+        """
         observed_now = ensure_utc(now or utc_now())
+        # Materialize once because callers may pass generators and because all
+        # later consistency checks need identity-based lookup.
         demand_map = {demand.demand_id: demand for demand in demands}
         if not demand_map:
             raise PlanSearchError("at least one predicate demand is required")
@@ -122,6 +137,8 @@ class BoundedLabelPlanner:
             raise PlanSearchError("physical graph checkpoint does not match the demands")
 
         required_consumers = tuple(sorted(set(required_checkpoint_consumers)))
+        # Earliest useful completion first makes tight obligations cross the
+        # beam boundary before more permissive ones.
         demand_order = self._demand_order(demand_map.values())
         alternatives_by_demand = self._alternatives_by_demand(graph)
         phase3_pruning = tuple(
@@ -146,6 +163,9 @@ class BoundedLabelPlanner:
             alternatives = alternatives_by_demand.get(demand_id, ())
             for parent in retained:
                 for alternative in alternatives:
+                    # Feasibility checks resources, bindings, representations,
+                    # deadlines, and transfer constraints without mutating the
+                    # parent label.
                     failures = self.check_extension(
                         parent,
                         alternative,
@@ -194,6 +214,8 @@ class BoundedLabelPlanner:
                     item for item in unique if item.label_id not in nondominated_ids
                 )
             ranked = tuple(sorted(nondominated, key=self.rank_key))
+            # Beam truncation is the sole approximation in the normal search;
+            # all feasibility and dominance decisions before it are exact.
             kept = ranked[: self.config.beam_width]
             for removed in ranked[self.config.beam_width :]:
                 pruning.append(
@@ -217,10 +239,13 @@ class BoundedLabelPlanner:
             )
             retained = tuple(kept)
             if not retained:
+                # No later demand can repair an infeasible partial plan.
                 break
 
         complete = tuple(item for item in retained if item is not None)
         if required_consumers:
+            # Continuation compatibility is a checkpoint-level constraint and
+            # can only be evaluated after every demand has been covered.
             accepted: list[LabelSearchState] = []
             terminal_pruning: list[PruningRecord] = []
             for state in complete:
@@ -252,6 +277,8 @@ class BoundedLabelPlanner:
             complete = tuple(accepted)
 
         ranked_complete = tuple(sorted(complete, key=self.rank_key))
+        # Selection and fallback order use the same deterministic rank tuple;
+        # dominated final labels remain eligible as bounded recovery options.
         selected = ranked_complete[0] if ranked_complete else None
         fallback_candidates = [*ranked_complete[1:], *final_dominated_archive]
         if required_consumers:
@@ -268,7 +295,11 @@ class BoundedLabelPlanner:
         fallbacks = tuple(
             sorted(fallback_by_id.values(), key=self.rank_key)[: self.config.fallback_count]
         )
-        execution_plan = self.to_execution_plan(selected) if selected is not None else None
+        execution_plan = (
+            self.to_execution_plan(selected, now=observed_now)
+            if selected is not None
+            else None
+        )
 
         oracle = OracleComparison(status=OracleStatus.NOT_RUN)
         if self.config.run_oracle:
@@ -356,8 +387,13 @@ class BoundedLabelPlanner:
     def dominates(self, left: LabelSearchState, right: LabelSearchState) -> bool:
         return self.ranker.dominates(left, right)
 
-    def to_execution_plan(self, state: LabelSearchState | None) -> ExecutionPlan | None:
-        return self.projector.project(state)
+    def to_execution_plan(
+        self,
+        state: LabelSearchState | None,
+        *,
+        now: datetime | None = None,
+    ) -> ExecutionPlan | None:
+        return self.projector.project(state, now=now)
 
     def _demand_order(self, demands: Iterable[PredicateDemand]) -> tuple[UUID, ...]:
         return tuple(

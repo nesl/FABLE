@@ -8,6 +8,7 @@ from evaluation.schemas import BaselineId
 
 from .policies import (
     AlwaysOnPolicy,
+    ProduceAllPolicy,
     ExhaustiveOraclePolicy,
     FablePolicy,
     GreedyFrontierPolicy,
@@ -26,7 +27,12 @@ def build_baseline_policy(
 ):
     if baseline_id == BaselineId.B0_ALWAYS_ON:
         return AlwaysOnPolicy()
-    if baseline_id == BaselineId.B1_HANDWRITTEN_STATIC:
+    if baseline_id == BaselineId.B0_PRODUCE_ALL:
+        return ProduceAllPolicy()
+    if baseline_id in {
+        BaselineId.B1_HANDWRITTEN_STATIC,
+        BaselineId.B1_STATIC_WHOLE_EVENT,
+    }:
         return HandwrittenStaticPolicy(StaticPipelineRegistry.load(static_registry_path))
     if baseline_id == BaselineId.B2_STATIC_WHOLE_EVENT:
         return StaticWholeEventPolicy(planner)

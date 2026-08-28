@@ -1,9 +1,9 @@
-"""In-memory semantic runtime for FABLE Phase 1.
+"""In-memory semantic state machine for one complex-event request.
 
-This module deliberately stops at the semantic-to-physical boundary.  It uses
-scripted predicate results, maintains one shared graph plus lightweight
-hypotheses, derives frontiers/checkpoints, and applies results with optimistic
-version checks and duplicate suppression.
+Input is a static ``SemanticGraph`` plus normalized ``PredicateResult`` records.
+Output is hypothesis/frontier transitions and eventual completion state. This
+module deliberately stops at the semantic-to-physical boundary: it never picks
+providers or nodes.
 """
 
 from __future__ import annotations
@@ -57,8 +57,20 @@ class _ForkContext:
     child_ids_by_key: dict[str, UUID] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class _ApplicationContext:
+    """Validated runtime target and concurrency envelope for one result."""
+
+    result: PredicateResult
+    base: Hypothesis
+    frontier: DerivedFrontier
+    fork_context: _ForkContext | None
+    context_key: tuple[UUID, int, UUID, str]
+    occurrence_scope: tuple[str, str, str]
+
+
 class SemanticRuntime:
-    """Authoritative Phase-1 state machine for one request graph."""
+    """Authoritative hypotheses and Active Frontiers for one request graph."""
 
     def __init__(
         self,
@@ -102,10 +114,12 @@ class SemanticRuntime:
         )
 
     def get_hypothesis(self, hypothesis_id: UUID) -> Hypothesis:
+        """Return current state for one candidate complex-event occurrence."""
         with self._lock:
             return self._hypotheses[hypothesis_id]
 
     def get_frontier(self, hypothesis_id: UUID) -> DerivedFrontier | None:
+        """Return predicates currently useful for the selected hypothesis."""
         with self._lock:
             hypothesis = self._hypotheses[hypothesis_id]
             if hypothesis.frontier_id is None:
@@ -142,6 +156,35 @@ class SemanticRuntime:
                         context.child_ids_by_key.pop(key, None)
             return True
 
+    def invalidate_unprogressed_hypothesis(
+        self,
+        hypothesis_id: UUID,
+        *,
+        seed_event_time: EventTimeInterval,
+        minimum_progress_gap_ms: int,
+        force: bool = False,
+    ) -> bool:
+        """Invalidate a rolling seed only when no successor evidence arrived."""
+        with self._lock:
+            hypothesis = self._hypotheses.get(hypothesis_id)
+            if hypothesis is None or hypothesis.lifecycle != HypothesisLifecycle.ACTIVE:
+                return False
+            progressed_states = [
+                state for state in hypothesis.node_states.values()
+                if state.occurrence_ids
+            ]
+            # A seeded hypothesis has exactly one evidenced primitive. Any
+            # second evidenced graph node is meaningful progress and must not
+            # be evicted from a bounded candidate pool.
+            if len(progressed_states) > 1:
+                return False
+            age_ms = (
+                hypothesis.event_time_window.end - seed_event_time.end
+            ).total_seconds() * 1000
+            if not force and age_ms < minimum_progress_gap_ms:
+                return False
+        return self.invalidate_hypothesis(hypothesis_id)
+
     def start(
         self,
         *,
@@ -164,6 +207,12 @@ class SemanticRuntime:
         with self._lock:
             active = self.active_hypotheses
             if active:
+                # ``start`` is intentionally idempotent. Controllers may ask
+                # for the initial frontier more than once (for example after
+                # reconnect/recovery); active[0] is the already-created root
+                # hypothesis returned to that caller, not a preferred event
+                # candidate and not a pruning decision. Before any evidence
+                # forks the request, there is exactly one such root.
                 existing = active[0]
                 frontier = self.get_frontier(existing.hypothesis_id)
                 return RuntimeTransition(
@@ -174,6 +223,9 @@ class SemanticRuntime:
                 )
 
             observed = ensure_utc(observed_at or utc_now())
+            # The request window is event-time scope.  It is deliberately
+            # separate from the processing deadline below: replayed evidence
+            # may describe old media while still being processed now.
             window = event_time_window or EventTimeInterval(
                 start=observed,
                 end=observed + timedelta(milliseconds=self.config.hypothesis_horizon_ms),
@@ -195,7 +247,12 @@ class SemanticRuntime:
                 created_at=observed,
                 updated_at=observed,
             )
+            # Allocate every authored node before deriving the frontier so
+            # subsequent code can index node state without optional lookups.
             self.frontier_deriver.initialize_node_states(provisional)
+            # Derivation evaluates topology and creates checkpoint metadata;
+            # storing the hypothesis afterward makes the initial state appear
+            # atomically to callers holding the runtime lock.
             frontier = self._derive_and_store(provisional)
             self._store_new(provisional)
             return RuntimeTransition(
@@ -207,6 +264,8 @@ class SemanticRuntime:
 
     def seed(self, result: SeedPredicateResult) -> RuntimeTransition:
         with self._lock:
+            # Deduplicate before validation because redelivered broker messages
+            # must be harmless even after the original changed runtime state.
             occurrence_scope = ("seed", result.graph_node_id, result.occurrence_id)
             duplicate = self._duplicate_transition(result.result_id, occurrence_scope)
             if duplicate:
@@ -240,12 +299,17 @@ class SemanticRuntime:
                 created_at=result.observed_at,
                 updated_at=result.observed_at,
             )
+            # A seed may only create work that the empty authored graph would
+            # actually enable; it cannot jump into the middle of a sequence.
             self.frontier_deriver.initialize_node_states(provisional)
             initial_frontier = self.frontier_deriver.derive(provisional)
             if initial_frontier is None or result.graph_node_id not in initial_frontier.snapshot.enabled_node_ids:
                 return self._reject(result.result_id, "seed result does not match an enabled seed node")
 
             try:
+                # Canonicalization converts provider-local identifiers into
+                # request-level bindings and enforces role constraints before
+                # any durable semantic state is mutated.
                 introduced, validated = self.bindings.canonicalize_delta(
                     graph=self.graph,
                     hypothesis=None,
@@ -261,6 +325,8 @@ class SemanticRuntime:
                 return self._reject(result.result_id, "seed results cannot validate pre-existing bindings")
 
             object.__setattr__(provisional, "role_bindings", introduced)
+            # Identity validation may invalidate a candidate (for example two
+            # roles authored as distinct resolving to the same entity).
             provisional = self._revalidate_identity(provisional)
             self._mark_predicate(
                 provisional,
@@ -272,6 +338,8 @@ class SemanticRuntime:
             provisional.provenance_result_ids = (result.result_id,)
             provisional.evidence_artifact_ids = tuple(result.artifact_ids)
             self.frontier_deriver.propagate_composites(provisional)
+            # Resolving an OR branch retires work from losing branches.  The
+            # cancellation set returned below lets the physical layer stop it.
             losing_nodes, losing_branches = self._resolve_satisfied_or_branches(provisional)
             provisional = self._revalidate_identity(provisional)
             self.frontier_deriver.propagate_composites(provisional)
@@ -310,135 +378,30 @@ class SemanticRuntime:
             )
 
     def apply(self, result: PredicateResult) -> RuntimeTransition:
+        """Validate and apply evidence, then derive the next semantic state.
+
+        The algorithm validates the result envelope and optimistic version,
+        resolves/forks entity bindings, updates predicate progress, propagates
+        AND/OR/sequence/temporal progress, resolves branch cancellation, derives
+        a new Active Frontier, and completes the hypothesis when its root is
+        satisfied. Runtime state is mutated and a ``RuntimeTransition`` reports
+        all affected hypothesis IDs/frontiers.
+        """
         with self._lock:
-            occurrence_scope = (
-                str(result.hypothesis_id),
-                result.graph_node_id,
-                result.occurrence_id,
-            )
-            duplicate = self._duplicate_transition(result.result_id, occurrence_scope)
-            if duplicate:
-                return duplicate
-            envelope_error = self._validate_result_envelope(result)
-            if envelope_error:
-                return self._reject(result.result_id, envelope_error)
-
-            current = self._hypotheses.get(result.hypothesis_id)
-            if current is None:
-                return self._reject(result.result_id, "unknown hypothesis")
-
-            # Independent predicates in one AND checkpoint are dispatched
-            # against the same optimistic parent version. If the first result
-            # introduces a binding, that parent becomes FORKED before its
-            # sibling result arrives. Project the sibling across each active
-            # child where its authored node is still enabled; otherwise the
-            # two valid observations become separate one-sided hypotheses and
-            # the AND can never complete.
-            if current.lifecycle == HypothesisLifecycle.FORKED:
-                projected = self._apply_to_active_fork_children(result)
-                if projected is not None:
-                    return projected
-
-            # A provider command can remain in flight while another result for
-            # the same checkpoint advances the hypothesis version.  When the
-            # authored primitive is still enabled on the authoritative
-            # frontier, the observation is not semantically stale: rebase its
-            # optimistic-concurrency envelope and let the ordinary predicate,
-            # binding, and temporal checks decide it.  This is intentionally
-            # fail-closed for nodes that left the frontier.
-            if (
-                current.lifecycle == HypothesisLifecycle.ACTIVE
-                and current.version != result.expected_hypothesis_version
-            ):
-                active_frontier = self.get_frontier(current.hypothesis_id)
-                if (
-                    active_frontier is not None
-                    and result.graph_node_id in active_frontier.snapshot.enabled_node_ids
-                    and self.graph.nodes_by_id[result.graph_node_id].predicate
-                    == result.semantic_predicate
-                ):
-                    active_checkpoint = active_frontier.checkpoint_for_node(
-                        result.graph_node_id
-                    )
-                    result = result.model_copy(
-                        update={
-                            "expected_hypothesis_version": current.version,
-                            "frontier_id": active_frontier.snapshot.frontier_id,
-                            "checkpoint_id": active_checkpoint.checkpoint_id,
-                        }
-                    )
-
-            context_key = (
-                result.hypothesis_id,
-                result.expected_hypothesis_version,
-                result.checkpoint_id,
-                result.graph_node_id,
-            )
-            fork_context = self._fork_contexts.get(context_key)
-            if current.version == result.expected_hypothesis_version and current.lifecycle == HypothesisLifecycle.ACTIVE:
-                base = current
-                frontier = self.get_frontier(current.hypothesis_id)
-            elif fork_context is not None:
-                base = fork_context.base
-                frontier = fork_context.frontier
-            else:
-                return RuntimeTransition(
-                    status=ApplyStatus.STALE,
-                    parent_hypothesis_id=result.hypothesis_id,
-                    result_id=result.result_id,
-                    reason=(
-                        f"expected hypothesis version {result.expected_hypothesis_version}; "
-                        f"current version is {current.version}"
-                    ),
-                )
-
-            if frontier is None:
-                return self._reject(result.result_id, "hypothesis has no active frontier")
-            if result.frontier_id != frontier.snapshot.frontier_id:
-                return RuntimeTransition(
-                    status=ApplyStatus.STALE,
-                    parent_hypothesis_id=result.hypothesis_id,
-                    result_id=result.result_id,
-                    reason="result references an obsolete frontier",
-                )
+            # Envelope, optimistic-version, active-frontier, checkpoint, and
+            # temporal validation are kept together so no partially validated
+            # result reaches binding or graph mutation.
+            resolved = self._validate_and_resolve_result(result)
+            if isinstance(resolved, RuntimeTransition):
+                return resolved
+            result = resolved.result
             try:
-                checkpoint = frontier.checkpoint_for_node(result.graph_node_id)
-            except KeyError:
-                return self._reject(result.result_id, "result node is not part of the active checkpoint")
-            if checkpoint.checkpoint_id != result.checkpoint_id:
-                return RuntimeTransition(
-                    status=ApplyStatus.STALE,
-                    parent_hypothesis_id=result.hypothesis_id,
-                    result_id=result.result_id,
-                    reason="result references an obsolete checkpoint",
-                )
-
-            node = self.graph.nodes_by_id[result.graph_node_id]
-            if node.predicate != result.semantic_predicate:
-                return self._reject(result.result_id, "result predicate does not match graph node")
-            temporal_ok, temporal_reason = self.frontier_deriver.result_obeys_temporal_guards(
-                base,
-                result.graph_node_id,
-                result.event_time_interval,
-            )
-            if not temporal_ok:
-                return self._reject(result.result_id, temporal_reason)
-
-            try:
-                introduced, validated = self.bindings.canonicalize_delta(
-                    graph=self.graph,
-                    hypothesis=base,
-                    node_id=result.graph_node_id,
-                    introduced=result.binding_delta.introduced,
-                    validated=result.binding_delta.validated,
-                    source_id=self._primary_source(result.provenance.source_ids),
-                    occurrence_id=result.occurrence_id,
-                )
+                introduced, validated = self._resolve_bindings(resolved)
             except BindingError as error:
                 return self._reject(result.result_id, str(error))
 
             if result.truth == TruthValue.UNKNOWN:
-                self._remember_result(result.result_id, occurrence_scope)
+                self._remember_result(result.result_id, resolved.occurrence_scope)
                 return RuntimeTransition(
                     status=ApplyStatus.NOOP,
                     parent_hypothesis_id=result.hypothesis_id,
@@ -450,18 +413,21 @@ class SemanticRuntime:
             new_roles = {
                 role_name: binding
                 for role_name, binding in introduced.items()
-                if role_name not in base.role_bindings
+                if role_name not in resolved.base.role_bindings
             }
+            # A true result that introduces an entity represents one candidate
+            # interpretation, not a mutation of the shared parent.  Forking
+            # preserves other provider candidates for the same open frontier.
             if result.truth == TruthValue.TRUE and new_roles:
                 return self._apply_binding_fork(
                     result,
-                    base=base,
-                    frontier=frontier,
+                    base=resolved.base,
+                    frontier=resolved.frontier,
                     introduced=introduced,
                     validated=validated,
-                    context_key=context_key,
+                    context_key=resolved.context_key,
                 )
-            if fork_context is not None:
+            if resolved.fork_context is not None:
                 return RuntimeTransition(
                     status=ApplyStatus.STALE,
                     parent_hypothesis_id=result.hypothesis_id,
@@ -471,11 +437,147 @@ class SemanticRuntime:
 
             return self._apply_in_place(
                 result,
-                base=base,
-                old_frontier=frontier,
+                base=resolved.base,
+                old_frontier=resolved.frontier,
                 introduced=introduced,
                 validated=validated,
             )
+
+    def _validate_and_resolve_result(
+        self, result: PredicateResult
+    ) -> _ApplicationContext | RuntimeTransition:
+        """Validate identity/version/frontier/temporal context for ``apply``."""
+
+        occurrence_scope = (
+            str(result.hypothesis_id),
+            result.graph_node_id,
+            result.occurrence_id,
+        )
+        duplicate = self._duplicate_transition(result.result_id, occurrence_scope)
+        if duplicate:
+            return duplicate
+        envelope_error = self._validate_result_envelope(result)
+        if envelope_error:
+            return self._reject(result.result_id, envelope_error)
+        current = self._hypotheses.get(result.hypothesis_id)
+        if current is None:
+            return self._reject(result.result_id, "unknown hypothesis")
+
+        # Sibling AND results dispatched from one parent must be projected over
+        # active binding forks rather than becoming isolated one-sided forks.
+        if current.lifecycle == HypothesisLifecycle.FORKED:
+            projected = self._apply_to_active_fork_children(result)
+            if projected is not None:
+                return projected
+
+        result = self._rebase_still_active_result(result, current)
+        context_key = (
+            result.hypothesis_id,
+            result.expected_hypothesis_version,
+            result.checkpoint_id,
+            result.graph_node_id,
+        )
+        fork_context = self._fork_contexts.get(context_key)
+        if (
+            current.version == result.expected_hypothesis_version
+            and current.lifecycle == HypothesisLifecycle.ACTIVE
+        ):
+            base = current
+            frontier = self.get_frontier(current.hypothesis_id)
+        elif fork_context is not None:
+            base = fork_context.base
+            frontier = fork_context.frontier
+        else:
+            return RuntimeTransition(
+                status=ApplyStatus.STALE,
+                parent_hypothesis_id=result.hypothesis_id,
+                result_id=result.result_id,
+                reason=(
+                    f"expected hypothesis version {result.expected_hypothesis_version}; "
+                    f"current version is {current.version}"
+                ),
+            )
+        if frontier is None:
+            return self._reject(result.result_id, "hypothesis has no active frontier")
+        if result.frontier_id != frontier.snapshot.frontier_id:
+            return RuntimeTransition(
+                status=ApplyStatus.STALE,
+                parent_hypothesis_id=result.hypothesis_id,
+                result_id=result.result_id,
+                reason="result references an obsolete frontier",
+            )
+        try:
+            checkpoint = frontier.checkpoint_for_node(result.graph_node_id)
+        except KeyError:
+            return self._reject(
+                result.result_id, "result node is not part of the active checkpoint"
+            )
+        if checkpoint.checkpoint_id != result.checkpoint_id:
+            return RuntimeTransition(
+                status=ApplyStatus.STALE,
+                parent_hypothesis_id=result.hypothesis_id,
+                result_id=result.result_id,
+                reason="result references an obsolete checkpoint",
+            )
+        node = self.graph.nodes_by_id[result.graph_node_id]
+        if node.predicate != result.semantic_predicate:
+            return self._reject(result.result_id, "result predicate does not match graph node")
+        temporal_ok, temporal_reason = self.frontier_deriver.result_obeys_temporal_guards(
+            base, result.graph_node_id, result.event_time_interval
+        )
+        if not temporal_ok:
+            return self._reject(result.result_id, temporal_reason)
+        return _ApplicationContext(
+            result=result,
+            base=base,
+            frontier=frontier,
+            fork_context=fork_context,
+            context_key=context_key,
+            occurrence_scope=occurrence_scope,
+        )
+
+    def _rebase_still_active_result(
+        self, result: PredicateResult, current: Hypothesis
+    ) -> PredicateResult:
+        """Rebase an in-flight sibling only if its predicate remains active."""
+
+        if (
+            current.lifecycle != HypothesisLifecycle.ACTIVE
+            or current.version == result.expected_hypothesis_version
+        ):
+            return result
+        active_frontier = self.get_frontier(current.hypothesis_id)
+        if (
+            active_frontier is None
+            or result.graph_node_id not in active_frontier.snapshot.enabled_node_ids
+            or self.graph.nodes_by_id[result.graph_node_id].predicate
+            != result.semantic_predicate
+        ):
+            return result
+        checkpoint = active_frontier.checkpoint_for_node(result.graph_node_id)
+        return result.model_copy(
+            update={
+                "expected_hypothesis_version": current.version,
+                "frontier_id": active_frontier.snapshot.frontier_id,
+                "checkpoint_id": checkpoint.checkpoint_id,
+            }
+        )
+
+    def _resolve_bindings(
+        self, context: _ApplicationContext
+    ) -> tuple[dict[str, EntityBinding], dict[str, EntityBinding]]:
+        """Canonicalize result-local aliases against the target hypothesis."""
+
+        result = context.result
+        return self.bindings.canonicalize_delta(
+            graph=self.graph,
+            hypothesis=context.base,
+            node_id=result.graph_node_id,
+            introduced=result.binding_delta.introduced,
+            validated=result.binding_delta.validated,
+            source_id=self._primary_source(result.provenance.source_ids),
+            occurrence_id=result.occurrence_id,
+        )
 
     def _apply_to_active_fork_children(
         self, result: PredicateResult
@@ -561,7 +663,13 @@ class SemanticRuntime:
         )
 
     def close_temporal_windows(self, watermarks: WatermarkSnapshot) -> tuple[RuntimeTransition, ...]:
-        """Close coverage-aware ABSENT checkpoints whose event-time windows elapsed."""
+        """Resolve ABSENT nodes only after coverage watermarks close their windows.
+
+        A lack of observations is not evidence of absence until every required
+        source has operational coverage beyond the interval (including allowed
+        lateness). Successful closure mutates affected hypotheses/frontiers and
+        returns their transitions.
+        """
 
         transitions: list[RuntimeTransition] = []
         with self._lock:
@@ -650,6 +758,22 @@ class SemanticRuntime:
                     original = updated
         return tuple(transitions)
 
+    def expire_temporal_windows(
+        self,
+        watermarks: WatermarkSnapshot,
+        *,
+        completed_source_ids: set[str] | frozenset[str] = frozenset(),
+    ) -> tuple[RuntimeTransition, ...]:
+        """Expire unresolved windows only after their source replay is complete.
+
+        Absence resolution remains the responsibility of
+        :meth:`close_temporal_windows`. This hook is intentionally conservative:
+        an end-of-replay marker alone cannot manufacture positive or negative
+        semantic evidence, so currently it returns no transitions.
+        """
+        del watermarks, completed_source_ids
+        return ()
+
     def _apply_in_place(
         self,
         result: PredicateResult,
@@ -659,12 +783,18 @@ class SemanticRuntime:
         introduced: dict[str, EntityBinding],
         validated: dict[str, EntityBinding],
     ) -> RuntimeTransition:
+        """Apply evidence to a hypothesis that does not require a binding fork."""
+
+        # Work on a deep copy so readers never observe a half-applied result and
+        # so `_replace` can update canonical indexes as one logical operation.
         updated = base.model_copy(deep=True)
         updated.version += 1
         updated.updated_at = result.processing_completed_at
         updated.frontier_id = None
         updated.role_bindings.update(introduced)
         updated.role_bindings.update(validated)
+        # Request-start is only a provisional anchor.  The first real evidence
+        # supplies occurrence identity used for terminal-event deduplication.
         self._anchor_first_observation(updated, result.occurrence_id)
         updated = self._revalidate_identity(updated)
         updated.provenance_result_ids = tuple(
@@ -680,11 +810,17 @@ class SemanticRuntime:
             occurrence_id=result.occurrence_id,
             interval=result.event_time_interval,
         )
+        # First propagate the new leaf truth, then resolve authored OR losers,
+        # re-check identity constraints, and propagate once more because either
+        # operation can change composite/root status.
         self.frontier_deriver.propagate_composites(updated)
         losing_nodes, losing_branches = self._resolve_satisfied_or_branches(updated)
         updated = self._revalidate_identity(updated)
         self.frontier_deriver.propagate_composites(updated)
         new_frontier = self._derive_and_store(updated)
+        # Replace semantic state before remembering the delivery.  Both happen
+        # under the runtime lock, so a retry sees either the complete update or
+        # the prior state, never an intermediate graph.
         self._replace(base, updated)
         self._remember_result(
             result.result_id,
@@ -694,6 +830,8 @@ class SemanticRuntime:
         old_enabled = set(old_frontier.snapshot.enabled_node_ids)
         new_enabled = set(new_frontier.snapshot.enabled_node_ids if new_frontier else ())
         cancelled = (old_enabled - new_enabled) | losing_nodes
+        # Physical cancellation is derived from frontier difference rather
+        # than guessed from predicate type, keeping semantics authoritative.
         return RuntimeTransition(
             status=ApplyStatus.APPLIED,
             parent_hypothesis_id=base.hypothesis_id,
@@ -717,8 +855,12 @@ class SemanticRuntime:
         validated: dict[str, EntityBinding],
         context_key: tuple[UUID, int, UUID, str],
     ) -> RuntimeTransition:
+        """Create or merge a canonical child for newly introduced bindings."""
+
         context = self._fork_contexts.get(context_key)
         if context is None:
+            # Freeze the pre-result parent once.  Every candidate result for
+            # this checkpoint is projected from this same semantic baseline.
             context = _ForkContext(base=base.model_copy(deep=True), frontier=frontier)
             self._fork_contexts[context_key] = context
             parent = self._hypotheses[base.hypothesis_id].model_copy(deep=True)
@@ -729,6 +871,8 @@ class SemanticRuntime:
             self._replace(base, parent)
 
         candidate = context.base.model_copy(deep=True)
+        # Children require independent identity/version space; reusing the
+        # parent's ID would make optimistic concurrency ambiguous.
         candidate.hypothesis_id = uuid7()
         candidate.version = context.base.version + 1
         candidate.lifecycle = HypothesisLifecycle.ACTIVE
@@ -762,6 +906,8 @@ class SemanticRuntime:
             if indexed is not None and indexed != base.hypothesis_id:
                 existing_id = indexed
         if existing_id is not None:
+            # Different provider-local observations can canonicalize to the
+            # same entity tuple. Merge provenance instead of duplicating work.
             existing = self._hypotheses[existing_id]
             self._merge_evidence_only(
                 existing,

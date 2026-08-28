@@ -1,0 +1,42 @@
+schema_version: fable.physical_provider_profile.v1
+profile_version: orin-edge-yolov8n-v1
+node_id: physical_jetson
+hardware_id: orin_edge_01
+status: FROZEN_CALIBRATION_PROFILE
+headline_evaluation_input: true
+calibration_scope: planner_input_only
+calibration_independence:
+  captured_before_headline_execution: true
+  excluded_from_accuracy_and_adaptation_results: true
+  random_seed: 34001
+provider: yolo_vehicle_fast_640
+implementation: yolov8n-jetson-cuda
+model: yolov8n.pt
+input:
+  source_fps: 15.0
+  image_size: 640
+  maximum_rate_hz: 2.0
+  source: physical_rpi_camera_replay
+samples:
+  warm_streaming:
+    repetitions: 3
+    source_frames_each: 301
+    inference_counts: [26, 26, 27]
+    inference_wall_seconds: [6.924410, 6.790779, 6.656042]
+    mean_inference_ms: [266.323, 261.184, 246.520]
+    detections: [38, 39, 40]
+    process_wall_seconds: [19.968, 19.962, 20.001]
+    peak_gpu_utilization_percent: [80, 84, 75]
+    peak_system_ram_used_mb: [5748, 5759, 5792]
+  cold_start_probe:
+    repetitions: 1
+    model_load_ms: 182.267
+    first_two_inferences_total_ms: 4912.724
+notes:
+  - Jetson reports unified system/GPU memory; RAM is not separate VRAM.
+  - CUDA warm-up dominates the first two inferences and is retained separately.
+  - These samples calibrate planner costs only and are not evaluation observations.
+raw_telemetry:
+  - raw/tegrastats-yolo-v1.log
+  - raw/tegrastats-yolo-v2.log
+  - raw/tegrastats-yolo-v3.log

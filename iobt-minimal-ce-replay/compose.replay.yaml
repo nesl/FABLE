@@ -20,7 +20,7 @@ services:
       - /etc/timezone:/etc/timezone:ro
       - "/media/brianw/Extreme SSD/West Point Experimentation:/data_roots/west_point:ro"
       - "/media/brianw/Extreme SSD/GQ Data:/data_roots/gq:ro"
-      - "/home/brianw/Documents/FABLE/iobt-minimal-ce-replay/setup/zed_settings:/usr/local/zed/settings/:ro"
+      - "./setup/zed_settings:/usr/local/zed/settings/:ro"
       - "/tmp/iobt-orin11:/tmp"
     environment:
       - TEST_CONTROL=False
@@ -63,6 +63,30 @@ services:
       - YOLO_PUBLISH_FRAME_STATUS=true
       - YOLO_STATUS_FPS=1.0
       - YOLO_FRAME_STATUS_FPS=1.0
+
+  yolo-x86server:
+    build:
+      context: .
+      dockerfile: services/analytics/yolo_detector/Dockerfile
+      network: host
+    image: iobt-minimal/yolo-detector:latest
+    container_name: yolo-detector-x86server
+    working_dir: /app
+    command: python3 -u /app/app.py
+    gpus: all
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - TEST_CONTROL=False
+      - MCP_NODE_NAME=x86server
+      - MQTT_HOST_IP=${MQTT_HOST_IP:-host.docker.internal}
+      - MQTT_PORT=${MQTT_PORT:-1883}
+      - SERIALIZER=msgpack
+      - SOURCE=dvpg_gq_orin_11
+      - LOAD_MODEL=true
+      - YOLO_MODEL=/app/yolov8n.pt
+      - YOLO_DEVICE=${YOLO_SITE_DEVICE:-auto}
+      - YOLO_OUTPUT_TOPIC=/x86server/analytics/yolo/bbox
       - YOLO_ANNOTATED_WIDTH=960
       - YOLO_ANNOTATED_JPEG_QUALITY=70
 

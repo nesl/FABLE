@@ -1,0 +1,59 @@
+repository_root: /opt/fablectl/current
+replay_root: /opt/fablectl/deployments/smoke-v1/iobt-minimal-ce-replay
+venv_python: /opt/fablectl/current/venv/bin/python
+manifest_root: /srv/fable/manifests
+deployment_root: /opt/fablectl/deployments
+allowed_deployment_ids:
+  - smoke-v1
+
+recording_roots:
+  - /media/brianw/Extreme SSD/GQ Data
+  - /media/brianw/Extreme SSD/West Point Experimentation
+
+output_root: /srv/fable/evaluation-runs
+state_root: /var/lib/fablectl
+socket_path: /run/fablectl/fablectld.sock
+
+tmux:
+  stack: fable1
+  control: fable2
+  monitor: fable3
+
+allowed_compose_files:
+  - compose.server.yaml
+  - compose.replay.yaml
+  - compose.fable.yaml
+  - compose.fable.phase7.yaml
+  - compose.fable.phase8.yaml
+  - compose.fable.evaluation.yaml
+
+allowed_network_profiles:
+  - good_network
+  - smoke_fixed_latency
+
+allowed_baselines:
+  - B0_ALWAYS_ON
+  - B1_HANDWRITTEN_STATIC
+  - B2_STATIC_WHOLE_EVENT
+  - B3_TASK_RESOURCE_ADAPTIVE
+  - B4_GREEDY_FRONTIER
+  - FABLE
+  - O1_EXHAUSTIVE_ORACLE
+  - SPATIAL_BROADCAST
+  - SPATIAL_TOPOLOGY_SHORTLIST
+  - SPATIAL_RESOURCE_ONLY
+  - SPATIAL_FABLE
+  - SPATIAL_ORACLE
+
+mininet_helper: /usr/local/sbin/fable-netctl
+enable_mutations: false
+mutation_gates:
+  stack_changes: false
+  request_compilation: false
+  request_submission: false
+  replay: false
+  network_control: false
+  writable_probe: false
+compose_project_prefix: fablectl
+command_timeout_seconds: 30
+stack_ready_timeout_seconds: 180

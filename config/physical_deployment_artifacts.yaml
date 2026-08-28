@@ -1,0 +1,39 @@
+schema_version: fable.deployment_artifacts.v1
+artifacts:
+  - artifact_type: camera_calibration.v1
+    path: config/physical_vehicle_geometry.json
+    runtime_uri: file:///opt/fable/config/physical_vehicle_geometry.json
+    node_id: physical_rpi
+    bindings:
+      source_id: physical_rpi_camera_replay
+      coordinate_frame_id: image:physical_rpi_camera_replay
+      calibration_kind: full_frame_proxy
+    access_modes: [LOCAL, TRANSFERRED]
+
+  - artifact_type: camera_calibration.v1
+    path: config/physical_vehicle_geometry.json
+    runtime_uri: file:///opt/fable/config/physical_vehicle_geometry.json
+    node_id: physical_jetson
+    bindings:
+      source_id: physical_jetson_camera_ingress
+      coordinate_frame_id: image:physical_rpi_camera_replay
+      calibration_kind: full_frame_proxy
+    access_modes: [LOCAL, TRANSFERRED]
+
+  - artifact_type: route_graph.v1
+    path: config/physical_vehicle_geometry.json
+    runtime_uri: file:///opt/fable/config/physical_vehicle_geometry.json
+    node_id: physical_rpi
+    bindings:
+      deployment_id: physical_lab_v1
+      source_id: physical_rpi_camera_replay
+    access_modes: [LOCAL, TRANSFERRED]
+
+  - artifact_type: route_graph.v1
+    path: config/physical_vehicle_geometry.json
+    runtime_uri: file:///opt/fable/config/physical_vehicle_geometry.json
+    node_id: physical_jetson
+    bindings:
+      deployment_id: physical_lab_v1
+      source_id: physical_jetson_camera_ingress
+    access_modes: [LOCAL, TRANSFERRED]

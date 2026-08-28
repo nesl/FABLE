@@ -18,8 +18,11 @@ from typing import Any
 import yaml
 
 
-ANCHOR_IMAGE = "alpine:3.20"
-ANCHOR_COMMAND = ["sh", "-c", "trap : TERM INT; sleep infinity & wait"]
+ANCHOR_IMAGE = "fable/netwaggle-anchor:alpine3.20"
+ANCHOR_COMMAND = [
+    "sh", "-c",
+    "iperf3 --server --daemon; trap : TERM INT; sleep infinity & wait",
+]
 
 
 def load_yaml(path: Path) -> dict[str, Any]:
@@ -58,9 +61,16 @@ def service_matches(service_name: str, service: dict[str, Any], containers: set[
 def anchor_service(anchor_name: str) -> dict[str, Any]:
     return {
         "image": ANCHOR_IMAGE,
+        "build": {"context": "../netwaggle", "dockerfile": "Dockerfile.anchor"},
         "container_name": anchor_name,
         "command": ANCHOR_COMMAND,
         "network_mode": "none",
+        "healthcheck": {
+            "test": ["CMD-SHELL", "command -v ping && command -v iperf3"],
+            "interval": "5s",
+            "timeout": "2s",
+            "retries": 12,
+        },
     }
 
 

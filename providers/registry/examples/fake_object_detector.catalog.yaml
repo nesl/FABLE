@@ -1,0 +1,34 @@
+schema_version: fable.provider_catalog.v1
+providers:
+  fake_object_detector:
+    description: Tiny deterministic detector used as an onboarding example.
+    provider_family: fake_object_detection
+    implements:
+      predicates: [OBJECT_PRESENT]
+      role_capabilities:
+        object: [introduce]
+    ports:
+      inputs:
+      - {name: frames, type: raw_video_frames.v1, purpose: evidence, required: true}
+      outputs:
+      - {name: result, type: predicate_match.v1, purpose: result, required: true}
+      - {name: detections, type: detection_set.v1, purpose: reusable_evidence}
+    parameters:
+      class_allowlist: {type: "list[string]"}
+      confidence_threshold: {type: number, minimum: 0.0, maximum: 1.0, default: 0.5}
+    execution_capabilities:
+      modes: [live]
+      supports_shared_execution: true
+      accepted_input_access: [local]
+chains:
+  fake_object_present:
+    description: One-step OBJECT_PRESENT teaching chain.
+    external_inputs:
+      video: {type: raw_video_frames.v1}
+    steps:
+    - id: detect
+      provider: fake_object_detector
+      bind: {frames: external.video}
+    outputs:
+      result: detect.result
+      detections: detect.detections

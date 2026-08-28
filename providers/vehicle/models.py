@@ -264,7 +264,10 @@ class EntityAssociationSet(FableModel):
     left_source_id: str = Field(min_length=1)
     right_source_id: str = Field(min_length=1)
     event_time_interval: EventTimeInterval
-    feature_space_key: tuple[str, str, str, int, str, str]
+    feature_space_key: (
+        tuple[str, str, str, int, str, str]
+        | tuple[str, str, str, str, int, str, str]
+    )
     entity_kind: str = Field(default="vehicle", min_length=1)
     associations: tuple[EntityAssociation, ...]
     unmatched_left: tuple[str, ...] = ()

@@ -15,7 +15,7 @@ services:
     - /etc/timezone:/etc/timezone:ro
     - /media/brianw/Extreme SSD/West Point Experimentation:/data_roots/west_point:ro
     - /media/brianw/Extreme SSD/GQ Data:/data_roots/gq:ro
-    - /home/brianw/Documents/FABLE/iobt-minimal-ce-replay/setup/zed_settings:/usr/local/zed/settings/:ro
+    - ./setup/zed_settings:/usr/local/zed/settings/:ro
     - /tmp/iobt-orin11:/tmp
     environment:
     - TEST_CONTROL=False

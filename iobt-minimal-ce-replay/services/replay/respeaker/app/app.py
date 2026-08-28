@@ -200,6 +200,7 @@ class respeaker_replay(iobt_max_service):
             if event_start
             else None
         )
+        self.event_start_at = self.replay_event_start_epoch
 
         total_frames = len(self.df_timestamps)
         total_duration = self.df_timestamps["elapsed"].iloc[-1]
@@ -638,12 +639,10 @@ class respeaker_replay(iobt_max_service):
                     break
 
                 chunk     = self.audio_data[sample_start:sample_end, :]
-                timestamp = (
-                    self.replay_event_start_epoch
-                    + float(self.df_timestamps["elapsed"].iloc[frame_idx])
-                    if self.replay_event_start_epoch is not None
-                    else time.time()
-                )
+                if self.event_start_at is not None:
+                    timestamp = self.event_start_at + frame_elapsed_original
+                else:
+                    timestamp = time.time()
 
                 if self.state == state.collecting:
                     self.record_frames.append(chunk.copy())

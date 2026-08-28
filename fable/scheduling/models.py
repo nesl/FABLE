@@ -30,6 +30,7 @@ from fable.common.schemas import (
     ResourceReservation,
 )
 from fable.common.time import EventTimeInterval, ensure_utc, utc_now
+from fable.planning.models import PhysicalAlternative
 
 
 class TaskPriorityClass(StrEnum):
@@ -105,6 +106,8 @@ class PlanCandidate(FableModel):
     incremental_resource_cost_units: float = Field(default=0, ge=0)
     transfer_bytes: int = Field(default=0, ge=0)
     fallback_rank: int = Field(default=0, ge=0)
+    alternatives: tuple[PhysicalAlternative, ...] = ()
+    replicated_demand_execution: bool = False
     created_at: datetime = Field(default_factory=utc_now)
 
     @field_validator("created_at")
@@ -171,6 +174,7 @@ class PlanCandidate(FableModel):
         return tuple(
             sorted({step.alternative_id for step in self.plan.steps if step.alternative_id})
         )
+
 
 
 

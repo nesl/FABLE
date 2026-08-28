@@ -8,11 +8,13 @@ from .builder import (
     compile_authored_graph,
     validate_semantic_graph_structure,
 )
+from .authoring import ComplexEvent, EventNode
 from .compiled import CompiledSemanticGraph
 from .frontier_deriver import FrontierDeriver
 from .examples import all_constructs_graph, repeated_visit_graph
 from .definitions import drive_up_shooting_graph, multimodal_robbery_graph, package_exchange_graph
 from .models import (
+    ActiveFrontier,
     ApplyStatus,
     CancellationSet,
     DerivedFrontier,
@@ -37,6 +39,7 @@ from .testing import predicate_result_from_spec, seed_result_from_spec
 
 __all__ = [
     "ApplyStatus",
+    "ActiveFrontier",
     "AuthoredGraphBuilder",
     "BindingError",
     "CancellationSet",
@@ -47,6 +50,8 @@ __all__ = [
     "FrontierDeriver",
     "GraphCompileError",
     "PredicateRoleSpec",
+    "ComplexEvent",
+    "EventNode",
     "RuntimeTransition",
     "ScriptedResultSpec",
     "SeedPredicateResult",

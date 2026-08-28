@@ -1,0 +1,29 @@
+{
+  "schema_version": "fable.reid_models.v1",
+  "models": {
+    "person": {
+      "backend": "torchreid",
+      "architecture": "osnet_ain_x1_0",
+      "training_dataset": "MSMT17",
+      "version": "kaiyangzhou-osnet-a5c5cc0-msmt17",
+      "preprocessing_id": "torchreid-256x128-rgb-imagenet",
+      "filename": "person.pth",
+      "sha256": "8a07e8da38946f7cee37f4561617bf8b6d2fe8f3a4027852893ea092e46d919f",
+      "url": "https://huggingface.co/kaiyangzhou/osnet/resolve/a5c5cc037c24235cda3b21085b93ad77c9616224/osnet_ain_x1_0_msmt17_256x128_amsgrad_ep50_lr0.0015_coslr_b64_fb10_softmax_labsmth_flip_jitter.pth?download=true",
+      "code_license": "MIT",
+      "source": "https://huggingface.co/kaiyangzhou/osnet"
+    },
+    "vehicle": {
+      "backend": "fastreid",
+      "architecture": "SBS-R50-IBN",
+      "training_dataset": "VeRi",
+      "version": "fastreid-v0.1.1-veri-sbs-r50-ibn",
+      "preprocessing_id": "fastreid-veri-256x256-rgb",
+      "filename": "vehicle.pth",
+      "sha256": "57fb9c17d88911ea64390bf5427f43511435e7f88f6eed9dbc969d4b611e53cd",
+      "url": "https://github.com/JDAI-CV/fast-reid/releases/download/v0.1.1/veri_sbs_R50-ibn.pth",
+      "code_license": "Apache-2.0",
+      "source": "https://github.com/JDAI-CV/fast-reid/blob/master/MODEL_ZOO.md#veri-baseline"
+    }
+  }
+}

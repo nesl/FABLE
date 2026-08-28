@@ -14,13 +14,13 @@
     "Talking/rendezvous": 8,
     "Three-visit stalking": 3,
     "Two-vehicle chase": 19,
-    "Two-visit stalking": 3,
-    "Vehicle convergence": 5
+    "Vehicle convergence": 5,
+    "Vehicle rendezvous": 3
   },
   "spatial_eligible_by_year": {
     "2024": 47,
-    "2025": 23
+    "2025": 20
   },
-  "topology_unknown_count": 13,
-  "mobile_replay_deferred_count": 76
+  "topology_unknown_count": 16,
+  "mobile_replay_deferred_count": 73
 }

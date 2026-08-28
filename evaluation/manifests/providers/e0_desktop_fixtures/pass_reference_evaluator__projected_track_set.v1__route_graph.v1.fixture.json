@@ -1,0 +1,58 @@
+{
+  "expected_truth": true,
+  "reference": {
+    "end": {
+      "coordinate_frame_id": "world",
+      "x": 0,
+      "y": 5
+    },
+    "reference_id": "gate",
+    "start": {
+      "coordinate_frame_id": "world",
+      "x": 0,
+      "y": -5
+    }
+  },
+  "tracks": [
+    {
+      "bbox": {
+        "x1": -1,
+        "x2": 1,
+        "y1": 0,
+        "y2": 4
+      },
+      "class_name": "car",
+      "confidence": 0.95,
+      "event_time": "2026-01-01T00:00:00+00:00",
+      "local_track_id": 1,
+      "scoped_track_id": "camera:session:1",
+      "source_id": "camera",
+      "tracker_session_id": "session",
+      "world_point": {
+        "coordinate_frame_id": "world",
+        "x": -1,
+        "y": 0
+      }
+    },
+    {
+      "bbox": {
+        "x1": 1,
+        "x2": 3,
+        "y1": 0,
+        "y2": 4
+      },
+      "class_name": "car",
+      "confidence": 0.95,
+      "event_time": "2026-01-01T00:00:01+00:00",
+      "local_track_id": 1,
+      "scoped_track_id": "camera:session:1",
+      "source_id": "camera",
+      "tracker_session_id": "session",
+      "world_point": {
+        "coordinate_frame_id": "world",
+        "x": 1,
+        "y": 0
+      }
+    }
+  ]
+}

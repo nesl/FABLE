@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
+from pathlib import Path
+import subprocess
 import threading
 from typing import Protocol
 
@@ -216,6 +219,109 @@ class DockerSDKRuntime:
         handle = self.inspect(provider_instance_id)
         if handle is None:
             return False
+
+
+class ManagedProcessRuntime:
+    """Narrow host-process runtime for explicitly configured absolute commands.
+
+    Commands are passed as argument arrays with ``shell=False``. No arbitrary
+    shell text, PATH lookup, or privilege escalation is accepted. This adapter
+    is useful for physical-node providers that are not packaged as containers.
+    """
+
+    def __init__(self, *, state_dir: str | Path) -> None:
+        self.state_dir = Path(state_dir)
+        self.state_dir.mkdir(parents=True, exist_ok=True)
+        self._processes: dict[str, subprocess.Popen[bytes]] = {}
+        self._specs: dict[str, ProviderRuntimeSpec] = {}
+        self._lock = threading.RLock()
+
+    def start(
+        self,
+        *,
+        provider_instance_id: str,
+        spec: ProviderRuntimeSpec,
+        limits: ResourceLimits,
+    ) -> ContainerHandle:
+        """Start one allowlisted typed process specification without a shell."""
+
+        del limits  # Resource enforcement belongs to a configured cgroup helper.
+        if spec.mode != RuntimeMode.MANAGED_PROCESS:
+            raise ValueError("managed process start requires MANAGED_PROCESS mode")
+        executable = Path(spec.command[0])
+        if not executable.is_absolute():
+            raise ValueError("managed-process executable must use an absolute path")
+        if not executable.is_file():
+            raise ValueError(f"managed-process executable does not exist: {executable}")
+        with self._lock:
+            existing = self._processes.get(provider_instance_id)
+            if existing is not None and existing.poll() is None:
+                return self._handle(provider_instance_id, existing)
+            environment = os.environ.copy()
+            environment.update(spec.environment)
+            process = subprocess.Popen(
+                list(spec.command),
+                shell=False,
+                cwd=spec.working_dir or None,
+                env=environment,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+            self._processes[provider_instance_id] = process
+            self._specs[provider_instance_id] = spec
+            return self._handle(provider_instance_id, process)
+
+    def adopt(self, *, provider_instance_id: str, spec: ProviderRuntimeSpec) -> ContainerHandle:
+        raise ValueError("managed host processes cannot be adopted by PID")
+
+    def inspect(self, provider_instance_id: str) -> ContainerHandle | None:
+        with self._lock:
+            process = self._processes.get(provider_instance_id)
+            if process is None:
+                return None
+            return self._handle(provider_instance_id, process)
+
+    def stop(
+        self,
+        provider_instance_id: str,
+        *,
+        timeout_seconds: int = 5,
+        force: bool = False,
+    ) -> bool:
+        with self._lock:
+            process = self._processes.get(provider_instance_id)
+            if process is None or process.poll() is not None:
+                return False
+            if force:
+                process.kill()
+            else:
+                process.terminate()
+                try:
+                    process.wait(timeout=timeout_seconds)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait(timeout=1)
+            return True
+
+    def crash(self, provider_instance_id: str) -> bool:
+        return self.stop(provider_instance_id, timeout_seconds=0, force=True)
+
+    @staticmethod
+    def _handle(
+        provider_instance_id: str, process: subprocess.Popen[bytes]
+    ) -> ContainerHandle:
+        running = process.poll() is None
+        return ContainerHandle(
+            container_id=f"process:{process.pid}",
+            name=provider_instance_id,
+            provider_instance_id=provider_instance_id,
+            managed=True,
+            adopted=False,
+            running=running,
+            healthy=running,
+        )
         try:
             self.client.containers.get(handle.container_id).kill()
             return True

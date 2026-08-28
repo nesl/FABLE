@@ -1,0 +1,80 @@
+schema_version: fable.deployment.v1
+
+nodes:
+  physical_host:
+    node_class: server
+    region: lab
+    capacity:
+      cpu_cores: 16
+      memory_mb: 65536
+      gpu_memory_mb: 24576
+    capabilities: [orchestration, storage, replay, vision, gpu]
+
+  physical_jetson:
+    node_class: sensor
+    region: lab
+    capacity:
+      cpu_cores: 8
+      memory_mb: 62464
+      # Jetson uses unified memory. This is the bounded planner reservation
+      # pool, not a claim of physically separate VRAM.
+      gpu_memory_mb: 16384
+    capabilities: [vision, gpu, cuda, tracking, reid]
+    policy_tags: [physical-edge, accepts-transferred-raw]
+
+  physical_rpi:
+    node_class: sensor
+    region: lab
+    capacity:
+      cpu_cores: 4
+      memory_mb: 8060
+      gpu_memory_mb: 0
+    capabilities: [audio, vision, edge, replay, retained-storage]
+    policy_tags: [raw-local]
+
+sources:
+  # The Pi retains and serves the recording, but the Jetson ingress is the
+  # sensing-tier boundary seen by the planner after transport setup. Raw
+  # frames do not become a generally movable planning artifact.
+  physical_jetson_camera_ingress:
+    node_id: physical_jetson
+    region: lab
+    modalities: [vision]
+    live_data_types: [raw_video_frames.v1]
+    coverage_regions: [lab]
+    policy_tags: [raw-local, physical-ingress, replay-backed]
+    raw_buffer_interval: null
+
+  physical_rpi_camera_replay:
+    node_id: physical_rpi
+    region: lab
+    modalities: [vision]
+    live_data_types: [raw_video_frames.v1]
+    coverage_regions: [lab]
+    policy_tags: [raw-local, replay-backed]
+    raw_buffer_interval: null
+
+  physical_rpi_microphone_replay:
+    node_id: physical_rpi
+    region: lab
+    modalities: [audio]
+    live_data_types: [audio_segment.v1]
+    coverage_regions: [lab]
+    policy_tags: [raw-local, replay-backed]
+
+links:
+  - source_node_id: physical_host
+    target_node_id: physical_jetson
+    latency_ms: 1
+    bandwidth_mbps: 1000
+    bidirectional: true
+  - source_node_id: physical_host
+    target_node_id: physical_rpi
+    latency_ms: 1
+    bandwidth_mbps: 1000
+    bidirectional: true
+  - source_node_id: physical_rpi
+    target_node_id: physical_jetson
+    latency_ms: 1
+    bandwidth_mbps: 1000
+    bidirectional: true

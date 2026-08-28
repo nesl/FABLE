@@ -81,6 +81,13 @@ class CancellationSet(FableModel):
 
 
 class DerivedFrontier(FableModel):
+    """Active evidence boundary for one runtime hypothesis.
+
+    A frontier is not a graph node. It groups a ``FrontierSnapshot`` containing
+    one or more currently useful predicate-node IDs with the planning/time/
+    cancellation checkpoints governing those predicates.
+    """
+
     snapshot: FrontierSnapshot
     checkpoints: tuple[SemanticCheckpoint, ...]
 
@@ -96,6 +103,21 @@ class DerivedFrontier(FableModel):
             if node_id in checkpoint.node_ids:
                 return checkpoint
         raise KeyError(node_id)
+
+    @property
+    def active_predicate_node_ids(self) -> tuple[str, ...]:
+        """Readable alias for the v1 wire field ``enabled_node_ids``."""
+
+        return self.snapshot.enabled_node_ids
+
+    def active_predicates(self, graph) -> tuple[object, ...]:
+        """Resolve active IDs to static predicate ``GraphNode`` objects."""
+
+        return tuple(graph.node(node_id) for node_id in self.active_predicate_node_ids)
+
+
+# Public architecture term; retain DerivedFrontier for serialized/code compatibility.
+ActiveFrontier = DerivedFrontier
 
 
 class RuntimeTransition(FableModel):

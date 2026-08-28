@@ -79,9 +79,11 @@ class EvaluationRunner:
         output_dir: str | Path,
         *,
         mode: EvaluationMode,
+        capture_e2_snapshots: bool = False,
     ) -> None:
         self.mode = mode
         self.store = JsonlEventStore(output_dir)
+        self.capture_e2_snapshots = capture_e2_snapshots
 
     def run_planning_case(
         self,
@@ -139,6 +141,13 @@ class EvaluationRunner:
             },
         )
         self.store.append(plan_record)
+        if self.capture_e2_snapshots:
+            from evaluation.e2_snapshots import export_checkpoint_snapshot
+
+            export_checkpoint_snapshot(
+                case,
+                self.store.root / "e2_checkpoints" / f"{case.request_id}.json",
+            )
         return decision
 
     def record_terminal_event(
@@ -171,3 +180,10 @@ class EvaluationRunner:
         for observation in ordered:
             self.store.append(observation)
         return ordered
+
+    def record_network_conditions(self, records):
+        """Persist planner-visible network condition records in input order."""
+        result = tuple(records)
+        for record in result:
+            self.store.append(record)
+        return result

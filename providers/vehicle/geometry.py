@@ -206,7 +206,15 @@ class TrackLifecycleExitEvaluator:
         for track in track_set.tracks:
             # ByteTrack may retain a prediction briefly after its corresponding
             # YOLO box disappears. Only detector-matched rows extend lifetime.
-            if not str(track.attributes.get("matched_detection_id") or ""):
+            currently_detector_matched = track.attributes.get(
+                "detector_matched_current_frame"
+            )
+            if currently_detector_matched is None:
+                # Backward compatibility for retained track_set.v1 fixtures.
+                currently_detector_matched = bool(
+                    str(track.attributes.get("matched_detection_id") or "")
+                )
+            if not currently_detector_matched:
                 continue
             detected_ids.add(track.scoped_track_id)
             # ByteTrack's numeric IDs are session-local slots and may be reused

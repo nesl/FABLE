@@ -1,0 +1,20 @@
+schema_version: fable.storage.v1
+
+# Machine-local generated data belongs on the external experiment SSD. Override
+# this on another host with FABLE_STORAGE_ROOT rather than editing source code.
+storage_root: /media/brianw/Extreme SSD2/fable_workspace
+require_external_mount: true
+expected_mount_uuid: 680B-CDDD
+
+paths:
+  results: results
+  runs: runs
+  debug: debug
+  archives: archives
+  temporary: temporary
+
+# Repository-relative compatibility paths. Cleanup/setup creates symlinks at
+# these locations so older scripts continue to work while writing to the SSD.
+repository_links:
+  evaluation/results: results
+  debug: debug

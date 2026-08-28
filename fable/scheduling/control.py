@@ -110,6 +110,7 @@ class CheckpointController:
         historical_demands: Iterable[HistoricalDemand] = (),
         hypothesis_lifecycle: HypothesisLifecycle = HypothesisLifecycle.ACTIVE,
         now: datetime | None = None,
+        immediate_completed_demand: bool = False,
     ) -> CheckpointControlOutcome:
         observed_now = ensure_utc(now or utc_now())
         completed = self.lifecycle.complete_demand(result.demand_id, now=observed_now)

@@ -1,0 +1,40 @@
+schema_version: fable.rq2_audit.v1
+claim_boundary:
+  raw_video_transfer_allowed: false
+  redundant_sensor_views_assumed: false
+  note: >-
+    Raw video originates on the replay RPi/sensor tier. A sensor-link failure is
+    therefore an availability case, not a reason to move YOLO to another tier.
+conditions:
+  - id: good_network
+    profile: netwaggle/configs/profiles/good_network.json
+  - id: constrained_bandwidth
+    profile: netwaggle/configs/profiles/constrained_bandwidth.json
+  - id: cloud_disconnected
+    profile: netwaggle/configs/profiles/good_network.json
+    disconnect_node: cloud1
+cases:
+  - id: local_raw_negative_control
+    trace_id: 20241008-route-convoy-10-r022
+    frontier_index: 0
+    role: negative_control
+    expected_mechanism: Raw-derived detection remains at the sensing tier.
+  - id: chain_choice
+    trace_id: 20260414-cross-sensor-robbery-robbery-32-r032
+    frontier_index: 0
+    role: primary
+    expected_mechanism: Policies may value different valid continuation chains.
+  - id: joint_demands
+    trace_id: 20250812-robbery-with-alarm-burglary-a-r009
+    frontier_index: 0
+    role: primary
+    expected_mechanism: Joint planning covers two simultaneous frontier demands.
+  - id: compact_identity
+    trace_id: 20260414-three-visit-stalking-stalking-28-r028
+    frontier_index: 1
+    role: primary
+    expected_mechanism: Compact identity evidence can be evaluated off sensor.
+policies:
+  - B4_GREEDY_FRONTIER
+  - FABLE
+  - O1_EXHAUSTIVE_ORACLE

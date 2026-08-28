@@ -1,4 +1,9 @@
-"""Deterministic plan admission and capacity reservation."""
+"""Coordinate whether ordered plan candidates can be admitted now.
+
+Ordering decides which candidate is considered first; lifecycle previews
+sharing and incremental reservations; CapacityLedger provides the hard capacity
+answer. Actual workers are started later by distributed NodeAgent execution.
+"""
 
 from __future__ import annotations
 
@@ -47,7 +52,11 @@ class MultiTenantScheduler:
         *,
         now: datetime | None = None,
     ) -> AdmissionBatchResult:
+        """Order candidates and atomically attach leases for those feasible now."""
+
         observed_now = ensure_utc(now or utc_now())
+        # Ordering is policy; capacity remains a hard gate evaluated later for
+        # each candidate against reservations admitted earlier in this batch.
         ordered = self.orderer.order(tuple(candidates), now=observed_now)
         records: list[AdmissionRecord] = []
         admitted_plan_ids = []
@@ -55,6 +64,8 @@ class MultiTenantScheduler:
         admitted_obligation_keys: set[tuple] = set()
 
         for order_rank, candidate in enumerate(ordered):
+            # Urgency is recorded even for rejected work so operators can
+            # reconstruct why ordering and admission differed.
             urgency = self.orderer.evidence_urgency(candidate, now=observed_now)
             base = {
                 "candidate_id": candidate.candidate_id or "",
@@ -68,6 +79,8 @@ class MultiTenantScheduler:
                 tuple(sorted(str(item) for item in candidate.plan.demand_ids)),
                 str(candidate.plan.checkpoint_id),
             )
+            # Primary and fallback candidates cover the same semantic
+            # obligation. At most one may consume capacity in a batch.
             if obligation_key in admitted_obligation_keys:
                 records.append(
                     AdmissionRecord(
@@ -96,6 +109,8 @@ class MultiTenantScheduler:
                 )
                 continue
 
+            # Preview accounts for provider sharing: an already-running
+            # compatible instance contributes no new compute reservation.
             incremental = self.lifecycle.preview_incremental_reservations(candidate)
             feasible, reason = self.lifecycle.capacity.can_reserve(incremental)
             if not feasible:
@@ -116,6 +131,8 @@ class MultiTenantScheduler:
                 continue
 
             try:
+                # `attach_candidate` rechecks capacity and performs rollback on
+                # partial failure; the preview above is advisory for reporting.
                 attached = self.lifecycle.attach_candidate(candidate, now=observed_now)
             except ProviderLifecycleError as exc:
                 records.append(
@@ -141,6 +158,8 @@ class MultiTenantScheduler:
                 )
             )
 
+        # The batch result is an immutable audit record. Physical worker start
+        # happens later after the orchestrator dispatches activation commands.
         return AdmissionBatchResult(
             ordered_candidate_ids=tuple(candidate.candidate_id or "" for candidate in ordered),
             records=tuple(records),

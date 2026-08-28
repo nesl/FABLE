@@ -104,7 +104,7 @@ The commands below run the parts that are currently connected end to end.
 Run from the FABLE root:
 
 ```bash
-cd /home/brianw/Documents/FABLE
+cd "$FABLE_ROOT"
 
 python -m pip install -e .
 
@@ -251,7 +251,7 @@ SPATIAL_ORACLE
 ```bash
 source /tmp/fable-eval.env
 
-cd /home/brianw/Documents/FABLE/iobt-minimal-ce-replay
+cd "$FABLE_ROOT/iobt-minimal-ce-replay"
 
 ./tools/run_fable_evaluation.sh
 ```
@@ -288,7 +288,7 @@ The evaluation script does not currently forward `-d`, so use the Compose comman
 ```bash
 source /tmp/fable-eval.env
 
-cd /home/brianw/Documents/FABLE/iobt-minimal-ce-replay
+cd "$FABLE_ROOT/iobt-minimal-ce-replay"
 
 docker compose \
   -f compose.server.yaml \
@@ -315,7 +315,7 @@ source /tmp/fable-eval.env
 ## 4.1 Check request compilation
 
 ```bash
-cd /home/brianw/Documents/FABLE
+cd "$FABLE_ROOT"
 
 python scripts/compile_request.py "detect a convoy"
 ```
@@ -329,7 +329,7 @@ This verifies that the request maps to the authored convoy family and prints the
 The currently connected replay submission tool submits an individual predicate demand. For a convoy smoke test, begin with `PASSES`:
 
 ```bash
-cd /home/brianw/Documents/FABLE/iobt-minimal-ce-replay
+cd "$FABLE_ROOT/iobt-minimal-ce-replay"
 
 python tools/fable_submit_vehicle.py \
   --predicate PASSES \
@@ -420,7 +420,7 @@ docker logs -f fable-orchestrator
 Watch all MQTT traffic:
 
 ```bash
-cd /home/brianw/Documents/FABLE/iobt-minimal-ce-replay
+cd "$FABLE_ROOT/iobt-minimal-ce-replay"
 
 python tools/mqtt_tail.py \
   --topic '#' \
@@ -495,7 +495,7 @@ If Terminal 1 is running in the foreground, press `Ctrl+C`.
 Then:
 
 ```bash
-cd /home/brianw/Documents/FABLE/iobt-minimal-ce-replay
+cd "$FABLE_ROOT/iobt-minimal-ce-replay"
 
 docker compose \
   -f compose.server.yaml \
@@ -560,7 +560,7 @@ However, with the current implementation, this changes the **logged baseline lab
 The spatial matrix is generated with:
 
 ```bash
-cd /home/brianw/Documents/FABLE
+cd "$FABLE_ROOT"
 
 python scripts/plan_evaluation_runs.py RQ3_SPATIAL_COORDINATION \
   --output evaluation/manifests/workloads/rq3_spatial.jsonl
@@ -571,7 +571,7 @@ Only 2024 and 2025 records are included. Mobile sensors are retained as unavaila
 Before attempting a full-stack spatial run, check how many Orin replay services actually exist:
 
 ```bash
-cd /home/brianw/Documents/FABLE/iobt-minimal-ce-replay
+cd "$FABLE_ROOT/iobt-minimal-ce-replay"
 
 docker compose \
   -f compose.server.yaml \
@@ -594,7 +594,7 @@ Therefore, that specific Compose file cannot measure actual cross-Orin handoff o
 You can regenerate the replay Compose file from the available data roots:
 
 ```bash
-cd /home/brianw/Documents/FABLE/iobt-minimal-ce-replay
+cd "$FABLE_ROOT/iobt-minimal-ce-replay"
 
 cp compose.replay.yaml compose.replay.orin11-only.yaml
 
@@ -620,7 +620,7 @@ Do not combine a regenerated replay file with the old `orin11`-only FABLE
 overlays. Generate a coherent scenario bundle instead:
 
 ```bash
-cd /home/brianw/Documents/FABLE
+cd "$FABLE_ROOT"
 
 venv/bin/python \
   iobt-minimal-ce-replay/setup/generate_evaluation_bundle.py \

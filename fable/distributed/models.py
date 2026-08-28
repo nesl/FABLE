@@ -63,6 +63,7 @@ class ExecutionProfile(StrEnum):
 
 class RuntimeMode(StrEnum):
     MANAGED_CONTAINER = "MANAGED_CONTAINER"
+    MANAGED_PROCESS = "MANAGED_PROCESS"
     ADOPT_EXISTING = "ADOPT_EXISTING"
     REFERENCE = "REFERENCE"
 
@@ -190,6 +191,8 @@ class ProviderRuntimeSpec(FableModel):
             raise ValueError("managed-container runtime requires image")
         if self.mode == RuntimeMode.ADOPT_EXISTING and not self.container_name:
             raise ValueError("adopt-existing runtime requires container_name")
+        if self.mode == RuntimeMode.MANAGED_PROCESS and not self.command:
+            raise ValueError("managed-process runtime requires command")
         return self
 
 

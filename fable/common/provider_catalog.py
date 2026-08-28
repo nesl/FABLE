@@ -13,6 +13,7 @@ from .schemas import (
     ParameterSpec,
     ProviderContract,
     ProviderExecutionCapabilities,
+    ProviderEvaluationContract,
     ProviderPort,
     ProviderRoleCapability,
     ProviderSemanticCapabilities,
@@ -125,6 +126,11 @@ def provider_contract_from_catalog_entry(provider_id: str, raw: Mapping[str, Any
         parameters=parameters,
         execution_capabilities=capabilities,
         compatibility_groups=compatibility_groups,
+        eligible_node_classes=tuple(raw.get("eligible_node_classes", ())),
+        required_node_capabilities=tuple(raw.get("required_node_capabilities", ())),
+        evaluation_contract=ProviderEvaluationContract.model_validate(
+            raw.get("evaluation_contract", {}) or {}
+        ),
     )
 
 

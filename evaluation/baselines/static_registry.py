@@ -17,9 +17,19 @@ STATIC_CHAIN_ALIASES = {
     "same_entity_cross_camera_reid": "follows_cross_camera_reid",
 }
 
+# Provider upgrades referenced by durable B1 calibrations. These aliases are
+# explicit and baseline-local; they do not alter FABLE's provider catalog.
+STATIC_PROVIDER_ALIASES = {
+    "yolo_vehicle_fast_640": "yolo_vehicle_balanced_960",
+}
+
 
 def resolve_static_chain_id(chain_id: str) -> str:
     return STATIC_CHAIN_ALIASES.get(chain_id, chain_id)
+
+
+def resolve_static_provider_id(provider_id: str) -> str:
+    return STATIC_PROVIDER_ALIASES.get(provider_id, provider_id)
 
 
 class StaticPipelineSpec(FableModel):
@@ -41,6 +51,9 @@ class StaticPlacementSpec(FableModel):
     allowed_source_ids: tuple[str, ...] = ()
     allowed_branch_ids: tuple[str, ...] = ()
     allowed_chain_node_ids: dict[str, tuple[str, ...]] = Field(default_factory=dict)
+    allowed_chain_provider_node_ids: dict[
+        str, dict[str, tuple[str, ...]]
+    ] = Field(default_factory=dict)
     fanout_allowed: bool = False
     adaptation_allowed: bool = False
 

@@ -234,6 +234,13 @@ class yolo_detector(iobt_max_service):
 
     def get_replay_config(self, topic, msg) -> None:
         self.last_replay_config = msg
+        # Readiness is retained, but provider containers are lease-activated
+        # concurrently and their startup publications can race with the
+        # evaluator's subscription.  An identical retained replay config is
+        # the explicit readiness-refresh request used by the replay barrier.
+        # Re-advertise the detector's *current* state; this does not start
+        # replay or process frames (only /replay/sync may do that).
+        self.publish_ready_state("replay_config_refresh")
 
     def get_replay_sync(self, topic, msg) -> None:
         self.replay_requested = True

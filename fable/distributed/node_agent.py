@@ -69,6 +69,21 @@ from .transport import ReliableMessenger, Transport
 LOGGER = logging.getLogger(__name__)
 
 
+def retrospective_replay_budget(predicate_id: str) -> tuple[int, float]:
+    """Return the bounded frame budget and replay rate for retrospective work.
+
+    Evidence-discovery predicates receive a wider accelerated scan.  A bound
+    lifecycle predicate such as EXITS uses a short real-time tail so absence is
+    not manufactured by skipping frames.  Keeping this policy in one typed
+    runtime helper prevents controller and agent defaults from drifting.
+    """
+
+    normalized = predicate_id.strip().upper()
+    if normalized in {"PASSES", "VEHICLE_PRESENT_BEFORE", "PERSON_PRESENT"}:
+        return (540, 3.0)
+    return (180, 1.0)
+
+
 def _identity_comparison_demand_payload(
     command: ActivateProviderCommand,
 ) -> bytes | None:
@@ -141,7 +156,13 @@ class BufferedProviderOutput:
 
 
 class NodeAgent:
-    """Executes provider commands without owning complex-event semantics."""
+    """Run/reuse provider workers and report node state without CE semantics.
+
+    ``heartbeat_interval`` defaults to one second. ``start`` launches the
+    heartbeat loop; ``emit_heartbeat`` samples capacity, calls
+    ``build_node_heartbeat``, and publishes ``heartbeat_topic(node_id)`` for the
+    controller/heartbeat monitor and RuntimeDeploymentView.
+    """
 
     def __init__(
         self,
@@ -199,6 +220,8 @@ class NodeAgent:
         self._started = False
 
     def start(self) -> None:
+        """Install subscriptions before starting transport and heartbeat loops."""
+
         if self._started:
             return
         self._started = True
@@ -229,12 +252,16 @@ class NodeAgent:
         self._started = False
 
     def _on_activate(self, topic: str, payload: bytes) -> None:
+        """Validate, idempotently execute, persist, and acknowledge activation."""
+
         try:
             command = decode_model(payload, ActivateProviderCommand)
         except Exception as exc:
             LOGGER.exception("invalid activation command node=%s", self.node_id)
             return
         if command.node_id != self.node_id:
+            # Topic filters are not an authorization boundary; validate the
+            # addressed node in the typed command as well.
             self._publish_ack(
                 command.application_ack_topic,
                 command.message_id,
@@ -266,6 +293,8 @@ class NodeAgent:
                 outcome,
             )
         except Exception as exc:
+            # Failed commands are also recorded so reliable redelivery returns
+            # the same outcome instead of repeatedly starting a broken worker.
             outcome = f"activation failed: {exc}"
             self.processed.record(
                 message_id=str(command.message_id),
@@ -288,6 +317,8 @@ class NodeAgent:
 
     def activate(self, command: ActivateProviderCommand) -> AgentProviderStatus:
         """Idempotently attach a lease and ensure its provider is running."""
+        # Command-level idempotency protects against reliable-messenger retries;
+        # it is distinct from worker sharing across different valid commands.
         activation_key = command.idempotency_key
         with self._lock:
             prior_instance = self._activation_keys.get(activation_key)
@@ -322,6 +353,9 @@ class NodeAgent:
                     worker.status = AgentProviderStatus.READY
                 if worker is None:
                     handle: ContainerHandle | None
+                    # Runtime resolution happened at the orchestrator boundary.
+                    # The agent executes the declared mode; it does not choose
+                    # provider, node, model, or placement policy.
                     limits = command.runtime.worker_resource_limits or command.resource_limits
                     if command.runtime.mode == RuntimeMode.MANAGED_CONTAINER:
                         handle = self.containers.start(
@@ -411,12 +445,16 @@ class NodeAgent:
                 if worker is not None:
                     worker.status = AgentProviderStatus.READY
             record.active_leases.setdefault(command.lease.lease_id, command)
+            # Lease attachment precedes output replay/subscription processing so
+            # any immediately retained result has a valid demand destination.
             record.updated_at = utc_now()
             self._activation_keys[activation_key] = command.provider_instance_id
             status = record.status
 
         self._publish_provider_status_record(record)
         if command.runtime.output_adapter != ReplayOutputAdapter.NONE:
+            # Providers may publish before activation reaches this process.
+            # Bounded replay closes that race without unbounded message storage.
             self._replay_buffered_outputs(command)
         # A lease-controlled worker may not have subscribed to its control
         # topic until after container readiness. Publish immediately only for
@@ -481,6 +519,8 @@ class NodeAgent:
             )
 
     def cancel(self, command: CancelProviderCommand) -> bool:
+        """Detach a lease and stop the worker only when no sibling lease needs it."""
+
         with self._lock:
             record = self.providers.get(command.provider_instance_id)
             if record is None:
@@ -499,6 +539,8 @@ class NodeAgent:
                 and provider.provider_instance_id != record.provider_instance_id
             )
             if worker is not None and not worker_has_active_leases:
+                # Managed workers are owned by FABLE. Adopted workers are only
+                # stopped when their runtime manifest explicitly permits it.
                 if record.runtime.mode == RuntimeMode.MANAGED_CONTAINER:
                     stopped = self.containers.stop(
                         record.worker_id,
@@ -518,6 +560,8 @@ class NodeAgent:
             return stopped
 
     def _on_readiness(self, provider_instance_id: str, topic: str, payload: bytes) -> None:
+        """Promote every logical instance sharing a worker after a ready signal."""
+
         with self._lock:
             record = self.providers.get(provider_instance_id)
             if record is None:
@@ -603,6 +647,8 @@ class NodeAgent:
         return True
 
     def _execute_reference(self, command: ActivateProviderCommand) -> None:
+        """Execute the injected deterministic test backend off the MQTT thread."""
+
         if self.reference_runtime is None:
             raise RuntimeError(
                 "REFERENCE runtime requested without an injected reference-runtime adapter"
@@ -617,6 +663,8 @@ class NodeAgent:
                 )
 
         def run() -> None:
+            # The lease may be cancelled while reference execution sleeps;
+            # check activity both inside its context and before publishing.
             outcome = self.reference_runtime.execute(
                 command,
                 ReferenceExecutionContext(
@@ -715,6 +763,8 @@ class NodeAgent:
                 for command in sibling.active_leases.values()
             )
             adapter = record.runtime.output_adapter
+        # Decode and invoke adapters outside the agent lock; model-specific
+        # parsing can be nontrivial and must not block activation/cancellation.
         if adapter == ReplayOutputAdapter.NONE:
             return
         try:
@@ -726,6 +776,8 @@ class NodeAgent:
         self._buffer_provider_output(adapter, topic, document)
 
         forwarded_count = 0
+        # One physical output may satisfy several logical leases sharing the
+        # worker. Per-demand occurrence deduplication happens in the forwarder.
         for owner_provider_instance_id, command in command_owners:
             forwarded_count += int(bool(self._forward_provider_document(
                 command=command,
@@ -835,6 +887,8 @@ class NodeAgent:
         document: Any,
         provider_instance_id: str,
     ) -> bool:
+        """Normalize one native document and publish a canonical result once."""
+
         adapted = self._adapt_provider_output(command, adapter, document)
         if adapted is None:
             return False
@@ -844,6 +898,9 @@ class NodeAgent:
             if dedup_key in self._forwarded_occurrences:
                 return False
             self._forwarded_occurrences.add(dedup_key)
+        # The demand supplies every semantic correlation field. The adapter is
+        # intentionally limited to occurrence, interval, bindings, confidence,
+        # and source provenance so it cannot redirect semantic work.
         result = PredicateResult(
             occurrence_id=occurrence_id,
             demand_id=command.demand.demand_id,
@@ -888,7 +945,13 @@ class NodeAgent:
         Concrete replay/testbed adapters are registered by the composition root.
         """
 
-        evidence = self.output_adapters.adapt(adapter, command, document)
+        adapters = getattr(self, "output_adapters", None)
+        if adapters is None:
+            from fable.integrations.replay.output_adapters import (
+                build_replay_output_adapter_registry,
+            )
+            adapters = build_replay_output_adapter_registry()
+        evidence = adapters.adapt(adapter, command, document)
         if evidence is None:
             return None
         return (
@@ -907,6 +970,8 @@ class NodeAgent:
         attempt_id: UUID,
         topic: str,
     ) -> ReliablePredicateResult:
+        """Wrap a canonical result for reliable, acknowledged transport."""
+
         wrapper = ReliablePredicateResult(
             node_id=self.node_id,
             session_id=self.session_id,

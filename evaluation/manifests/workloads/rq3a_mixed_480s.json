@@ -1,0 +1,60 @@
+{
+  "schema_version": "fable.mixed_request_workload.v1",
+  "workload_id": "rq3a-mixed-480s-seed-31005",
+  "duration_s": 480.0,
+  "random_seed": 31005,
+  "condition_trace_path": "evaluation/manifests/adaptation/rq3a_mixed_480s.json",
+  "vlm_mode": "replayed_response",
+  "episodes": [
+    {
+      "episode_id": "convoy-crosses-wan",
+      "experiment_id": "20260415-pass-follow-clear-convoy-3-car-convoy-10-r010",
+      "ce_family": "pass_follow_clear_convoy",
+      "request_offset_s": 30.0,
+      "source_offset_s": 0.0,
+      "duration_s": 100.0,
+      "execution_mode": "replayed_provider_output",
+      "expected_condition_overlap": ["wan-down", "wan-up"]
+    },
+    {
+      "episode_id": "robbery-begins-under-wan",
+      "experiment_id": "20250812-robbery-with-alarm-burglary-c-r018",
+      "ce_family": "robbery_with_alarm",
+      "request_offset_s": 90.0,
+      "source_offset_s": 0.0,
+      "duration_s": 96.0,
+      "execution_mode": "replayed_provider_output",
+      "expected_condition_overlap": ["wan-up", "compute-busy"]
+    },
+    {
+      "episode_id": "rendezvous-during-compute",
+      "experiment_id": "20250812-vehicle-rendezvous-brianjulian-1-r026",
+      "ce_family": "package_exchange_rendezvous",
+      "request_offset_s": 170.0,
+      "source_offset_s": 0.0,
+      "duration_s": 105.0,
+      "execution_mode": "replayed_provider_output",
+      "expected_condition_overlap": ["compute-busy", "compute-clear"]
+    },
+    {
+      "episode_id": "repeated-visit-crosses-provider-failure",
+      "experiment_id": "20260414-three-visit-stalking-stalking-28-r028",
+      "ce_family": "three_visit_stalking",
+      "request_offset_s": 260.0,
+      "source_offset_s": 20.0,
+      "duration_s": 190.0,
+      "execution_mode": "replayed_provider_output",
+      "expected_condition_overlap": ["provider-down"]
+    },
+    {
+      "episode_id": "recovery-convoy",
+      "experiment_id": "20260415-pass-follow-clear-convoy-3-car-convoy-ce1-9-r009",
+      "ce_family": "pass_follow_clear_convoy",
+      "request_offset_s": 340.0,
+      "source_offset_s": 0.0,
+      "duration_s": 60.0,
+      "execution_mode": "profile_driven",
+      "expected_condition_overlap": []
+    }
+  ]
+}

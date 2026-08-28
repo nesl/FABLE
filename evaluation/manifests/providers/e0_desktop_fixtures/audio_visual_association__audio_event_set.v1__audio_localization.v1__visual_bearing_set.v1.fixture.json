@@ -1,0 +1,39 @@
+{
+  "candidates": [
+    {
+      "azimuth_deg": 10,
+      "confidence": 0.9,
+      "entity_type": "person",
+      "event_time_interval": {
+        "end": "2026-01-01T00:00:01+00:00",
+        "start": "2026-01-01T00:00:00+00:00"
+      },
+      "local_entity_id": "person-1",
+      "source_id": "camera"
+    }
+  ],
+  "event": {
+    "confidence": 0.9,
+    "event_time_interval": {
+      "end": "2026-01-01T00:00:01+00:00",
+      "start": "2026-01-01T00:00:00+00:00"
+    },
+    "label": "speech",
+    "occurrence_id": "audio-1",
+    "provider_id": "fixture",
+    "provider_version": "1",
+    "source_id": "microphone"
+  },
+  "expected_local_entity_id": "person-1",
+  "localization": {
+    "array_id": "array",
+    "azimuth_deg": 10,
+    "confidence": 0.9,
+    "event_time_interval": {
+      "end": "2026-01-01T00:00:01+00:00",
+      "start": "2026-01-01T00:00:00+00:00"
+    },
+    "localization_id": "loc-1",
+    "source_id": "microphone"
+  }
+}

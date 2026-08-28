@@ -1,9 +1,18 @@
-"""Authored semantic-graph builder and structural compiler for FABLE Phase 1.
+"""Low-level semantic graph drafting and compilation.
 
-The Phase-0 graph draft objects are intentionally low-level and serialization
-oriented.  This module adds a small authoring API for the constructs used by the
-semantic runtime while preserving the finalized shared graph as the canonical
-representation.
+Flow::
+
+    CE definition -> public authoring facade -> graph draft -> compile/validate
+    -> SemanticGraph -> CompiledSemanticGraph indexes used by SemanticRuntime
+
+``SemanticGraphDraft`` and its node/edge drafts are serialization-oriented
+authoring records. ``AuthoredGraphBuilder`` constructs those records and
+``compile_authored_graph`` finalizes IDs and validates the resulting DAG.
+``SemanticGraph`` is the static event definition; a runtime ``Hypothesis`` is
+progress for one possible occurrence and is not another copy of the graph.
+
+New event definitions should normally use :mod:`fable.semantic.authoring`.
+This module remains the explicit lower-level API and compatibility surface.
 """
 
 from __future__ import annotations
@@ -34,7 +43,13 @@ class GraphCompileError(ValueError):
 
 @dataclass(frozen=True)
 class PredicateRoleSpec:
-    """Convenient authoring form for one provider-independent predicate role."""
+    """Internal binding between a predicate argument and a CE role.
+
+    ``role_name`` is the predicate-local argument (for example ``left`` in
+    ``NEAR``); ``variable`` is the CE role filling it; and ``entity_type`` is
+    the schema type checked at compilation. The public authoring facade infers
+    the third field, so production definitions need not repeat it.
+    """
 
     role_name: str
     variable: str
@@ -120,7 +135,12 @@ class AuthoredGraphBuilder:
         for role in normalized_roles:
             if role.variable in self._roles:
                 expected = self._roles[role.variable].entity_type
-                if expected != role.entity_type:
+                # ``entity`` is the CE-level wildcard for an identity whose
+                # concrete subtype is supplied by the predicate argument.
+                # Keep concrete declarations strict (a person role cannot
+                # fill a vehicle argument), but allow a generic role to be
+                # narrowed by predicates such as PASSES or EXITS.
+                if expected != role.entity_type and expected != "entity":
                     raise GraphCompileError(
                         f"predicate role {role.variable!r} has entity type {role.entity_type!r}; "
                         f"graph role requires {expected!r}"
@@ -149,6 +169,35 @@ class AuthoredGraphBuilder:
             )
         )
         return key
+
+    def predicate(
+        self,
+        key: str,
+        *,
+        name: str,
+        predicate_id: str,
+        roles: Sequence[PredicateRoleSpec | tuple[str, str, str]] = (),
+        result_kind: ResultKind = ResultKind.INSTANT_MATCH,
+        parameters: Mapping[str, object] | None = None,
+        checkpoint: bool = False,
+        annotations: Mapping[str, object] | None = None,
+    ) -> str:
+        """Create one primitive predicate node.
+
+        This is the readable name for :meth:`primitive`. ``primitive`` remains
+        as a compatibility API for historical definitions and callers.
+        """
+
+        return self.primitive(
+            key,
+            name=name,
+            predicate_id=predicate_id,
+            roles=roles,
+            result_kind=result_kind,
+            parameters=parameters,
+            checkpoint=checkpoint,
+            annotations=annotations,
+        )
 
     def sequence(
         self,

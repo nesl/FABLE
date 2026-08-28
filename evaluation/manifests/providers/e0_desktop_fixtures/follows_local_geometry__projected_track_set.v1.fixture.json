@@ -1,0 +1,172 @@
+{
+  "expected_truth": true,
+  "follower_id": "camera:session:2",
+  "leader_id": "camera:session:1",
+  "minimum_duration_s": 2,
+  "track_sets": [
+    {
+      "event_time": "2026-01-01T00:00:00+00:00",
+      "source_id": "camera",
+      "tracker_family": "fixture",
+      "tracker_session_id": "session",
+      "tracker_version": "1",
+      "tracks": [
+        {
+          "bbox": {
+            "x1": 20,
+            "x2": 22,
+            "y1": 0,
+            "y2": 4
+          },
+          "class_name": "car",
+          "confidence": 0.95,
+          "event_time": "2026-01-01T00:00:00+00:00",
+          "local_track_id": 1,
+          "scoped_track_id": "camera:session:1",
+          "source_id": "camera",
+          "tracker_session_id": "session",
+          "world_point": null
+        },
+        {
+          "bbox": {
+            "x1": 10,
+            "x2": 12,
+            "y1": 0,
+            "y2": 4
+          },
+          "class_name": "car",
+          "confidence": 0.95,
+          "event_time": "2026-01-01T00:00:00+00:00",
+          "local_track_id": 2,
+          "scoped_track_id": "camera:session:2",
+          "source_id": "camera",
+          "tracker_session_id": "session",
+          "world_point": null
+        }
+      ]
+    },
+    {
+      "event_time": "2026-01-01T00:00:01+00:00",
+      "source_id": "camera",
+      "tracker_family": "fixture",
+      "tracker_session_id": "session",
+      "tracker_version": "1",
+      "tracks": [
+        {
+          "bbox": {
+            "x1": 24,
+            "x2": 26,
+            "y1": 0,
+            "y2": 4
+          },
+          "class_name": "car",
+          "confidence": 0.95,
+          "event_time": "2026-01-01T00:00:01+00:00",
+          "local_track_id": 1,
+          "scoped_track_id": "camera:session:1",
+          "source_id": "camera",
+          "tracker_session_id": "session",
+          "world_point": null
+        },
+        {
+          "bbox": {
+            "x1": 14,
+            "x2": 16,
+            "y1": 0,
+            "y2": 4
+          },
+          "class_name": "car",
+          "confidence": 0.95,
+          "event_time": "2026-01-01T00:00:01+00:00",
+          "local_track_id": 2,
+          "scoped_track_id": "camera:session:2",
+          "source_id": "camera",
+          "tracker_session_id": "session",
+          "world_point": null
+        }
+      ]
+    },
+    {
+      "event_time": "2026-01-01T00:00:02+00:00",
+      "source_id": "camera",
+      "tracker_family": "fixture",
+      "tracker_session_id": "session",
+      "tracker_version": "1",
+      "tracks": [
+        {
+          "bbox": {
+            "x1": 28,
+            "x2": 30,
+            "y1": 0,
+            "y2": 4
+          },
+          "class_name": "car",
+          "confidence": 0.95,
+          "event_time": "2026-01-01T00:00:02+00:00",
+          "local_track_id": 1,
+          "scoped_track_id": "camera:session:1",
+          "source_id": "camera",
+          "tracker_session_id": "session",
+          "world_point": null
+        },
+        {
+          "bbox": {
+            "x1": 18,
+            "x2": 20,
+            "y1": 0,
+            "y2": 4
+          },
+          "class_name": "car",
+          "confidence": 0.95,
+          "event_time": "2026-01-01T00:00:02+00:00",
+          "local_track_id": 2,
+          "scoped_track_id": "camera:session:2",
+          "source_id": "camera",
+          "tracker_session_id": "session",
+          "world_point": null
+        }
+      ]
+    },
+    {
+      "event_time": "2026-01-01T00:00:03+00:00",
+      "source_id": "camera",
+      "tracker_family": "fixture",
+      "tracker_session_id": "session",
+      "tracker_version": "1",
+      "tracks": [
+        {
+          "bbox": {
+            "x1": 32,
+            "x2": 34,
+            "y1": 0,
+            "y2": 4
+          },
+          "class_name": "car",
+          "confidence": 0.95,
+          "event_time": "2026-01-01T00:00:03+00:00",
+          "local_track_id": 1,
+          "scoped_track_id": "camera:session:1",
+          "source_id": "camera",
+          "tracker_session_id": "session",
+          "world_point": null
+        },
+        {
+          "bbox": {
+            "x1": 22,
+            "x2": 24,
+            "y1": 0,
+            "y2": 4
+          },
+          "class_name": "car",
+          "confidence": 0.95,
+          "event_time": "2026-01-01T00:00:03+00:00",
+          "local_track_id": 2,
+          "scoped_track_id": "camera:session:2",
+          "source_id": "camera",
+          "tracker_session_id": "session",
+          "world_point": null
+        }
+      ]
+    }
+  ]
+}

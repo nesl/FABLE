@@ -1,0 +1,6 @@
+{
+  "input_class": "projected_track_set.v1+route_graph.v1",
+  "provider_id": "zone_membership_evaluator",
+  "target_id": "calibration_target_56bc48bf9bebac5706823300",
+  "tier": "sensor"
+}

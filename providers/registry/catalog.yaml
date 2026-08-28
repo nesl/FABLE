@@ -1087,7 +1087,57 @@ providers:
       - remote_reference
       - transferred
     provider_family: historical_vehicle_recovery
+  hosted_vlm_identity_comparator:
+    description: Bounded hosted visual identity comparison used only as an ambiguity fallback.
+    implements:
+      predicates:
+      - SAME_ENTITY
+    eligible_node_classes:
+    - server
+    required_node_capabilities:
+    - hosted_vlm
+    evaluation_contract:
+      supported_modes: [LIVE, PROFILED]
+      hosted_external: true
+      maximum_invocations_per_run: 4
+      required_secret_names: [OPENAI_API_KEY]
+      ambiguity_trigger_maximum: 0.8
+    ports:
+      inputs:
+      - name: left_frame
+        type: raw_video_frames.v1
+        required: true
+        purpose: evidence
+      - name: right_frame
+        type: raw_video_frames.v1
+        required: true
+        purpose: evidence
+      outputs:
+      - name: entity_map
+        type: canonical_entity_map.v1
+        purpose: reusable_evidence
+    execution_capabilities:
+      modes: [live, retrospective]
+      supports_shared_execution: false
+      accepted_input_access: [transferred, remote_reference]
 chains:
+  same_entity_hosted_vlm_fallback:
+    capabilities: [cross_sensor_identity, hosted_fallback]
+    description: Compare two bounded full-context camera intervals using the hosted VLM.
+    external_inputs:
+      video_a:
+        type: raw_video_frames.v1
+      video_b:
+        type: raw_video_frames.v1
+    steps:
+    - id: compare
+      provider: hosted_vlm_identity_comparator
+      bind:
+        left_frame: external.video_a
+        right_frame: external.video_b
+    outputs:
+      result: compare.entity_map
+      entity_map: compare.entity_map
   same_entity_same_camera_reid:
     capabilities:
     - tracking
@@ -1457,6 +1507,41 @@ chains:
     outputs:
       result: passes.result
       track_summary: track.track_summary
+  passes_trusted_site_offload:
+    capabilities:
+    - tracking
+    - reference_geometry
+    - trusted_site_offload
+    description: Transfer an authorized raw camera stream to the trusted site and evaluate a pass there.
+    external_inputs:
+      video:
+        type: raw_video_frames.v1
+      calibration:
+        type: camera_calibration.v1
+      reference:
+        type: route_graph.v1
+    steps:
+    - id: detect
+      provider: yolo_vehicle_fast_640
+      bind:
+        frames: external.video
+    - id: track
+      provider: multi_object_tracker
+      bind:
+        detections: detect.detections
+    - id: project
+      provider: camera_projection
+      bind:
+        tracks: track.tracks
+        calibration: external.calibration
+    - id: passes
+      provider: pass_reference_evaluator
+      bind:
+        tracks: project.projected_tracks
+        reference: external.reference
+    outputs:
+      result: passes.result
+      track_summary: track.track_summary
   stopped_live_vehicle:
     capabilities:
     - tracking
@@ -1768,7 +1853,7 @@ chains:
         type: raw_video_frames.v1
     steps:
     - id: detect
-      provider: yolo_vehicle_balanced_960
+      provider: yolo_vehicle_fast_640
       bind:
         frames: external.video
     - id: track

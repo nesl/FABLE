@@ -1,0 +1,6 @@
+{
+  "input_class": "raw_video_frames.v1",
+  "provider_id": "package_detector",
+  "target_id": "calibration_target_fb75606eb120f2972d26295c",
+  "tier": "sensor"
+}

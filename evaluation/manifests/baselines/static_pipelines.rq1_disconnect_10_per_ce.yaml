@@ -1,0 +1,1086 @@
+schema_version: fable.static_pipeline_registry.v1
+pipelines:
+  route_convoy:
+    preferred_chain_ids:
+    - follows_cross_camera_reid
+    - follows_local_tracks
+    - passes_live_vehicle
+    - stopped_live_vehicle
+    fixed_sensor_policy: all_replay_supported_orin
+    fixed_representation_policy: tracks_and_vehicle_reid
+  pass_follow_clear_convoy:
+    preferred_chain_ids:
+    - passes_live_vehicle
+    - follows_cross_camera_reid
+    - follows_local_tracks
+    - stopped_live_vehicle
+    fixed_sensor_policy: all_replay_supported_orin
+    fixed_representation_policy: tracks_and_vehicle_reid
+  vehicle_convergence:
+    preferred_chain_ids:
+    - passes_live_vehicle
+    - pairwise_distance_live_vehicle
+    - track_lifecycle_exit_live_vehicle
+    fixed_sensor_policy: all_replay_supported_orin
+    fixed_representation_policy: projected_tracks
+  robbery_with_alarm:
+    preferred_chain_ids:
+    - detect_audio_event
+    - audio_event_visual_association
+    - person_vehicle_transition
+    - zone_transition_live_vehicle
+    - recover_vehicle_from_local_segments
+    - track_lifecycle_exit_live_vehicle
+    fixed_sensor_policy: all_replay_supported_orin
+    fixed_representation_policy: audio_events_tracks_and_selected_video
+  rendezvous:
+    preferred_chain_ids:
+    - conversation_proximity_diarization
+    - package_transfer_high_resolution
+    - visual_person_proximity
+    - pairwise_distance_live_vehicle
+    - passes_live_vehicle
+    - track_lifecycle_exit_live_vehicle
+    fixed_sensor_policy: all_replay_supported_orin
+    fixed_representation_policy: selected_frames_tracks_speaker_turns_and_custody
+  repeated_visit_stalking:
+    preferred_chain_ids:
+    - zone_transition_live_vehicle
+    - passes_live_vehicle
+    - same_entity_cross_camera_reid
+    fixed_sensor_policy: all_replay_supported_orin
+    fixed_representation_policy: vehicle_reid_and_track_summary
+  two_vehicle_chase:
+    preferred_chain_ids:
+    - follows_cross_camera_reid
+    - follows_local_tracks
+    - passes_live_vehicle
+    fixed_sensor_policy: all_replay_supported_orin
+    fixed_representation_policy: tracks_and_vehicle_reid
+placement_templates:
+  Route convoy:
+    exemplar_trace_id: '20241008_134942'
+    exemplar_experiment_id: 20241008-route-convoy-18-r030
+    allowed_chain_ids:
+    - passes_live_vehicle
+    allowed_provider_ids:
+    - yolo_vehicle_fast_640
+    - multi_object_tracker
+    - camera_projection
+    - pass_reference_evaluator
+    allowed_node_ids:
+    - dvpg_gq_orin_1
+    - dvpg_gq_orin_4
+    - mobile_archive_1
+    - mobile_archive_2
+    - mobile_archive_3
+    allowed_source_ids:
+    - orin1_camera
+    - orin4_camera
+    - mobile_archive_1_camera
+    - mobile_archive_2_camera
+    - mobile_archive_3_camera
+  Vehicle convergence:
+    exemplar_trace_id: '20241008_101228'
+    exemplar_experiment_id: 20241008-vehicle-convergence-1-r004
+    allowed_chain_ids:
+    - passes_live_vehicle
+    - pairwise_distance_live_vehicle
+    - track_lifecycle_exit_live_vehicle
+    allowed_provider_ids:
+    - yolo_vehicle_fast_640
+    - multi_object_tracker
+    - camera_projection
+    - pass_reference_evaluator
+    - pairwise_distance_evaluator
+    - track_lifecycle_exit_evaluator
+    allowed_node_ids:
+    - dvpg_gq_orin_1
+    - dvpg_gq_orin_4
+    - dvpg_gq_orin_7
+    - mobile_archive_1
+    - mobile_archive_2
+    - mobile_archive_3
+    allowed_source_ids:
+    - orin1_camera
+    - orin4_camera
+    - orin7_camera
+    - mobile_archive_1_camera
+    - mobile_archive_2_camera
+    - mobile_archive_3_camera
+  Two-vehicle chase:
+    exemplar_trace_id: '20241009_093228'
+    exemplar_experiment_id: 20241009-two-vehicle-chase-18-r021
+    allowed_chain_ids:
+    - passes_live_vehicle
+    allowed_provider_ids:
+    - yolo_vehicle_fast_640
+    - multi_object_tracker
+    - camera_projection
+    - pass_reference_evaluator
+    allowed_node_ids:
+    - dvpg_gq_orin_1
+    - dvpg_gq_orin_4
+    - mobile_archive_1
+    - mobile_archive_2
+    - mobile_archive_3
+    allowed_source_ids:
+    - orin1_camera
+    - orin4_camera
+    - mobile_archive_1_camera
+    - mobile_archive_2_camera
+    - mobile_archive_3_camera
+  Robbery with alarm:
+    exemplar_trace_id: '20250812_121928'
+    exemplar_experiment_id: 20250812-robbery-with-alarm-burglary-a-r012
+    allowed_chain_ids:
+    - detect_audio_event
+    - person_vehicle_transition
+    allowed_provider_ids:
+    - audio_event_classifier
+    - camera_projection
+    - multi_object_tracker
+    - person_vehicle_relation_provider
+    - yolo_full_context_960
+    allowed_node_ids:
+    - dvpg_gq_orin_1
+    - dvpg_gq_orin_4
+    - mobile_archive_4
+    - mobile_archive_5
+    - mobile_archive_6
+    allowed_source_ids:
+    - orin1_microphone
+    - orin4_microphone
+    - mobile_archive_4_microphone
+    - mobile_archive_5_microphone
+    - mobile_archive_6_microphone
+    - orin1_camera
+    - orin4_camera
+    - mobile_archive_4_camera
+    - mobile_archive_5_camera
+    - mobile_archive_6_camera
+  Talking/rendezvous:
+    exemplar_trace_id: '20250812_161305'
+    exemplar_experiment_id: 20250812-talking-rendezvous-rendezvous-brianjulian-1-r029
+    allowed_chain_ids:
+    - passes_live_vehicle
+    - conversation_proximity_diarization
+    - visual_person_proximity
+    - track_lifecycle_exit_live_vehicle
+    allowed_provider_ids:
+    - camera_projection
+    - multi_object_tracker
+    - pass_reference_evaluator
+    - yolo_vehicle_fast_640
+    - conversation_provider
+    - person_proximity_provider
+    - speaker_diarization_provider
+    - speaker_embedding_provider
+    - voice_activity_detector
+    - yolo_full_context_960
+    - track_lifecycle_exit_evaluator
+    allowed_node_ids:
+    - dvpg_gq_orin_1
+    - dvpg_gq_orin_4
+    - mobile_archive_4
+    - mobile_archive_5
+    - mobile_archive_6
+    allowed_source_ids:
+    - orin1_camera
+    - orin4_camera
+    - mobile_archive_4_camera
+    - mobile_archive_5_camera
+    - mobile_archive_6_camera
+    - orin1_microphone
+    - orin4_microphone
+    - mobile_archive_4_microphone
+    - mobile_archive_5_microphone
+    - mobile_archive_6_microphone
+  Vehicle rendezvous:
+    exemplar_trace_id: '20250812_160025'
+    exemplar_experiment_id: 20250812-vehicle-rendezvous-brianjulian-1-r026
+    allowed_chain_ids:
+    - passes_live_vehicle
+    - pairwise_distance_live_vehicle
+    - track_lifecycle_exit_live_vehicle
+    allowed_provider_ids:
+    - yolo_vehicle_fast_640
+    - multi_object_tracker
+    - camera_projection
+    - pass_reference_evaluator
+    - pairwise_distance_evaluator
+    - track_lifecycle_exit_evaluator
+    allowed_node_ids:
+    - dvpg_gq_orin_1
+    - dvpg_gq_orin_4
+    - mobile_archive_4
+    - mobile_archive_5
+    - mobile_archive_6
+    allowed_source_ids:
+    - orin1_camera
+    - orin4_camera
+    - mobile_archive_4_camera
+    - mobile_archive_5_camera
+    - mobile_archive_6_camera
+  Three-visit stalking:
+    exemplar_trace_id: '20260414_150705'
+    exemplar_experiment_id: 20260414-three-visit-stalking-stalking-30-r030
+    allowed_chain_ids:
+    - passes_live_vehicle
+    - same_entity_cross_camera_reid
+    allowed_provider_ids:
+    - yolo_vehicle_fast_640
+    - multi_object_tracker
+    - camera_projection
+    - pass_reference_evaluator
+    - track_crop_extractor
+    - vehicle_reid_descriptor
+    - cross_sensor_identity_association
+    allowed_node_ids:
+    - dvpg_gq_orin_11
+    - dvpg_gq_orin_14
+    - dvpg_gq_orin_15
+    - dvpg_gq_orin_16
+    - x86server
+    allowed_source_ids:
+    - orin11_camera
+    - orin14_camera
+    - orin15_camera
+    - orin16_camera
+  Cross-sensor robbery:
+    exemplar_trace_id: '20260415_151053'
+    exemplar_experiment_id: 20260415-cross-sensor-robbery-robbery-13-r013
+    allowed_chain_ids:
+    - detect_audio_event
+    - recover_vehicle_from_local_segments
+    - track_lifecycle_exit_live_vehicle
+    allowed_provider_ids:
+    - audio_event_classifier
+    - historical_vehicle_interval_matcher
+    - multi_object_tracker
+    - yolo_vehicle_fast_640
+    - track_lifecycle_exit_evaluator
+    allowed_node_ids:
+    - dvpg_gq_orin_15
+    allowed_source_ids:
+    - orin15_microphone
+    - orin15_camera
+  Pass-follow-clear convoy:
+    exemplar_trace_id: '20260415_145227'
+    exemplar_experiment_id: 20260415-pass-follow-clear-convoy-3-car-convoy-11-r011
+    allowed_chain_ids:
+    - passes_live_vehicle
+    allowed_provider_ids:
+    - yolo_vehicle_fast_640
+    - multi_object_tracker
+    - camera_projection
+    - pass_reference_evaluator
+    allowed_node_ids:
+    - dvpg_gq_orin_11
+    - dvpg_gq_orin_12
+    - dvpg_gq_orin_13
+    - dvpg_gq_orin_14
+    - dvpg_gq_orin_15
+    allowed_source_ids:
+    - orin11_camera
+    - orin12_camera
+    - orin13_camera
+    - orin14_camera
+    - orin15_camera
+trace_placements:
+  '20241008_134942':
+    experiment_id: 20241008-route-convoy-18-r030
+    allowed_chain_ids:
+    - passes_live_vehicle
+    allowed_node_ids:
+    - dvpg_gq_orin_1
+    - dvpg_gq_orin_4
+    - mobile_archive_1
+    - mobile_archive_2
+    - mobile_archive_3
+    allowed_source_ids:
+    - orin1_camera
+    - orin4_camera
+    - mobile_archive_1_camera
+    - mobile_archive_2_camera
+    - mobile_archive_3_camera
+  '20241008_101228':
+    experiment_id: 20241008-vehicle-convergence-1-r004
+    allowed_chain_ids:
+    - pairwise_distance_live_vehicle
+    - track_lifecycle_exit_live_vehicle
+    - passes_live_vehicle
+    allowed_provider_ids:
+    - camera_projection
+    - multi_object_tracker
+    - pairwise_distance_evaluator
+    - track_lifecycle_exit_evaluator
+    - yolo_vehicle_fast_640
+    - pass_reference_evaluator
+    allowed_node_ids:
+    - dvpg_gq_orin_1
+    - dvpg_gq_orin_4
+    - dvpg_gq_orin_7
+    - mobile_archive_1
+    - mobile_archive_2
+    - mobile_archive_3
+    allowed_source_ids:
+    - mobile_archive_1_camera
+    - mobile_archive_2_camera
+    - mobile_archive_3_camera
+    - orin1_camera
+    - orin4_camera
+    - orin7_camera
+    allowed_chain_node_ids:
+      pairwise_distance_live_vehicle:
+      - dvpg_gq_orin_1
+      - dvpg_gq_orin_4
+      - dvpg_gq_orin_7
+      - mobile_archive_1
+      - mobile_archive_2
+      - mobile_archive_3
+      track_lifecycle_exit_live_vehicle:
+      - dvpg_gq_orin_1
+      - dvpg_gq_orin_4
+      - dvpg_gq_orin_7
+      - mobile_archive_1
+      - mobile_archive_2
+      - mobile_archive_3
+      passes_live_vehicle:
+      - dvpg_gq_orin_1
+      - dvpg_gq_orin_4
+      - dvpg_gq_orin_7
+      - mobile_archive_1
+      - mobile_archive_2
+      - mobile_archive_3
+    source_fable_result: /media/brianw/Extreme SSD2/fable_results/archive/evaluation_results/rq1_full_83_traces_all_six_policies_static_fixed_20260806_v2/B1_STATIC_WHOLE_EVENT/repetition-01/20241008-vehicle-convergence-1-r004.json
+    source_result_sha256: c8892a5e60862991c7641070e8735ef2f9112cc2ed7652fc61a3743ea453e47a
+    placement_sha256: 8a0cfb154ee0ec650033ae73eb34e92f51304ccab93a2cba146917a0b60adcd0
+    derived_at: '2026-08-09T14:03:57.249419+00:00'
+    calibration_outcome: TRUE_POSITIVE
+    fanout_allowed: false
+    adaptation_allowed: false
+  '20241009_093228':
+    experiment_id: 20241009-two-vehicle-chase-18-r021
+    allowed_chain_ids:
+    - passes_live_vehicle
+    allowed_node_ids:
+    - dvpg_gq_orin_1
+    - dvpg_gq_orin_4
+    - mobile_archive_1
+    - mobile_archive_2
+    - mobile_archive_3
+    allowed_source_ids:
+    - orin1_camera
+    - orin4_camera
+    - mobile_archive_1_camera
+    - mobile_archive_2_camera
+    - mobile_archive_3_camera
+  '20250812_121928':
+    experiment_id: 20250812-robbery-with-alarm-burglary-a-r012
+    allowed_chain_ids:
+    - detect_audio_event
+    - person_vehicle_transition
+    allowed_node_ids:
+    - dvpg_gq_orin_1
+    - dvpg_gq_orin_4
+    - mobile_archive_4
+    - mobile_archive_5
+    - mobile_archive_6
+    allowed_source_ids:
+    - orin1_camera
+    - orin1_microphone
+    - orin4_camera
+    - orin4_microphone
+    - mobile_archive_4_camera
+    - mobile_archive_4_microphone
+    - mobile_archive_5_camera
+    - mobile_archive_5_microphone
+    - mobile_archive_6_camera
+    - mobile_archive_6_microphone
+  '20250812_160025':
+    experiment_id: 20250812-vehicle-rendezvous-brianjulian-1-r026
+    allowed_chain_ids:
+    - passes_live_vehicle
+    - pairwise_distance_live_vehicle
+    - track_lifecycle_exit_live_vehicle
+    allowed_node_ids:
+    - dvpg_gq_orin_1
+    - dvpg_gq_orin_4
+    - mobile_archive_4
+    - mobile_archive_5
+    - mobile_archive_6
+    allowed_source_ids:
+    - orin1_camera
+    - orin4_camera
+    - mobile_archive_4_camera
+    - mobile_archive_5_camera
+    - mobile_archive_6_camera
+  '20250812_161305':
+    experiment_id: 20250812-talking-rendezvous-rendezvous-brianjulian-1-r029
+    allowed_chain_ids:
+    - passes_live_vehicle
+    - conversation_proximity_diarization
+    - visual_person_proximity
+    - track_lifecycle_exit_live_vehicle
+    allowed_node_ids:
+    - dvpg_gq_orin_1
+    - dvpg_gq_orin_4
+    - mobile_archive_4
+    - mobile_archive_5
+    - mobile_archive_6
+    allowed_source_ids:
+    - orin1_camera
+    - orin1_microphone
+    - orin4_camera
+    - orin4_microphone
+    - mobile_archive_4_camera
+    - mobile_archive_4_microphone
+    - mobile_archive_5_camera
+    - mobile_archive_5_microphone
+    - mobile_archive_6_camera
+    - mobile_archive_6_microphone
+  '20260414_150705':
+    experiment_id: 20260414-three-visit-stalking-stalking-30-r030
+    allowed_chain_ids:
+    - passes_live_vehicle
+    - same_entity_cross_camera_reid
+    allowed_provider_ids:
+    - camera_projection
+    - multi_object_tracker
+    - pass_reference_evaluator
+    - yolo_vehicle_fast_640
+    - cross_sensor_identity_association
+    - track_crop_extractor
+    - vehicle_reid_descriptor
+    allowed_node_ids:
+    - dvpg_gq_orin_11
+    - dvpg_gq_orin_15
+    - dvpg_gq_orin_16
+    - x86server
+    allowed_source_ids:
+    - orin16_camera
+    allowed_chain_node_ids:
+      passes_live_vehicle:
+      - dvpg_gq_orin_11
+      - dvpg_gq_orin_16
+      same_entity_cross_camera_reid:
+      - dvpg_gq_orin_15
+      - dvpg_gq_orin_16
+      - x86server
+    source_fable_result: /media/brianw/Extreme SSD2/fable_results/archive/evaluation_results/rq1_full_83_traces_all_six_policies_static_fixed_20260806_v2/FABLE/repetition-01/20260414-three-visit-stalking-stalking-30-r030.json
+    source_result_sha256: 5f875d811a2c53b0306c280b82c6a482342ed88078aeffbb3c11866d64a15c6c
+    placement_sha256: 45d68dac11c5659072e3f59494664e57eb1b39e4bdfc6b445ab50cf66a9e8e7d
+    derived_at: '2026-08-09T14:03:58.627964+00:00'
+    calibration_outcome: TRUE_POSITIVE
+    fanout_allowed: false
+    adaptation_allowed: false
+  '20260415_145227':
+    experiment_id: 20260415-pass-follow-clear-convoy-3-car-convoy-11-r011
+    allowed_chain_ids:
+    - passes_live_vehicle
+    allowed_node_ids:
+    - dvpg_gq_orin_11
+    - dvpg_gq_orin_12
+    - dvpg_gq_orin_13
+    - dvpg_gq_orin_14
+    - dvpg_gq_orin_15
+    allowed_source_ids:
+    - orin11_camera
+    - orin12_camera
+    - orin13_camera
+    - orin14_camera
+    - orin15_camera
+  '20260415_151053':
+    experiment_id: 20260415-cross-sensor-robbery-robbery-13-r013
+    allowed_chain_ids:
+    - detect_audio_event
+    - recover_vehicle_from_local_segments
+    - track_lifecycle_exit_live_vehicle
+    allowed_provider_ids:
+    - audio_event_classifier
+    - historical_vehicle_interval_matcher
+    - multi_object_tracker
+    - track_lifecycle_exit_evaluator
+    - yolo_vehicle_fast_640
+    allowed_node_ids:
+    - dvpg_gq_orin_15
+    - dvpg_gq_orin_16
+    allowed_source_ids:
+    - orin16_microphone
+    - orin15_camera
+    allowed_chain_node_ids:
+      detect_audio_event:
+      - dvpg_gq_orin_16
+      recover_vehicle_from_local_segments:
+      - dvpg_gq_orin_15
+      track_lifecycle_exit_live_vehicle:
+      - dvpg_gq_orin_15
+    source_fable_result: /media/brianw/Extreme SSD2/fable_results/archive/evaluation_results/rq1_full_83_traces_all_six_policies_static_fixed_20260806_v2/B1_STATIC_WHOLE_EVENT/repetition-01/20260415-cross-sensor-robbery-robbery-13-r013.json
+    source_result_sha256: 14c6ab6d06407d05a761ecc80ef46b8131192aa1aa3c90e767142b3768ba17e7
+    placement_sha256: 9b81f57035ab0aae6561741ed0b666b3fc8179bc3a9ecffe685bb1a85f62a6e5
+    derived_at: '2026-08-09T14:03:58.839891+00:00'
+    calibration_outcome: TRUE_POSITIVE
+    fanout_allowed: false
+    adaptation_allowed: false
+  '20260414_152233':
+    experiment_id: 20260414-cross-sensor-robbery-robbery-31-r031
+    allowed_chain_ids:
+    - detect_audio_event
+    - recover_vehicle_from_local_segments
+    - track_lifecycle_exit_live_vehicle
+    allowed_provider_ids:
+    - audio_event_classifier
+    - historical_vehicle_interval_matcher
+    - multi_object_tracker
+    - track_lifecycle_exit_evaluator
+    - yolo_vehicle_fast_640
+    allowed_node_ids:
+    - dvpg_gq_orin_11
+    - dvpg_gq_orin_16
+    allowed_source_ids:
+    - orin16_microphone
+    - orin11_camera
+    allowed_chain_node_ids:
+      detect_audio_event:
+      - dvpg_gq_orin_16
+      recover_vehicle_from_local_segments:
+      - dvpg_gq_orin_11
+      track_lifecycle_exit_live_vehicle:
+      - dvpg_gq_orin_11
+    source_fable_result: /media/brianw/Extreme SSD2/fable_results/archive/evaluation_results/rq1_full_83_traces_all_six_policies_static_fixed_20260806_v2/B1_STATIC_WHOLE_EVENT/repetition-01/20260414-cross-sensor-robbery-robbery-31-r031.json
+    source_result_sha256: c7d85371f66dbfcd366082a997a4383f914942df4639651ea0a2a3ac623c87ea
+    placement_sha256: bad75eb4ced28bff68fde175ee7187fd04413a82a03702f5752c0be4c34121b2
+    derived_at: '2026-08-09T14:03:58.435530+00:00'
+    calibration_outcome: TRUE_POSITIVE
+    fanout_allowed: false
+    adaptation_allowed: false
+  '20260413_145007':
+    experiment_id: 20260413-pass-follow-clear-convoy-c1-teest-white-r005
+    allowed_chain_ids:
+    - passes_live_vehicle
+    allowed_provider_ids:
+    - camera_projection
+    - multi_object_tracker
+    - pass_reference_evaluator
+    - yolo_vehicle_fast_640
+    allowed_node_ids:
+    - dvpg_gq_orin_11
+    - dvpg_gq_orin_14
+    allowed_source_ids:
+    - orin14_camera
+    allowed_chain_node_ids:
+      passes_live_vehicle:
+      - dvpg_gq_orin_11
+      - dvpg_gq_orin_14
+    source_fable_result: /media/brianw/Extreme SSD2/fable_results/archive/evaluation_results/rq1_full_83_traces_all_six_policies_static_fixed_20260806_v2/B1_STATIC_WHOLE_EVENT/repetition-01/20260413-pass-follow-clear-convoy-c1-teest-white-r005.json
+    source_result_sha256: 281b244fb03f7eec31430f91b04b9a6c84361b11513a74e9dfe0a8ab91ce8793
+    placement_sha256: bdc739868e8e5463c64ded8b62b982f9c15046bd41e9ed7e4c9deb6e33741bab
+    derived_at: '2026-08-09T14:03:58.167185+00:00'
+    calibration_outcome: TRUE_POSITIVE
+    fanout_allowed: false
+    adaptation_allowed: false
+  '20241008_110823':
+    experiment_id: 20241008-route-convoy-1-r012
+    allowed_chain_ids:
+    - passes_live_vehicle
+    allowed_provider_ids:
+    - camera_projection
+    - multi_object_tracker
+    - pass_reference_evaluator
+    - yolo_vehicle_fast_640
+    allowed_node_ids:
+    - dvpg_gq_orin_1
+    allowed_source_ids:
+    - orin1_camera
+    allowed_chain_node_ids:
+      passes_live_vehicle:
+      - dvpg_gq_orin_1
+    source_fable_result: /media/brianw/Extreme SSD2/fable_results/archive/evaluation_results/rq1_full_83_traces_all_six_policies_static_fixed_20260806_v2/B1_STATIC_WHOLE_EVENT/repetition-01/20241008-route-convoy-1-r012.json
+    source_result_sha256: 5cb86a8b2f78bc184783ae6f8e0025f5299ffc33457b419eddcc6e30426324d9
+    placement_sha256: b929c90104cc16267d26d977b32d3e67ec0697cb7acc004e14601de5304dd2e0
+    derived_at: '2026-08-09T14:03:57.076274+00:00'
+    calibration_outcome: TRUE_POSITIVE
+    fanout_allowed: false
+    adaptation_allowed: false
+  '20241008_115001':
+    experiment_id: 20241008-route-convoy-10-r022
+    allowed_chain_ids:
+    - passes_live_vehicle
+    allowed_provider_ids:
+    - camera_projection
+    - multi_object_tracker
+    - pass_reference_evaluator
+    - yolo_vehicle_fast_640
+    allowed_node_ids:
+    - dvpg_gq_orin_4
+    allowed_source_ids:
+    - orin4_camera
+    allowed_chain_node_ids:
+      passes_live_vehicle:
+      - dvpg_gq_orin_4
+    source_fable_result: /media/brianw/Extreme SSD2/fable_results/archive/evaluation_results/rq1_full_83_traces_all_six_policies_static_fixed_20260806_v2/B1_STATIC_WHOLE_EVENT/repetition-01/20241008-route-convoy-10-r022.json
+    source_result_sha256: c38da7c87981682f8218313902ec18985802e7074205893eef390157baf0dc3c
+    placement_sha256: 499d6e1f5b22b6e38746814bf702dd71cb0ddbb8c537d8ad6a8ad499251bb33d
+    derived_at: '2026-08-09T14:03:57.161716+00:00'
+    calibration_outcome: TRUE_POSITIVE
+    fanout_allowed: false
+    adaptation_allowed: false
+  '20241008_101550':
+    experiment_id: 20241008-vehicle-convergence-2-r005
+    allowed_chain_ids:
+    - pairwise_distance_live_vehicle
+    - track_lifecycle_exit_live_vehicle
+    - passes_live_vehicle
+    allowed_provider_ids:
+    - camera_projection
+    - multi_object_tracker
+    - pairwise_distance_evaluator
+    - track_lifecycle_exit_evaluator
+    - yolo_vehicle_fast_640
+    - pass_reference_evaluator
+    allowed_node_ids:
+    - dvpg_gq_orin_1
+    - dvpg_gq_orin_4
+    - dvpg_gq_orin_7
+    - mobile_archive_1
+    - mobile_archive_2
+    - mobile_archive_3
+    allowed_source_ids:
+    - mobile_archive_1_camera
+    - mobile_archive_2_camera
+    - mobile_archive_3_camera
+    - orin1_camera
+    - orin4_camera
+    - orin7_camera
+    allowed_chain_node_ids:
+      pairwise_distance_live_vehicle:
+      - dvpg_gq_orin_1
+      - dvpg_gq_orin_4
+      - dvpg_gq_orin_7
+      - mobile_archive_1
+      - mobile_archive_2
+      - mobile_archive_3
+      track_lifecycle_exit_live_vehicle:
+      - dvpg_gq_orin_1
+      - dvpg_gq_orin_4
+      - dvpg_gq_orin_7
+      - mobile_archive_1
+      - mobile_archive_2
+      - mobile_archive_3
+      passes_live_vehicle:
+      - dvpg_gq_orin_1
+      - dvpg_gq_orin_4
+      - dvpg_gq_orin_7
+      - mobile_archive_1
+      - mobile_archive_2
+      - mobile_archive_3
+    source_fable_result: /media/brianw/Extreme SSD2/fable_results/archive/evaluation_results/rq1_full_83_traces_all_six_policies_static_fixed_20260806_v2/B1_STATIC_WHOLE_EVENT/repetition-01/20241008-vehicle-convergence-2-r005.json
+    source_result_sha256: 251df0f7225280ee6bc33559e24fe98a6b4ab1295a282e9c7c7a50a6d709d0e3
+    placement_sha256: 919c69277a093c3a573e0e7af15ae1f230794092a11b1508387d493dd20fa1a7
+    derived_at: '2026-08-09T14:03:57.341582+00:00'
+    calibration_outcome: TRUE_POSITIVE
+    fanout_allowed: false
+    adaptation_allowed: false
+  '20241008_102107':
+    experiment_id: 20241008-vehicle-convergence-3-r006
+    allowed_chain_ids:
+    - pairwise_distance_live_vehicle
+    - track_lifecycle_exit_live_vehicle
+    - passes_live_vehicle
+    allowed_provider_ids:
+    - camera_projection
+    - multi_object_tracker
+    - pairwise_distance_evaluator
+    - track_lifecycle_exit_evaluator
+    - yolo_vehicle_fast_640
+    - pass_reference_evaluator
+    allowed_node_ids:
+    - dvpg_gq_orin_1
+    - dvpg_gq_orin_4
+    - dvpg_gq_orin_7
+    - mobile_archive_1
+    - mobile_archive_2
+    - mobile_archive_3
+    allowed_source_ids:
+    - mobile_archive_1_camera
+    - mobile_archive_2_camera
+    - mobile_archive_3_camera
+    - orin1_camera
+    - orin4_camera
+    - orin7_camera
+    allowed_chain_node_ids:
+      pairwise_distance_live_vehicle:
+      - dvpg_gq_orin_1
+      - dvpg_gq_orin_4
+      - dvpg_gq_orin_7
+      - mobile_archive_1
+      - mobile_archive_2
+      - mobile_archive_3
+      track_lifecycle_exit_live_vehicle:
+      - dvpg_gq_orin_1
+      - dvpg_gq_orin_4
+      - dvpg_gq_orin_7
+      - mobile_archive_1
+      - mobile_archive_2
+      - mobile_archive_3
+      passes_live_vehicle:
+      - dvpg_gq_orin_1
+      - dvpg_gq_orin_4
+      - dvpg_gq_orin_7
+      - mobile_archive_1
+      - mobile_archive_2
+      - mobile_archive_3
+    source_fable_result: /media/brianw/Extreme SSD2/fable_results/archive/evaluation_results/rq1_full_83_traces_all_six_policies_static_fixed_20260806_v2/B1_STATIC_WHOLE_EVENT/repetition-01/20241008-vehicle-convergence-3-r006.json
+    source_result_sha256: 470a5b05bc955ea0ac8d90f2eacac9a59dfd78d79df164a15a01ce8f63504abe
+    placement_sha256: b276a4df53171a6aa4edba5d174e4f3ea22bc1c75a2a9c3b41a06fc8be7c9f36
+    derived_at: '2026-08-09T14:03:57.412654+00:00'
+    calibration_outcome: TRUE_POSITIVE
+    fanout_allowed: false
+    adaptation_allowed: false
+  '20250812_120334':
+    experiment_id: 20250812-robbery-with-alarm-burglary-a-r006
+    allowed_chain_ids:
+    - detect_audio_event
+    - person_vehicle_transition
+    allowed_provider_ids:
+    - audio_event_classifier
+    - camera_projection
+    - multi_object_tracker
+    - person_vehicle_relation_provider
+    - yolo_full_context_960
+    allowed_node_ids:
+    - dvpg_gq_orin_1
+    allowed_source_ids:
+    - orin1_microphone
+    - orin1_camera
+    allowed_chain_node_ids:
+      detect_audio_event:
+      - dvpg_gq_orin_1
+      person_vehicle_transition:
+      - dvpg_gq_orin_1
+    source_fable_result: /media/brianw/Extreme SSD2/fable_results/archive/evaluation_results/rq1_full_83_traces_all_six_policies_static_fixed_20260806_v2/FABLE/repetition-01/20250812-robbery-with-alarm-burglary-a-r006.json
+    source_result_sha256: 3935997d54cd0a1f5f81fa0b0a6f5ee9479135b209f672c8cb2a70c8fcbe0015
+    placement_sha256: 215ce1cde8bc7df17c15a315e535c9ee46a752175ffd600b54e051201a4a0edc
+    derived_at: '2026-08-09T14:03:57.476894+00:00'
+    calibration_outcome: TRUE_POSITIVE
+    fanout_allowed: false
+    adaptation_allowed: false
+  '20250812_120535':
+    experiment_id: 20250812-robbery-with-alarm-burglary-a-r007
+    allowed_chain_ids:
+    - detect_audio_event
+    - person_vehicle_transition
+    allowed_provider_ids:
+    - audio_event_classifier
+    - camera_projection
+    - multi_object_tracker
+    - person_vehicle_relation_provider
+    - yolo_full_context_960
+    allowed_node_ids:
+    - dvpg_gq_orin_1
+    allowed_source_ids:
+    - orin1_microphone
+    - orin1_camera
+    allowed_chain_node_ids:
+      detect_audio_event:
+      - dvpg_gq_orin_1
+      person_vehicle_transition:
+      - dvpg_gq_orin_1
+    source_fable_result: /media/brianw/Extreme SSD2/fable_results/archive/evaluation_results/rq1_full_83_traces_all_six_policies_static_fixed_20260806_v2/FABLE/repetition-01/20250812-robbery-with-alarm-burglary-a-r007.json
+    source_result_sha256: b343084ab6c58f8526f941f4fa74e12d7992fca5902994733aa7646592c4dd43
+    placement_sha256: f9eb7cef95ad39f9c1bf923a3d532bb846cfb0b1332523ca30beba1a103ac010
+    derived_at: '2026-08-09T14:03:57.541877+00:00'
+    calibration_outcome: TRUE_POSITIVE
+    fanout_allowed: false
+    adaptation_allowed: false
+  '20250812_120747':
+    experiment_id: 20250812-robbery-with-alarm-burglary-a-r008
+    allowed_chain_ids:
+    - detect_audio_event
+    - person_vehicle_transition
+    allowed_provider_ids:
+    - audio_event_classifier
+    - camera_projection
+    - multi_object_tracker
+    - person_vehicle_relation_provider
+    - yolo_full_context_960
+    allowed_node_ids:
+    - dvpg_gq_orin_1
+    allowed_source_ids:
+    - orin1_microphone
+    - orin1_camera
+    allowed_chain_node_ids:
+      detect_audio_event:
+      - dvpg_gq_orin_1
+      person_vehicle_transition:
+      - dvpg_gq_orin_1
+    source_fable_result: /media/brianw/Extreme SSD2/fable_results/archive/evaluation_results/rq1_full_83_traces_all_six_policies_static_fixed_20260806_v2/FABLE/repetition-01/20250812-robbery-with-alarm-burglary-a-r008.json
+    source_result_sha256: e9d418942673c1f50bda24eb94d065b241ee519a425ee8c156cdd55fe6c23311
+    placement_sha256: bc5b7b208f08bcd745589e20dafc2998650c11830ff38b7a746d10a21b00aee6
+    derived_at: '2026-08-09T14:03:57.647474+00:00'
+    calibration_outcome: TRUE_POSITIVE
+    fanout_allowed: false
+    adaptation_allowed: false
+  '20250812_121041':
+    experiment_id: 20250812-robbery-with-alarm-burglary-a-r009
+    allowed_chain_ids:
+    - detect_audio_event
+    - person_vehicle_transition
+    allowed_provider_ids:
+    - audio_event_classifier
+    - camera_projection
+    - multi_object_tracker
+    - person_vehicle_relation_provider
+    - yolo_full_context_960
+    allowed_node_ids:
+    - dvpg_gq_orin_1
+    - mobile_archive_6
+    allowed_source_ids:
+    - mobile_archive_6_microphone
+    - orin1_camera
+    allowed_chain_node_ids:
+      detect_audio_event:
+      - mobile_archive_6
+      person_vehicle_transition:
+      - dvpg_gq_orin_1
+    source_fable_result: /media/brianw/Extreme SSD2/fable_results/archive/evaluation_results/rq1_full_83_traces_all_six_policies_static_fixed_20260806_v2/FABLE/repetition-01/20250812-robbery-with-alarm-burglary-a-r009.json
+    source_result_sha256: 64dd94d9b3907bf185f198b0847364e14786f77ed7b8ab72bdeb67b10ae3a312
+    placement_sha256: 0b7bb15e63739e0c26661f7a31baa80bbcea1b0c39113575161b60e7679a0b9d
+    derived_at: '2026-08-09T14:03:57.719267+00:00'
+    calibration_outcome: TRUE_POSITIVE
+    fanout_allowed: false
+    adaptation_allowed: false
+  '20250812_160536':
+    experiment_id: 20250812-vehicle-rendezvous-brianjulian-2-r027
+    allowed_chain_ids:
+    - pairwise_distance_live_vehicle
+    - passes_live_vehicle
+    - track_lifecycle_exit_live_vehicle
+    allowed_provider_ids:
+    - camera_projection
+    - multi_object_tracker
+    - pairwise_distance_evaluator
+    - yolo_vehicle_fast_640
+    - pass_reference_evaluator
+    - track_lifecycle_exit_evaluator
+    allowed_node_ids:
+    - dvpg_gq_orin_1
+    - dvpg_gq_orin_4
+    - mobile_archive_4
+    - mobile_archive_5
+    - mobile_archive_6
+    allowed_source_ids:
+    - mobile_archive_4_camera
+    - mobile_archive_5_camera
+    - mobile_archive_6_camera
+    - orin1_camera
+    - orin4_camera
+    allowed_chain_node_ids:
+      pairwise_distance_live_vehicle:
+      - dvpg_gq_orin_1
+      - dvpg_gq_orin_4
+      - mobile_archive_4
+      - mobile_archive_5
+      - mobile_archive_6
+      passes_live_vehicle:
+      - dvpg_gq_orin_1
+      - dvpg_gq_orin_4
+      - mobile_archive_4
+      - mobile_archive_5
+      - mobile_archive_6
+      track_lifecycle_exit_live_vehicle:
+      - dvpg_gq_orin_1
+    source_fable_result: /media/brianw/Extreme SSD2/fable_results/archive/evaluation_results/rq1_full_83_traces_all_six_policies_static_fixed_20260806_v2/B1_STATIC_WHOLE_EVENT/repetition-01/20250812-vehicle-rendezvous-brianjulian-2-r027.json
+    source_result_sha256: 80339cbecb8f91809eb5ca1c499252e704185b97206c12223f7a9372a66accf9
+    placement_sha256: bbaee197ca5e8dbc8182e886069e65c75f764cd5fb1e35f8a29fa33d165b43d9
+    derived_at: '2026-08-09T14:03:57.909989+00:00'
+    calibration_outcome: TRUE_POSITIVE
+    fanout_allowed: false
+    adaptation_allowed: false
+  '20250812_160853':
+    experiment_id: 20250812-vehicle-rendezvous-brianjulian-3-r028
+    allowed_chain_ids:
+    - pairwise_distance_live_vehicle
+    - passes_live_vehicle
+    - track_lifecycle_exit_live_vehicle
+    allowed_provider_ids:
+    - camera_projection
+    - multi_object_tracker
+    - pairwise_distance_evaluator
+    - yolo_vehicle_fast_640
+    - pass_reference_evaluator
+    - track_lifecycle_exit_evaluator
+    allowed_node_ids:
+    - dvpg_gq_orin_1
+    - dvpg_gq_orin_4
+    - mobile_archive_4
+    - mobile_archive_5
+    - mobile_archive_6
+    allowed_source_ids:
+    - mobile_archive_4_camera
+    - mobile_archive_5_camera
+    - mobile_archive_6_camera
+    - orin1_camera
+    - orin4_camera
+    allowed_chain_node_ids:
+      pairwise_distance_live_vehicle:
+      - dvpg_gq_orin_1
+      - dvpg_gq_orin_4
+      - mobile_archive_4
+      - mobile_archive_5
+      - mobile_archive_6
+      passes_live_vehicle:
+      - dvpg_gq_orin_1
+      - dvpg_gq_orin_4
+      - mobile_archive_4
+      - mobile_archive_5
+      - mobile_archive_6
+      track_lifecycle_exit_live_vehicle:
+      - dvpg_gq_orin_1
+    source_fable_result: /media/brianw/Extreme SSD2/fable_results/archive/evaluation_results/rq1_full_83_traces_all_six_policies_static_fixed_20260806_v2/B1_STATIC_WHOLE_EVENT/repetition-01/20250812-vehicle-rendezvous-brianjulian-3-r028.json
+    source_result_sha256: c0d2035a9e6125b6a86c75523e290494317a7dd5eb38eebd0b66f93069557c4c
+    placement_sha256: dbd44edbd0de64e7e50f7f6e1f224c34bc43313aa38a8cd4f5fca5bf70daa405
+    derived_at: '2026-08-09T14:03:58.065600+00:00'
+    calibration_outcome: TRUE_POSITIVE
+    fanout_allowed: false
+    adaptation_allowed: false
+  '20260413_143336':
+    experiment_id: 20260413-pass-follow-clear-convoy-c1-test-r003
+    allowed_chain_ids:
+    - passes_live_vehicle
+    allowed_provider_ids:
+    - camera_projection
+    - multi_object_tracker
+    - pass_reference_evaluator
+    - yolo_vehicle_fast_640
+    allowed_node_ids:
+    - dvpg_gq_orin_11
+    - dvpg_gq_orin_14
+    allowed_source_ids:
+    - orin14_camera
+    allowed_chain_node_ids:
+      passes_live_vehicle:
+      - dvpg_gq_orin_11
+      - dvpg_gq_orin_14
+    source_fable_result: /media/brianw/Extreme SSD2/fable_results/archive/evaluation_results/rq1_full_83_traces_all_six_policies_static_fixed_20260806_v2/B1_STATIC_WHOLE_EVENT/repetition-01/20260413-pass-follow-clear-convoy-c1-test-r003.json
+    source_result_sha256: 20bca2d9f8708e09392c2d8f1b8ec1001311dfa41089ed845eb28afb8f96e8cf
+    placement_sha256: 51fb0db3900569a04684669581715910a2326f90b5d5ca0afbe54b446e17b334
+    derived_at: '2026-08-09T14:03:58.252674+00:00'
+    calibration_outcome: TRUE_POSITIVE
+    fanout_allowed: false
+    adaptation_allowed: false
+  '20260413_144110':
+    experiment_id: 20260413-pass-follow-clear-convoy-c1-test-suv-r004
+    allowed_chain_ids:
+    - passes_live_vehicle
+    allowed_provider_ids:
+    - camera_projection
+    - multi_object_tracker
+    - pass_reference_evaluator
+    - yolo_vehicle_fast_640
+    allowed_node_ids:
+    - dvpg_gq_orin_11
+    - dvpg_gq_orin_14
+    allowed_source_ids:
+    - orin14_camera
+    allowed_chain_node_ids:
+      passes_live_vehicle:
+      - dvpg_gq_orin_11
+      - dvpg_gq_orin_14
+    source_fable_result: /media/brianw/Extreme SSD2/fable_results/archive/evaluation_results/rq1_full_83_traces_all_six_policies_static_fixed_20260806_v2/B1_STATIC_WHOLE_EVENT/repetition-01/20260413-pass-follow-clear-convoy-c1-test-suv-r004.json
+    source_result_sha256: b61efb6ad3837f7c1bcb3110b748d8e884d5a534cd9b8ba827aeb995aec94f69
+    placement_sha256: a03f1f4b49382cfaaa28706fb021ad5ffda59850d98a7d336e17bc12107761cb
+    derived_at: '2026-08-09T14:03:58.338727+00:00'
+    calibration_outcome: TRUE_POSITIVE
+    fanout_allowed: false
+    adaptation_allowed: false
+  '20260414_152641':
+    experiment_id: 20260414-cross-sensor-robbery-robbery-32-r032
+    allowed_chain_ids:
+    - detect_audio_event
+    - recover_vehicle_from_local_segments
+    - track_lifecycle_exit_live_vehicle
+    allowed_provider_ids:
+    - audio_event_classifier
+    - historical_vehicle_interval_matcher
+    - multi_object_tracker
+    - track_lifecycle_exit_evaluator
+    - yolo_vehicle_fast_640
+    allowed_node_ids:
+    - dvpg_gq_orin_11
+    - dvpg_gq_orin_15
+    allowed_source_ids:
+    - orin11_microphone
+    - orin15_camera
+    allowed_chain_node_ids:
+      detect_audio_event:
+      - dvpg_gq_orin_11
+      recover_vehicle_from_local_segments:
+      - dvpg_gq_orin_15
+      track_lifecycle_exit_live_vehicle:
+      - dvpg_gq_orin_15
+    source_fable_result: /media/brianw/Extreme SSD2/fable_results/archive/evaluation_results/rq1_full_83_traces_all_six_policies_static_fixed_20260806_v2/B1_STATIC_WHOLE_EVENT/repetition-01/20260414-cross-sensor-robbery-robbery-32-r032.json
+    source_result_sha256: 30294a77d5478a36a15374f2e56d032bce2f43f14195f2ef61f609afadfeea16
+    placement_sha256: b7a459c0c7d0edabacd2facce55eee4d245ee3c6d8154a803550ad470cd1f6a7
+    derived_at: '2026-08-09T14:03:58.532494+00:00'
+    calibration_outcome: TRUE_POSITIVE
+    fanout_allowed: false
+    adaptation_allowed: false
+  '20260415_150701':
+    experiment_id: 20260415-cross-sensor-robbery-robbery-12-r012
+    allowed_chain_ids:
+    - detect_audio_event
+    - recover_vehicle_from_local_segments
+    - track_lifecycle_exit_live_vehicle
+    allowed_provider_ids:
+    - audio_event_classifier
+    - historical_vehicle_interval_matcher
+    - multi_object_tracker
+    - track_lifecycle_exit_evaluator
+    - yolo_vehicle_fast_640
+    allowed_node_ids:
+    - dvpg_gq_orin_13
+    - dvpg_gq_orin_16
+    allowed_source_ids:
+    - orin16_microphone
+    - orin13_camera
+    allowed_chain_node_ids:
+      detect_audio_event:
+      - dvpg_gq_orin_16
+      recover_vehicle_from_local_segments:
+      - dvpg_gq_orin_13
+      track_lifecycle_exit_live_vehicle:
+      - dvpg_gq_orin_13
+    source_fable_result: /media/brianw/Extreme SSD2/fable_results/archive/evaluation_results/rq1_full_83_traces_all_six_policies_static_fixed_20260806_v2/B1_STATIC_WHOLE_EVENT/repetition-01/20260415-cross-sensor-robbery-robbery-12-r012.json
+    source_result_sha256: c5b8553ac6fe6e6b9a81c3dd54ecfb4bc80b6a976f859277f77263a853d0bb62
+    placement_sha256: ec76c609c5912c400cb832bfa774d26572d751ff76ea1e9aa7579277efdb6ea3
+    derived_at: '2026-08-09T14:03:58.734114+00:00'
+    calibration_outcome: TRUE_POSITIVE
+    fanout_allowed: false
+    adaptation_allowed: false
+  '20260415_144833':
+    experiment_id: 20260415-pass-follow-clear-convoy-3-car-convoy-10-r010
+    allowed_chain_ids:
+    - passes_live_vehicle
+    allowed_provider_ids:
+    - camera_projection
+    - multi_object_tracker
+    - pass_reference_evaluator
+    - yolo_vehicle_fast_640
+    allowed_node_ids:
+    - dvpg_gq_orin_12
+    - dvpg_gq_orin_14
+    allowed_source_ids:
+    - orin14_camera
+    allowed_chain_node_ids:
+      passes_live_vehicle:
+      - dvpg_gq_orin_12
+      - dvpg_gq_orin_14
+    source_fable_result: /media/brianw/Extreme SSD2/fable_results/archive/evaluation_results/rq1_full_83_traces_all_six_policies_static_fixed_20260806_v2/B1_STATIC_WHOLE_EVENT/repetition-01/20260415-pass-follow-clear-convoy-3-car-convoy-10-r010.json
+    source_result_sha256: 9fea94542296807320063ea914c032139a34339643ed38f8f2281792088b6e85
+    placement_sha256: b0a0623bc15dcbeb4946772d8845197af25c03d030aef930227f8ac593035529
+    derived_at: '2026-08-09T14:03:58.981062+00:00'
+    calibration_outcome: TRUE_POSITIVE
+    fanout_allowed: false
+    adaptation_allowed: false

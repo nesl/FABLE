@@ -82,7 +82,7 @@ dataset and replays every remaining source. Use the host-side staging command:
   --experiment-id EXPERIMENT_ID --scenario-id SCENARIO_ID
 ```
 
-The managed slot is `/home/rpi/project/FABLE/replay-cache`. The command checks
+The managed slot is `${FABLE_RPI_ROOT:-/opt/fable}/replay-cache`. The command checks
 free space, transfers through a temporary file, verifies SHA-256, atomically
 promotes the asset to `current.<extension>`, and writes `current.json`. It
 removes the previous managed video and any managed extracted-frame directory

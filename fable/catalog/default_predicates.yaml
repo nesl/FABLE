@@ -1,0 +1,641 @@
+predicates:
+- predicate_id: DISTANCE_LT
+  expression_kind: DERIVED_BEHAVIOR
+  result_kind: INTERVAL_MATCH
+  roles:
+  - role_name: left
+    entity_type: vehicle
+    binding_capabilities:
+    - INTRODUCE_OR_VALIDATE
+    identity_required: false
+  - role_name: right
+    entity_type: vehicle
+    binding_capabilities:
+    - INTRODUCE_OR_VALIDATE
+    identity_required: false
+  parameters:
+    maximum_distance_m:
+      type: number
+      required: false
+      minimum: 0.0
+      maximum: null
+      enum: []
+      default: null
+  provider_family_ids:
+  - pairwise_distance
+  acceptable_output_types:
+  - predicate_match.v1
+  required_capabilities:
+  - tracking
+  required_input_artifact_types: []
+  default_continuation_types:
+  - track_summary.v1
+  forkable_roles:
+  - left
+  - right
+  fork_unit: CANONICAL_BINDING_TUPLE
+- predicate_id: PERSON_PROXIMITY
+  expression_kind: DERIVED_BEHAVIOR
+  result_kind: INTERVAL_MATCH
+  roles:
+  - role_name: participant_a
+    entity_type: person
+    binding_capabilities:
+    - INTRODUCE_OR_VALIDATE
+    identity_required: false
+  - role_name: participant_b
+    entity_type: person
+    binding_capabilities:
+    - INTRODUCE_OR_VALIDATE
+    identity_required: false
+  parameters:
+    maximum_distance_m:
+      type: number
+      required: false
+      minimum: 0.0
+      maximum: null
+      enum: []
+      default: null
+    maximum_normalized_gap:
+      type: number
+      required: false
+      minimum: 0.0
+      maximum: null
+      enum: []
+      default: null
+    minimum_duration_s:
+      type: number
+      required: false
+      minimum: 0.0
+      maximum: null
+      enum: []
+      default: null
+  provider_family_ids:
+  - person_proximity
+  acceptable_output_types:
+  - predicate_match.v1
+  required_capabilities:
+  - tracking
+  required_input_artifact_types: []
+  default_continuation_types:
+  - track_summary.v1
+  forkable_roles:
+  - participant_a
+  - participant_b
+  fork_unit: CANONICAL_BINDING_TUPLE
+- predicate_id: AUDIO_EVENT
+  expression_kind: SENSOR_EVENT
+  result_kind: INSTANT_MATCH
+  roles:
+  - role_name: location
+    entity_type: zone
+    binding_capabilities:
+    - INTRODUCE_OR_VALIDATE
+    identity_required: false
+  parameters:
+    label:
+      type: string
+      required: true
+      minimum: null
+      maximum: null
+      enum: []
+      default: null
+    minimum_confidence:
+      type: number
+      required: false
+      minimum: 0.0
+      maximum: 1.0
+      enum: []
+      default: null
+    minimum_watch_age_ms:
+      type: integer
+      required: false
+      minimum: 0.0
+      maximum: null
+      enum: []
+      default: null
+  provider_family_ids:
+  - audio_event
+  acceptable_output_types:
+  - predicate_match.v1
+  required_capabilities:
+  - audio
+  required_input_artifact_types: []
+  default_continuation_types:
+  - audio_event_set.v1
+  forkable_roles: []
+  fork_unit: CANONICAL_BINDING_TUPLE
+- predicate_id: AUDIO_VISUAL_ASSOCIATION
+  expression_kind: DERIVED_BEHAVIOR
+  result_kind: INSTANT_MATCH
+  roles:
+  - role_name: location
+    entity_type: zone
+    binding_capabilities:
+    - CONSUME
+    - VALIDATE
+    identity_required: false
+  - role_name: person
+    entity_type: person
+    binding_capabilities:
+    - INTRODUCE
+    - VALIDATE
+    identity_required: true
+  parameters: {}
+  provider_family_ids:
+  - audio_visual_association
+  acceptable_output_types:
+  - predicate_match.v1
+  required_capabilities:
+  - audio_localization
+  - tracking
+  required_input_artifact_types: []
+  default_continuation_types:
+  - audio_visual_association_set.v1
+  forkable_roles:
+  - person
+  fork_unit: CANONICAL_BINDING_TUPLE
+- predicate_id: BOARDS
+  expression_kind: TRANSITION
+  result_kind: INSTANT_MATCH
+  roles:
+  - role_name: person
+    entity_type: person
+    binding_capabilities:
+    - CONSUME
+    - VALIDATE
+    identity_required: true
+  - role_name: vehicle
+    entity_type: vehicle
+    binding_capabilities:
+    - CONSUME
+    - VALIDATE
+    identity_required: true
+  parameters: {}
+  provider_family_ids:
+  - person_vehicle_relation
+  acceptable_output_types:
+  - predicate_match.v1
+  required_capabilities:
+  - tracking
+  - person_vehicle_relation
+  required_input_artifact_types: []
+  default_continuation_types:
+  - track_summary.v1
+  forkable_roles: []
+  fork_unit: CANONICAL_BINDING_TUPLE
+- predicate_id: CONVERSATION
+  expression_kind: DERIVED_BEHAVIOR
+  result_kind: INTERVAL_MATCH
+  roles:
+  - role_name: participant_a
+    entity_type: person
+    binding_capabilities:
+    - INTRODUCE
+    - VALIDATE
+    identity_required: true
+  - role_name: participant_b
+    entity_type: person
+    binding_capabilities:
+    - INTRODUCE
+    - VALIDATE
+    identity_required: true
+  parameters:
+    maximum_distance_m:
+      type: number
+      required: false
+      minimum: 0.0
+      maximum: null
+      enum: []
+      default: null
+    minimum_duration_s:
+      type: number
+      required: false
+      minimum: 0.0
+      maximum: null
+      enum: []
+      default: null
+    required_terms:
+      type: string
+      required: false
+      minimum: null
+      maximum: null
+      enum: []
+      default: null
+  provider_family_ids:
+  - conversation
+  acceptable_output_types:
+  - predicate_match.v1
+  required_capabilities:
+  - tracking
+  - voice_activity
+  - speaker_diarization
+  required_input_artifact_types: []
+  default_continuation_types:
+  - speaker_turn_set.v1
+  - track_summary.v1
+  forkable_roles:
+  - participant_a
+  - participant_b
+  fork_unit: CANONICAL_BINDING_TUPLE
+- predicate_id: DEPARTURE_OR_ESCAPE
+  expression_kind: TRANSITION
+  result_kind: INSTANT_MATCH
+  roles:
+  - role_name: person
+    entity_type: person
+    binding_capabilities:
+    - CONSUME
+    - VALIDATE
+    identity_required: false
+  - role_name: vehicle
+    entity_type: vehicle
+    binding_capabilities:
+    - INTRODUCE_OR_VALIDATE
+    identity_required: false
+  parameters: {}
+  provider_family_ids:
+  - departure
+  acceptable_output_types:
+  - predicate_match.v1
+  required_capabilities: []
+  required_input_artifact_types: []
+  default_continuation_types: []
+  forkable_roles:
+  - vehicle
+  fork_unit: CANONICAL_BINDING_TUPLE
+- predicate_id: DISEMBARKS
+  expression_kind: TRANSITION
+  result_kind: INSTANT_MATCH
+  roles:
+  - role_name: person
+    entity_type: person
+    binding_capabilities:
+    - INTRODUCE
+    - VALIDATE
+    identity_required: true
+  - role_name: vehicle
+    entity_type: vehicle
+    binding_capabilities:
+    - CONSUME
+    - VALIDATE
+    identity_required: true
+  parameters: {}
+  provider_family_ids:
+  - person_vehicle_relation
+  acceptable_output_types:
+  - predicate_match.v1
+  required_capabilities:
+  - tracking
+  - person_vehicle_relation
+  required_input_artifact_types: []
+  default_continuation_types:
+  - track_summary.v1
+  forkable_roles:
+  - person
+  fork_unit: CANONICAL_BINDING_TUPLE
+- predicate_id: ENTERS
+  expression_kind: TRANSITION
+  result_kind: INSTANT_MATCH
+  roles:
+  - role_name: vehicle
+    entity_type: vehicle
+    binding_capabilities:
+    - INTRODUCE_OR_VALIDATE
+    identity_required: false
+  parameters: {}
+  provider_family_ids:
+  - zone_transition
+  acceptable_output_types:
+  - predicate_match.v1
+  required_capabilities: []
+  required_input_artifact_types: []
+  default_continuation_types: []
+  forkable_roles:
+  - vehicle
+  fork_unit: CANONICAL_BINDING_TUPLE
+- predicate_id: EXITS
+  expression_kind: TRANSITION
+  result_kind: INSTANT_MATCH
+  roles:
+  - role_name: vehicle
+    entity_type: vehicle
+    binding_capabilities:
+    - INTRODUCE_OR_VALIDATE
+    identity_required: false
+  parameters: {}
+  provider_family_ids:
+  - zone_transition
+  acceptable_output_types:
+  - predicate_match.v1
+  required_capabilities: []
+  required_input_artifact_types: []
+  default_continuation_types: []
+  forkable_roles:
+  - vehicle
+  fork_unit: CANONICAL_BINDING_TUPLE
+- predicate_id: FAILED_ATTEMPT_RAPID_EXIT
+  expression_kind: DERIVED_BEHAVIOR
+  result_kind: INSTANT_MATCH
+  roles:
+  - role_name: person
+    entity_type: person
+    binding_capabilities:
+    - CONSUME
+    - VALIDATE
+    identity_required: false
+  - role_name: location
+    entity_type: zone
+    binding_capabilities:
+    - CONSUME
+    - VALIDATE
+    identity_required: false
+  parameters: {}
+  provider_family_ids:
+  - failed_attempt
+  acceptable_output_types:
+  - predicate_match.v1
+  required_capabilities: []
+  required_input_artifact_types: []
+  default_continuation_types: []
+  forkable_roles: []
+  fork_unit: CANONICAL_BINDING_TUPLE
+- predicate_id: FOLLOWS
+  expression_kind: DERIVED_BEHAVIOR
+  result_kind: INTERVAL_MATCH
+  roles:
+  - role_name: leader
+    entity_type: vehicle
+    binding_capabilities:
+    - CONSUME
+    - VALIDATE
+    identity_required: true
+  - role_name: follower
+    entity_type: vehicle
+    binding_capabilities:
+    - INTRODUCE
+    - VALIDATE
+    identity_required: true
+  parameters:
+    max_gap_m:
+      type: number
+      required: false
+      minimum: 0.0
+      maximum: null
+      enum: []
+      default: null
+    min_duration_ms:
+      type: integer
+      required: false
+      minimum: 0.0
+      maximum: null
+      enum: []
+      default: null
+  provider_family_ids:
+  - follows_local
+  - follows_cross_sensor
+  acceptable_output_types:
+  - predicate_match.v1
+  required_capabilities:
+  - vehicle_identity
+  - relative_motion
+  required_input_artifact_types: []
+  default_continuation_types:
+  - pair_trajectory.v1
+  - track_summary.v1
+  forkable_roles:
+  - follower
+  fork_unit: CANONICAL_BINDING_TUPLE
+- predicate_id: FORCED_TRANSFER
+  expression_kind: DERIVED_BEHAVIOR
+  result_kind: INTERVAL_MATCH
+  roles:
+  - role_name: person
+    entity_type: person
+    binding_capabilities:
+    - CONSUME
+    - VALIDATE
+    identity_required: false
+  - role_name: location
+    entity_type: zone
+    binding_capabilities:
+    - CONSUME
+    - VALIDATE
+    identity_required: false
+  parameters: {}
+  provider_family_ids:
+  - forced_transfer
+  acceptable_output_types:
+  - predicate_match.v1
+  required_capabilities: []
+  required_input_artifact_types: []
+  default_continuation_types: []
+  forkable_roles: []
+  fork_unit: CANONICAL_BINDING_TUPLE
+- predicate_id: MOVING
+  expression_kind: STATE
+  result_kind: STATE_OBSERVATION
+  roles:
+  - role_name: vehicle
+    entity_type: vehicle
+    binding_capabilities:
+    - OBSERVE_ONLY
+    - VALIDATE
+    identity_required: false
+  parameters: {}
+  provider_family_ids:
+  - motion_state
+  acceptable_output_types:
+  - predicate_match.v1
+  required_capabilities:
+  - tracking
+  required_input_artifact_types: []
+  default_continuation_types: []
+  forkable_roles: []
+  fork_unit: CANONICAL_BINDING_TUPLE
+- predicate_id: PASSES
+  expression_kind: TRANSITION
+  result_kind: INSTANT_MATCH
+  roles:
+  - role_name: vehicle
+    entity_type: vehicle
+    binding_capabilities:
+    - INTRODUCE
+    - VALIDATE
+    identity_required: true
+  - role_name: reference
+    entity_type: location
+    binding_capabilities:
+    - INTRODUCE_OR_VALIDATE
+    identity_required: false
+  parameters: {}
+  provider_family_ids:
+  - pass_geometry
+  acceptable_output_types:
+  - predicate_match.v1
+  required_capabilities:
+  - tracking
+  - reference_geometry
+  required_input_artifact_types: []
+  default_continuation_types: []
+  forkable_roles: []
+  fork_unit: CANONICAL_BINDING_TUPLE
+- predicate_id: SUSPICIOUS_ENTRY
+  expression_kind: TRANSITION
+  result_kind: INSTANT_MATCH
+  roles:
+  - role_name: person
+    entity_type: person
+    binding_capabilities:
+    - INTRODUCE
+    - VALIDATE
+    identity_required: false
+  - role_name: location
+    entity_type: zone
+    binding_capabilities:
+    - INTRODUCE_OR_VALIDATE
+    identity_required: false
+  parameters: {}
+  provider_family_ids:
+  - entry
+  acceptable_output_types:
+  - predicate_match.v1
+  required_capabilities: []
+  required_input_artifact_types: []
+  default_continuation_types: []
+  forkable_roles:
+  - person
+  fork_unit: CANONICAL_BINDING_TUPLE
+- predicate_id: THREAT_EVENT
+  expression_kind: DERIVED_BEHAVIOR
+  result_kind: INTERVAL_MATCH
+  roles:
+  - role_name: person
+    entity_type: person
+    binding_capabilities:
+    - INTRODUCE_OR_VALIDATE
+    identity_required: false
+  - role_name: location
+    entity_type: zone
+    binding_capabilities:
+    - INTRODUCE_OR_VALIDATE
+    identity_required: false
+  parameters: {}
+  provider_family_ids:
+  - threat
+  acceptable_output_types:
+  - predicate_match.v1
+  required_capabilities: []
+  required_input_artifact_types: []
+  default_continuation_types: []
+  forkable_roles: []
+  fork_unit: CANONICAL_BINDING_TUPLE
+- predicate_id: SAME_ENTITY
+  expression_kind: DERIVED_BEHAVIOR
+  result_kind: STATE_OBSERVATION
+  roles:
+  - role_name: left
+    entity_type: vehicle
+    binding_capabilities:
+    - CONSUME
+    - VALIDATE
+    identity_required: true
+  - role_name: right
+    entity_type: vehicle
+    binding_capabilities:
+    - CONSUME
+    - VALIDATE
+    identity_required: true
+  parameters:
+    minimum_confidence:
+      type: number
+      required: false
+      minimum: 0.0
+      maximum: 1.0
+      enum: []
+      default: 0.5
+  provider_family_ids:
+  - cross_sensor_identity_association
+  acceptable_output_types:
+  - canonical_entity_map.v1
+  required_capabilities:
+  - vehicle_identity
+  - cross_sensor_identity
+  required_input_artifact_types: []
+  default_continuation_types:
+  - canonical_entity_map.v1
+  forkable_roles: []
+  fork_unit: CANONICAL_BINDING_TUPLE
+- predicate_id: TRANSFER
+  expression_kind: DERIVED_BEHAVIOR
+  result_kind: INTERVAL_MATCH
+  roles:
+  - role_name: object
+    entity_type: package
+    binding_capabilities:
+    - INTRODUCE
+    - VALIDATE
+    identity_required: true
+  - role_name: source
+    entity_type: entity
+    binding_capabilities:
+    - CONSUME
+    - VALIDATE
+    identity_required: true
+  - role_name: destination
+    entity_type: entity
+    binding_capabilities:
+    - INTRODUCE
+    - VALIDATE
+    identity_required: true
+  parameters: {}
+  provider_family_ids:
+  - package_transfer
+  acceptable_output_types:
+  - predicate_match.v1
+  required_capabilities:
+  - package_detection
+  - custody_reasoning
+  required_input_artifact_types: []
+  default_continuation_types:
+  - custody_state.v1
+  forkable_roles:
+  - object
+  - destination
+  fork_unit: CANONICAL_BINDING_TUPLE
+- predicate_id: VEHICLE_PRESENT_BEFORE
+  expression_kind: DERIVED_BEHAVIOR
+  result_kind: INTERVAL_MATCH
+  roles:
+  - role_name: vehicle
+    entity_type: vehicle
+    binding_capabilities:
+    - INTRODUCE
+    - VALIDATE
+    identity_required: true
+  - role_name: location
+    entity_type: zone
+    binding_capabilities:
+    - INTRODUCE_OR_VALIDATE
+    identity_required: false
+  parameters:
+    lookback_ms:
+      type: integer
+      required: false
+      minimum: 0.0
+      maximum: null
+      enum: []
+      default: null
+  provider_family_ids:
+  - historical_vehicle_recovery
+  acceptable_output_types:
+  - predicate_match.v1
+  required_capabilities:
+  - tracking
+  - retrospective
+  required_input_artifact_types: []
+  default_continuation_types:
+  - track_summary.v1
+  forkable_roles:
+  - vehicle
+  fork_unit: CANONICAL_BINDING_TUPLE
