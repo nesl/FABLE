@@ -33,6 +33,7 @@ htmlcov/
 /evaluation/manifests/baselines/fable_derived_ce_templates.yaml
 /evaluation/manifests/baselines/*.summary.json
 /evaluation/manifests/workloads/*.jsonl
+!/evaluation/manifests/workloads/ground_truth.jsonl
 /evaluation/manifests/workloads/*.summary.json
 /evaluation/RQ3_RUNBOOK.txt
 /evaluation/RQ3A_UPDATED_RUNBOOK.txt
@@ -44,7 +45,6 @@ htmlcov/
 /config/physical_retention.yaml
 /profiles/physical/inventory*.json
 /profiles/physical/raw/
-/profiles/physical/rpi_device_*.yaml
 /iobt-minimal-ce-replay/setup/zed_settings/SN*.conf
 /netwaggle/configs/physical_external_*.json
 /netwaggle/configs/profiles/physical_external_*.json

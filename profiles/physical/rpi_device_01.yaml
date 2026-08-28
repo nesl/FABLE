@@ -1,0 +1,29 @@
+schema_version: fable.physical_provider_profile.v1
+profile_version: rpi-device-replay-v1
+node_id: physical_rpi
+hardware_id: rpi_device_01
+status: FROZEN_CALIBRATION_PROFILE
+headline_evaluation_input: true
+calibration_scope: deployment_capacity_and_replay_transport_only
+capacity:
+  architecture: aarch64
+  cpu_cores: 4
+  memory_total_kib: 8252416
+  storage_total_bytes: 125549604864
+  storage_available_bytes_at_profile: 106135773184
+network:
+  interface_to_host: eth0
+  # Resolve the deployment address from the ignored physical network profile;
+  # do not store lab-specific addresses in the portable capacity profile.
+  address_source: config/physical_network_profiles.yaml
+time_sync:
+  implementation: systemd-timesyncd
+  synchronized: true
+provider_roles:
+  - single-slot local video replay
+  - bounded FFmpeg MPEG-TS serving
+  - lightweight CPU/audio providers after separate per-provider profiling
+notes:
+  - No YOLO capability is claimed for this node.
+  - Replay serving bytes/CPU require capture by the campaign resource logger.
+  - This inventory does not claim a calibrated inference provider on the Pi.

@@ -73,35 +73,3 @@ refer only to reviewed locations with appropriate ownership. Manifests may live
 in a separately writable submission directory because they are schema checked;
 daemon code, scripts, Compose files, and deployment manifests must not.
 All mutation gates remain false until a separate review.
-
-## Discord bridge
-
-`fablectl.discord_bridge.DiscordFableBridge` prepares the `/fable` operations
-`preflight`, `validate`, `plan`, `status`, and `results`. It invokes the fixed
-client `/opt/fablectl/current/bin/fablectl` using an argument array and
-`shell=False`. It exposes no arbitrary command operation. Mutating Discord
-commands are absent and additionally default to disabled in bridge
-configuration.
-
-For the existing bridge at `~/Documents/codex-discord-bridge`, copy
-`integrations/codex-discord-bridge/fable_commands.py` beside `bot.py`. Then add:
-
-```python
-from fable_commands import configure_fable_commands, fable_group
-```
-
-After `codex_group` is created, configure the shared authorization callback:
-
-```python
-configure_fable_commands(reject_unless_authorized)
-```
-
-Finally, in `CodexDiscordBot.setup_hook`, immediately after registering
-`codex_group`, register the new group:
-
-```python
-self.tree.add_command(fable_group)
-```
-
-The module uses `asyncio.create_subprocess_exec` with a fixed absolute client,
-an argument array, bounded output, and no shell. It exposes no mutation command.

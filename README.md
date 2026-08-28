@@ -4,35 +4,65 @@ FABLE is a frontier-driven runtime for distributed complex-event recognition. Th
 
 ## Runtime architecture
 
-```text
-Complex-event request
-        |
-        v
-EventRequestCompiler
-        |
-        v
-SemanticRuntime  <-------------------------------+
-(hypotheses, bindings, active frontier)           |
-        |                                         |
-        v                                         |
-DemandCompiler                                   |
-        |                                         |
-        v                                         |
-PhysicalAlternativeGraphBuilder                  |
-        |                                         |
-        v                                         |
-BoundedLabelPlanner                              |
-        |                                         |
-        v                                         |
-MultiTenantScheduler / ProviderLifecycleManager  |
-        |                                         |
-        v                                         |
-DistributedOrchestrator -> NodeAgent -> Provider |
-        |                                  |      |
-        +---- artifacts / PredicateResult --+------+
+<!-- Runtime architecture image placeholder. -->
+
+_A runtime architecture figure will be inserted here._
+
+## Quick start
+
+FABLE requires Python 3.11 or newer. A local editable installation with the
+development dependencies is enough to run the deterministic examples and test
+the complete pipeline; Docker, MQTT, GPUs, videos, and physical devices are not
+required for this first test.
+
+From the repository root:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e '.[dev]'
 ```
 
-`fable/orchestration/FableController` is the composition layer that closes this loop. Physical `PlanCandidate` submission remains available as a lower-level transport/debug interface, but normal end-to-end execution starts from an `EventRequestSubmission`.
+### Inspect one pipeline pass
+
+The architecture walkthrough prints each intermediate object as a request
+moves through semantic frontier creation, demand compilation, physical
+alternative generation, bounded planning, admission, provider leasing, and
+predicate-result feedback:
+
+```bash
+python examples/fable_architecture_walkthrough.py
+```
+
+The output is numbered from the selected semantic graph through the updated
+hypothesis and frontier. This command is deliberately deterministic and uses
+in-process fixtures, making it useful for understanding the data passed between
+the major packages.
+
+### Run the end-to-end smoke test
+
+The following test exercises the closed control and data path: typed event
+submission, request compilation, semantic frontier creation, demand
+compilation, planning, scheduling, orchestration, an in-memory transport, a
+node agent, reference-provider execution, predicate-result ingestion,
+replanning for the next frontier, and final complex-event emission.
+
+```bash
+pytest -q \
+  tests/test_architecture_upgrade.py::test_event_request_api_runs_semantic_planning_feedback_loop
+```
+
+A successful run ends with `1 passed`. The provider and message broker are
+deterministic in-process implementations, so this validates FABLE itself
+without claiming that a physical sensor, model, or network testbed was used.
+
+To run every unit and integration test that does not require an externally
+configured physical deployment:
+
+```bash
+pytest -q
+```
 
 ## Major packages
 

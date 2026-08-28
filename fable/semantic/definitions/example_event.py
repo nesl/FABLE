@@ -7,12 +7,9 @@ should use :mod:`fable.semantic.authoring` where practical.
 
 from __future__ import annotations
 
-from fable.common.enums import ResultKind
 from fable.common.schemas import SemanticGraph
-from fable.semantic.builder import AuthoredGraphBuilder, PredicateRoleSpec
 from fable.semantic.authoring import ComplexEvent
-
-from .policy import trial_rearm_annotations
+from fable.semantic.examples import all_constructs_graph
 
 
 def authored_api_example_graph() -> SemanticGraph:
