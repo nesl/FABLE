@@ -1,8 +1,0 @@
-{
-  "name": "high_latency_cloud",
-  "links": [
-    {"from": "s_orin11", "to": "s_edge", "delay": "5ms", "bw": 100, "loss": 0},
-    {"from": "s_orin12", "to": "s_edge", "delay": "5ms", "bw": 100, "loss": 0},
-    {"from": "s_edge", "to": "s_cloud", "delay": "180ms", "bw": 200, "loss": 0}
-  ]
-}

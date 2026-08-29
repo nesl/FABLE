@@ -1,0 +1,36 @@
+version: 1
+# Seed planning profiles ported from the prior FABLE default provider profiles.
+# They are not ground truth. Replace/override them with measured per-node profiles
+# for evaluation or deployment. Network conditions are measured online separately.
+profiles:
+  yolo_vehicle_fast_640:        {startup_ms: 420, execution_ms: 32, cpu: 0.8, memory_mb: 640, gpu_memory_mb: 1024, output_bytes: 12000, quality: 0.84}
+  yolo_vehicle_balanced_960:    {startup_ms: 600, execution_ms: 58, cpu: 1.0, memory_mb: 896, gpu_memory_mb: 1792, output_bytes: 16000, quality: 0.91}
+  yolo_full_context_960:        {startup_ms: 620, execution_ms: 65, cpu: 1.0, memory_mb: 960, gpu_memory_mb: 1792, output_bytes: 24000, quality: 0.90}
+  package_detector:             {startup_ms: 620, execution_ms: 70, cpu: 1.0, memory_mb: 960, gpu_memory_mb: 1792, output_bytes: 12000, quality: 0.82}
+  multi_object_tracker:         {startup_ms: 80,  execution_ms: 12, cpu: 0.8, memory_mb: 384, gpu_memory_mb: 0, output_bytes: 16000, quality: 0.95}
+  camera_projection:            {startup_ms: 20,  execution_ms: 5,  cpu: 0.2, memory_mb: 96,  gpu_memory_mb: 0, output_bytes: 16000, quality: 1.00}
+  track_crop_extractor:         {startup_ms: 25,  execution_ms: 18, cpu: 0.4, memory_mb: 192, gpu_memory_mb: 0, output_bytes: 180000, quality: 0.98}
+  vehicle_reid_descriptor:      {startup_ms: 300, execution_ms: 35, cpu: 0.8, memory_mb: 512, gpu_memory_mb: 1024, output_bytes: 8192, quality: 0.88}
+  person_reid_descriptor:       {startup_ms: 300, execution_ms: 35, cpu: 0.8, memory_mb: 512, gpu_memory_mb: 1024, output_bytes: 8192, quality: 0.88}
+  openclip_visual_descriptor:   {startup_ms: 420, execution_ms: 48, cpu: 0.8, memory_mb: 640, gpu_memory_mb: 1280, output_bytes: 8192, quality: 0.72}
+  cross_sensor_identity_association: {startup_ms: 50, execution_ms: 20, cpu: 0.6, memory_mb: 256, gpu_memory_mb: 0, output_bytes: 2048, quality: 0.86}
+  hosted_vlm_identity_comparator: {startup_ms: 0, execution_ms: 500, cpu: 0.1, memory_mb: 64, gpu_memory_mb: 0, output_bytes: 256, quality: 0.90}
+  present_basic:                {startup_ms: 5, execution_ms: 2, cpu: 0.1, memory_mb: 64, gpu_memory_mb: 0, output_bytes: 512, quality: 0.99}
+  enters_basic:                 {startup_ms: 5, execution_ms: 2, cpu: 0.1, memory_mb: 64, gpu_memory_mb: 0, output_bytes: 512, quality: 0.99}
+  exits_basic:                  {startup_ms: 5, execution_ms: 2, cpu: 0.1, memory_mb: 64, gpu_memory_mb: 0, output_bytes: 512, quality: 0.99}
+  moving_basic:                 {startup_ms: 5, execution_ms: 3, cpu: 0.1, memory_mb: 64, gpu_memory_mb: 0, output_bytes: 512, quality: 0.97}
+  near_geometry:                {startup_ms: 5, execution_ms: 2, cpu: 0.1, memory_mb: 64, gpu_memory_mb: 0, output_bytes: 768, quality: 0.99}
+  follows_local_geometry:       {startup_ms: 20, execution_ms: 10, cpu: 0.3, memory_mb: 128, gpu_memory_mb: 0, output_bytes: 768, quality: 0.94}
+  follows_cross_sensor:         {startup_ms: 30, execution_ms: 15, cpu: 0.4, memory_mb: 160, gpu_memory_mb: 0, output_bytes: 768, quality: 0.89}
+  boards_person_vehicle:        {startup_ms: 12, execution_ms: 6, cpu: 0.25, memory_mb: 128, gpu_memory_mb: 0, output_bytes: 768, quality: 0.88}
+  disembarks_person_vehicle:    {startup_ms: 12, execution_ms: 6, cpu: 0.25, memory_mb: 128, gpu_memory_mb: 0, output_bytes: 768, quality: 0.88}
+  transfer_custody:             {startup_ms: 18, execution_ms: 8, cpu: 0.3, memory_mb: 160, gpu_memory_mb: 0, output_bytes: 1024, quality: 0.87}
+  audio_event_classifier:       {startup_ms: 240, execution_ms: 30, cpu: 0.6, memory_mb: 384, gpu_memory_mb: 512, output_bytes: 512, quality: 0.90}
+  voice_activity_detector:      {startup_ms: 45, execution_ms: 6, cpu: 0.25, memory_mb: 128, gpu_memory_mb: 0, output_bytes: 2048, quality: 0.93}
+  speaker_embedding_provider:   {startup_ms: 260, execution_ms: 24, cpu: 0.6, memory_mb: 384, gpu_memory_mb: 512, output_bytes: 4096, quality: 0.86}
+  speaker_diarization_provider: {startup_ms: 35, execution_ms: 12, cpu: 0.4, memory_mb: 256, gpu_memory_mb: 0, output_bytes: 2048, quality: 0.84}
+  keyword_or_asr_provider:      {startup_ms: 480, execution_ms: 95, cpu: 1.0, memory_mb: 1024, gpu_memory_mb: 1536, output_bytes: 4096, quality: 0.88}
+  conversation_av:              {startup_ms: 18, execution_ms: 9, cpu: 0.3, memory_mb: 160, gpu_memory_mb: 0, output_bytes: 768, quality: 0.85}
+  gcc_phat_audio_localizer:     {startup_ms: 25, execution_ms: 8, cpu: 0.25, memory_mb: 128, gpu_memory_mb: 0, output_bytes: 512, quality: 0.86}
+  audio_visual_association:     {startup_ms: 20, execution_ms: 7, cpu: 0.25, memory_mb: 128, gpu_memory_mb: 0, output_bytes: 768, quality: 0.82}
+  interaction_evidence_analyzer: {startup_ms: 250, execution_ms: 45, cpu: 0.8, memory_mb: 512, gpu_memory_mb: 1024, output_bytes: 1024, quality: 0.84}

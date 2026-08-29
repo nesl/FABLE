@@ -1,0 +1,22 @@
+version: 1
+event: robbery
+description: A gunshot or alarm is observed, followed by a vehicle leaving the monitored view within three minutes.
+
+roles:
+  GETAWAY_VEHICLE:
+    class: vehicle
+
+pattern:
+  seq:
+    - any:
+        - audio_event:
+            class: gunshot
+        - audio_event:
+            class: alarm
+            minimum_confidence: 0.5
+
+    - within:
+        max: 3m
+        pattern:
+          exits:
+            object: GETAWAY_VEHICLE

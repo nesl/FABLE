@@ -1,4 +1,0 @@
-paho-mqtt==2.1.0
-PyYAML==6.0.2
-fastapi==0.115.6
-uvicorn[standard]==0.34.0

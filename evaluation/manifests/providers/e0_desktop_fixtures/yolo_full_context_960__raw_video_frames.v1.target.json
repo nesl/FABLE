@@ -1,6 +1,0 @@
-{
-  "input_class": "raw_video_frames.v1",
-  "provider_id": "yolo_full_context_960",
-  "target_id": "calibration_target_5990782ba5e55e1ecb55f15f",
-  "tier": "sensor"
-}

@@ -1,6 +1,0 @@
-{
-  "input_class": "audio_segment.v1+microphone_array_geometry.v1",
-  "provider_id": "gcc_phat_audio_localizer",
-  "target_id": "calibration_target_892696be75bc896b42cc25ff",
-  "tier": "sensor"
-}

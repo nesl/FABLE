@@ -1,82 +1,37 @@
-"""FABLE semantic-to-physical planning and bounded Phase-4 search API."""
-
-from .alternative_graph import (
-    AlternativeBuildConfig,
-    AlternativeGraphError,
-    PhysicalAlternativeGraphBuilder,
+from .physical_planner import (
+    ExecutionPlan,
+    PhysicalPlanner,
+    PhysicalRequirement,
+    PlanAlternative,
+    PlanStep,
+    coalesce_frontier,
 )
-from .artifact_catalog import ArtifactCatalog, ArtifactCatalogError
-from .demand_compiler import DemandCompileContext, DemandCompileError, DemandCompiler
-from .deployment import DeploymentGraph, DeploymentGraphError
-from .models import *  # noqa: F401,F403
-from .predicate_registry import (
-    PredicateSchemaError,
-    PredicateSchemaRegistry,
-    default_predicate_registry,
+from .profiles import load_provider_profiles
+from .provider_search import ProviderRecipe, ProviderSearcher, RawInput
+from .runtime_state import (
+    LinkState,
+    NodeState,
+    ProviderProfile,
+    RunningProvider,
+    RuntimeState,
+    SourceState,
 )
-from .provider_registry import (
-    ProviderRegistry,
-    ProviderRegistryError,
-    default_provider_profiles,
-)
-from .planner import PhysicalPlanner, PlanningResult
-from .source_grounding import SourceGrounder
 
 __all__ = [
-    "AlternativeBuildConfig",
-    "AlternativeGraphError",
-    "ArtifactCatalog",
-    "ArtifactCatalogError",
-    "DemandCompileContext",
-    "DemandCompileError",
-    "DemandCompiler",
-    "DeploymentGraph",
-    "DeploymentGraphError",
-    "PhysicalAlternativeGraphBuilder",
-    "PredicateSchemaError",
-    "PredicateSchemaRegistry",
-    "ProviderRegistry",
-    "ProviderRegistryError",
+    "ExecutionPlan",
+    "LinkState",
+    "NodeState",
     "PhysicalPlanner",
-    "PlanningResult",
-    "SourceGrounder",
-    "default_predicate_registry",
-    "default_provider_profiles",
+    "PhysicalRequirement",
+    "PlanAlternative",
+    "PlanStep",
+    "ProviderProfile",
+    "ProviderRecipe",
+    "ProviderSearcher",
+    "RawInput",
+    "RunningProvider",
+    "RuntimeState",
+    "SourceState",
+    "coalesce_frontier",
+    "load_provider_profiles",
 ]
-
-# Phase 4: bounded representation-aware plan search.
-from .beam_search import BeamSearchConfig, BoundedLabelPlanner, PlanSearchError
-from .representation import RepresentationCompatibility
-from .search_models import (
-    BeamBoundaryTrace,
-    FeasibilityFailure,
-    LabelSearchState,
-    NodeResourceFootprint,
-    OracleComparison,
-    OracleStatus,
-    PlanSearchResult,
-    PlanSearchTrace,
-    PruneCode,
-    PruningRecord,
-)
-
-__all__ += [
-    "BeamSearchConfig",
-    "BoundedLabelPlanner",
-    "PlanSearchError",
-    "RepresentationCompatibility",
-    "BeamBoundaryTrace",
-    "FeasibilityFailure",
-    "LabelSearchState",
-    "NodeResourceFootprint",
-    "OracleComparison",
-    "OracleStatus",
-    "PlanSearchResult",
-    "PlanSearchTrace",
-    "PruneCode",
-    "PruningRecord",
-]
-
-from .runtime_deployment import RuntimeDeploymentView
-from fable.contracts.telemetry import RuntimeLinkUpdate, RuntimeNodeUpdate
-__all__ += ["RuntimeDeploymentView", "RuntimeLinkUpdate", "RuntimeNodeUpdate"]

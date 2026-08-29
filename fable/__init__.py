@@ -1,14 +1,52 @@
-"""FABLE runtime package.
+"""Minimal FABLE rebuild."""
 
-The package provides shared contracts, the in-memory semantic graph and
-hypothesis runtime, typed demand compilation, and checkpoint-bounded physical
-alternative construction.
-"""
+from .providers.predicate_result import PredicateMatch
+from .language import (
+    Event,
+    EventCompilationError,
+    Expr,
+    compile_event,
+    load_and_compile_event,
+    load_event,
+    load_predicates,
+    parse_event,
+    walk_pattern,
+)
+from .execution import IdentityResolver, LocalRunner
+from .runtime import (
+    ActiveFrontier,
+    CEInstance,
+    CEInstanceManager,
+    FrontierItem,
+    PatternPath,
+    derive_continuation_frontier,
+    derive_discovery_frontier,
+    is_complete,
+    is_failed,
+)
 
-from .common import *  # noqa: F401,F403
-from .semantic import *  # noqa: F401,F403
-from .planning import *  # noqa: F401,F403
-from .scheduling import *  # noqa: F401,F403
-from .distributed import *  # noqa: F401,F403
+__all__ = [
+    "ActiveFrontier",
+    "CEInstance",
+    "CEInstanceManager",
+    "Event",
+    "EventCompilationError",
+    "Expr",
+    "FrontierItem",
+    "IdentityResolver",
+    "LocalRunner",
+    "PatternPath",
+    "PredicateMatch",
+    "compile_event",
+    "derive_continuation_frontier",
+    "derive_discovery_frontier",
+    "is_complete",
+    "is_failed",
+    "load_and_compile_event",
+    "load_event",
+    "load_predicates",
+    "parse_event",
+    "walk_pattern",
+]
 
 __version__ = "0.10.0"

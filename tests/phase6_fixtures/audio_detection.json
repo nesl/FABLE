@@ -1,8 +1,0 @@
-{
-  "db": -10.0,
-  "event": "loud_audio",
-  "kind": "detection",
-  "node": "dvpg_gq_orin_11",
-  "t": 1776190804.0,
-  "threshold_db": -30.0
-}

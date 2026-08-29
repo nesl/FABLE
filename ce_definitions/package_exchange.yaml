@@ -1,0 +1,35 @@
+version: 1
+event: package_exchange
+description: Two vehicles arrive, one person transfers a package to another, the receiver boards the second vehicle, and that vehicle leaves.
+
+roles:
+  VEHICLE_A:
+    class: vehicle
+  VEHICLE_B:
+    class: vehicle
+  PERSON_A:
+    class: person
+  PERSON_B:
+    class: person
+  PACKAGE:
+    class: package
+
+pattern:
+  seq:
+    - all:
+        - enters:
+            object: VEHICLE_A
+        - enters:
+            object: VEHICLE_B
+
+    - transfer:
+        item: PACKAGE
+        giver: PERSON_A
+        receiver: PERSON_B
+
+    - boards:
+        person: PERSON_B
+        vehicle: VEHICLE_B
+
+    - exits:
+        object: VEHICLE_B

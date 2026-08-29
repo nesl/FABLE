@@ -1,0 +1,29 @@
+event: brians_ce
+roles:
+  DOG1:
+    class: dog
+  PERSON:
+    class: person
+
+description: "The dog enters, the person enters within 30 seconds, the person exits, and the dog exits within 30 seconds."
+
+pattern:
+  seq:
+    1:
+      enters:
+        object: DOG1
+    2:
+      within:
+        max: 30s
+        pattern:
+          enters:
+            object: PERSON
+    3:
+      exits:
+        object: PERSON
+    4:
+      within:
+        max: 30s
+        pattern:
+          exits:
+            object: DOG1

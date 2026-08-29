@@ -1,6 +1,0 @@
-{
-  "target_id": "validation-pairwise-distance",
-  "provider_id": "pairwise_distance_evaluator",
-  "tier": "sensor",
-  "input_class": "projected_track_set.v1"
-}

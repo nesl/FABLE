@@ -1,6 +1,0 @@
-{
-  "input_class": "detection_set.v1",
-  "provider_id": "multi_object_tracker",
-  "target_id": "calibration_target_61c844ebb86230059d5f1d34",
-  "tier": "sensor"
-}

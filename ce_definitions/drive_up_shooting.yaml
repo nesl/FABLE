@@ -1,0 +1,25 @@
+version: 1
+event: drive_up_shooting
+description: A person disembarks, a gunshot occurs, the same person boards the same vehicle, and that vehicle leaves.
+
+roles:
+  PERSON:
+    class: person
+  VEHICLE:
+    class: vehicle
+
+pattern:
+  seq:
+    - disembarks:
+        person: PERSON
+        vehicle: VEHICLE
+
+    - audio_event:
+        class: gunshot
+
+    - boards:
+        person: PERSON
+        vehicle: VEHICLE
+
+    - exits:
+        object: VEHICLE

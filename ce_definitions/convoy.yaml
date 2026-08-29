@@ -1,0 +1,26 @@
+version: 1
+event: convoy
+description: Two distinct vehicles each enter and leave the monitored view, with the follower completing its traversal within one minute of the leader.
+
+roles:
+  LEADER:
+    class: vehicle
+  FOLLOWER:
+    class: vehicle
+
+pattern:
+  seq:
+    - seq:
+        - enters:
+            object: LEADER
+        - exits:
+            object: LEADER
+
+    - within:
+        max: 60s
+        pattern:
+          seq:
+            - enters:
+                object: FOLLOWER
+            - exits:
+                object: FOLLOWER

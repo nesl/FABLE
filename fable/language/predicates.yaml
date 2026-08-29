@@ -1,0 +1,88 @@
+version: 1
+
+predicates:
+  present:
+    description: The visual object is currently visible in the relevant camera view.
+    arguments:
+      object: visual_object
+
+  enters:
+    description: The visual object transitions from not visible to visible in the relevant camera view.
+    arguments:
+      object: visual_object
+
+  exits:
+    description: The visual object transitions from visible to not visible in the relevant camera view.
+    arguments:
+      object: visual_object
+
+  moving:
+    description: The visual object exhibits meaningful motion over an observation interval.
+    arguments:
+      object: visual_object
+
+  near:
+    description: Two visual objects are spatially proximate.
+    arguments:
+      object_a: visual_object
+      object_b: visual_object
+      max_distance_m:
+        type: number
+        required: false
+        minimum: 0
+      max_normalized_gap:
+        type: number
+        required: false
+        minimum: 0
+
+  follows:
+    description: One visual object follows another; FABLE examples typically use vehicles.
+    arguments:
+      leader: visual_object
+      follower: visual_object
+      max_gap_m:
+        type: number
+        required: false
+        minimum: 0
+
+  boards:
+    description: A person-like visual object boards a vehicle-like visual object.
+    arguments:
+      person: visual_object
+      vehicle: visual_object
+
+  disembarks:
+    description: A person-like visual object disembarks from a vehicle-like visual object.
+    arguments:
+      person: visual_object
+      vehicle: visual_object
+
+  transfer:
+    description: Custody of an item changes from one visual-object role to another.
+    arguments:
+      item: visual_object
+      giver: visual_object
+      receiver: visual_object
+
+  conversation:
+    description: Two visual-object participants are engaged in a conversation.
+    arguments:
+      participant_a: visual_object
+      participant_b: visual_object
+      max_distance_m:
+        type: number
+        required: false
+        minimum: 0
+      required_terms:
+        type: string
+        required: false
+
+  audio_event:
+    description: A classified audio event such as a gunshot or alarm is observed.
+    arguments:
+      class: audio_class
+      minimum_confidence:
+        type: number
+        required: false
+        minimum: 0
+        maximum: 1

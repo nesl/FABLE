@@ -1,8 +1,0 @@
-{
-  "archive_to_logical_id": {
-    "mobile_archive_1": "n3",
-    "mobile_archive_2": "n1",
-    "mobile_archive_3": "n2"
-  },
-  "_comment": "Example only. Copy per run and verify against the experiment map/video; handset archives were physically swapped between experiments."
-}

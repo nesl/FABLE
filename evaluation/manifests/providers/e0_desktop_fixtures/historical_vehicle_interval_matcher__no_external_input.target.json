@@ -1,6 +1,0 @@
-{
-  "input_class": "no_external_input",
-  "provider_id": "historical_vehicle_interval_matcher",
-  "target_id": "calibration_target_86eae8402080f5592d9d6c32",
-  "tier": "sensor"
-}

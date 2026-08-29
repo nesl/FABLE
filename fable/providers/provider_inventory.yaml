@@ -1,0 +1,194 @@
+original_fable_provider_count: 36
+providers:
+  yolo_vehicle_fast_640:
+    category: object_detection
+    implementation: fable.providers.object_detection.YoloVehicleFast640Provider
+    status: implemented
+    notes: Fast 640px vehicle-only YOLO variant for standing shared detection.
+  yolo_vehicle_balanced_960:
+    category: object_detection
+    implementation: fable.providers.object_detection.YoloVehicleBalanced960Provider
+    status: implemented
+    notes: Higher-resolution vehicle YOLO variant for difficult views.
+  yolo_full_context_960:
+    category: object_detection
+    implementation: fable.providers.object_detection.YoloFullContext960Provider
+    status: implemented
+    notes: Full-class context YOLO variant when later branches may require non-vehicle objects.
+  multi_object_tracker:
+    category: tracking
+    implementation: fable.providers.tracking.MultiObjectTrackerProvider
+    status: implemented
+    notes: Roboflow ByteTrack or SORT over detection_set.v1. Recovery replays retained detections; no arbitrary checkpoint import/export is claimed.
+  camera_projection:
+    category: visual_feature
+    implementation: fable.providers.visual_features.CameraProjectionProvider
+    status: implemented
+    notes: Project sensor-local tracks into a named world or route-relative coordinate frame.
+  track_crop_extractor:
+    category: visual_feature
+    implementation: fable.providers.visual_features.TrackCropExtractorProvider
+    status: implemented
+    notes: Select quality-filtered crops for bound tracks from retained or live video.
+  vehicle_reid_descriptor:
+    category: visual_feature
+    implementation: fable.providers.visual_features.VehicleReIDDescriptorProvider
+    status: implemented_model_backed
+    notes: FastReID SBS-R50-IBN/VeRi backend loads the pinned checkpoint and emits L2-normalized identity embeddings.
+  cross_sensor_identity_association:
+    category: identity
+    implementation: fable.providers.identity.CrossSensorIdentityAssociationProvider
+    status: implemented
+    notes: Associate local tracks across sensors using compatible ReID embeddings and temporal or route gating.
+  follows_local_geometry:
+    category: predicate_implementation
+    implementation: fable.providers.predicate_implementations.FollowsLocalGeometryProvider
+    status: implemented
+    notes: Evaluate sustained following from time-aligned tracks in a common coordinate frame.
+  follows_cross_sensor:
+    category: predicate_implementation
+    implementation: fable.providers.predicate_implementations.FollowsCrossSensorProvider
+    status: implemented
+    notes: Evaluate cross-sensor following from canonical identity associations, projected tracks, and a route graph.
+  audio_event_classifier:
+    category: audio_classification
+    implementation: fable.providers.audio_classification.AudioEventClassifierProvider
+    status: implemented
+    notes: Classify configured audio event labels over live or retained audio.
+  openclip_visual_descriptor:
+    category: visual_feature
+    implementation: fable.providers.visual_features.OpenClipVisualDescriptorProvider
+    status: implemented_optional_backend
+    notes: Produce general-purpose OpenCLIP visual embeddings; not identity-calibrated by default.
+  zone_membership_evaluator:
+    category: legacy_compatibility
+    implementation: fable.providers.legacy_compatibility.ZoneMembershipEvaluatorProvider
+    status: implemented_not_public
+    notes: Evaluate whether projected tracks are inside a configured zone.
+  zone_transition_evaluator:
+    category: legacy_compatibility
+    implementation: fable.providers.legacy_compatibility.ZoneTransitionEvaluatorProvider
+    status: implemented_not_public
+    notes: Emit ENTRIES/EXITS from zone-membership transitions.
+  track_lifecycle_exit_evaluator:
+    category: predicate_implementation
+    implementation: fable.providers.predicate_implementations.ExitsBasicProvider
+    status: replaced_by_simpler_provider
+    notes: Emit EXITS from detector-backed track disappearance without surveyed geometry.
+  pass_reference_evaluator:
+    category: legacy_compatibility
+    implementation: fable.providers.legacy_compatibility.PassReferenceEvaluatorProvider
+    status: implemented_not_public
+    notes: Emit PASSES when a scoped track crosses a directed reference line.
+  motion_state_evaluator:
+    category: predicate_implementation
+    implementation: fable.providers.predicate_implementations.MovingBasicProvider
+    status: replaced_by_simpler_provider
+    notes: Emit MOVING or STOPPED from compact track history.
+  pairwise_distance_evaluator:
+    category: predicate_implementation
+    implementation: fable.providers.predicate_implementations.NearGeometryProvider
+    status: replaced_by_simpler_provider
+    notes: Evaluate pairwise distance from image-space tracks, using world coordinates when present.
+  person_proximity_provider:
+    category: predicate_implementation
+    implementation: fable.providers.predicate_implementations.NearGeometryProvider
+    status: replaced_by_generic_near
+    notes: Evaluate sustained image/world-space proximity between person tracks.
+  relative_order_evaluator:
+    category: legacy_compatibility
+    implementation: fable.providers.legacy_compatibility.RelativeOrderEvaluatorProvider
+    status: implemented_not_public
+    notes: Evaluate route-relative leader/follower ordering.
+  route_map_matcher:
+    category: legacy_compatibility
+    implementation: fable.providers.legacy_compatibility.RouteMapMatcherProvider
+    status: implemented_not_public
+    notes: Map projected tracks to route-relative progress.
+  dwell_evaluator:
+    category: legacy_compatibility
+    implementation: fable.providers.legacy_compatibility.DwellEvaluatorProvider
+    status: implemented_not_public
+    notes: Emit dwell after an entity remains in a zone for a configured duration.
+  track_summary_route_evaluator:
+    category: legacy_compatibility
+    implementation: fable.providers.legacy_compatibility.TrackSummaryRouteEvaluatorProvider
+    status: implemented_not_public
+    notes: Consume compact track summaries for downstream route/timing reasoning without restarting the tracker.
+  gcc_phat_audio_localizer:
+    category: audio_localization
+    implementation: fable.providers.audio_localization.GccPhatAudioLocalizerProvider
+    status: implemented_optional_numpy
+    notes: Estimate event-time audio bearing/zone from a calibrated microphone array using GCC-PHAT.
+  audio_visual_association:
+    category: audio_localization
+    implementation: fable.providers.audio_localization.AudioVisualAssociationProvider
+    status: implemented
+    notes: Associate a localized audio event with temporally and angularly compatible visual entities without declaring causal identity.
+  voice_activity_detector:
+    category: speech_processing
+    implementation: fable.providers.speech_processing.VoiceActivityDetectorProvider
+    status: implemented
+    notes: Detect bounded speech intervals from live or retained audio; does not expose content.
+  speaker_embedding_provider:
+    category: speech_processing
+    implementation: fable.providers.speech_processing.SpeakerEmbeddingProvider
+    status: implemented_pluggable_backend
+    notes: Produce model-versioned speaker embeddings only for VAD-selected speech intervals.
+  speaker_diarization_provider:
+    category: speech_processing
+    implementation: fable.providers.speech_processing.SpeakerDiarizationProvider
+    status: implemented
+    notes: Cluster compatible speaker embeddings into event-time speaker turns.
+  keyword_or_asr_provider:
+    category: speech_processing
+    implementation: fable.providers.speech_processing.KeywordOrASRProvider
+    status: implemented_pluggable_backend
+    notes: Run ASR or keyword spotting only when the semantic predicate explicitly requires speech content.
+  conversation_provider:
+    category: predicate_implementation
+    implementation: fable.providers.predicate_implementations.ConversationAVProvider
+    status: implemented
+    notes: Combine person proximity with VAD/diarization; consume transcripts only when required terms are authored.
+  person_vehicle_relation_provider:
+    category: predicate_implementation
+    implementation:
+    - fable.providers.predicate_implementations.BoardsPersonVehicleProvider
+    - fable.providers.predicate_implementations.DisembarksPersonVehicleProvider
+    status: split_into_explicit_predicate_providers
+    notes: Infer DISEMBARKS/BOARDS from stopped-vehicle context, person appearance/disappearance, proximity, separation, and vehicle departure.
+  package_detector:
+    category: object_detection
+    implementation: fable.providers.object_detection.PackageDetectorProvider
+    status: implemented_optional_weights
+    notes: High-resolution package-like object detector or full-context detection filter.
+  interaction_evidence_analyzer:
+    category: predicate_support
+    implementation: fable.providers.predicate_implementations.InteractionEvidenceAnalyzerProvider
+    status: implemented
+    notes: Use selected high-resolution frames and aligned person/package/vehicle tracks to score handoff interactions.
+  object_transfer_reasoner:
+    category: predicate_implementation
+    implementation: fable.providers.predicate_implementations.TransferCustodyProvider
+    status: implemented
+    notes: Resolve a stable package custody change and emit TRANSFER plus compact custody continuation state.
+  historical_vehicle_interval_matcher:
+    category: legacy_compatibility
+    implementation: fable.providers.legacy_compatibility.HistoricalVehicleIntervalMatcherProvider
+    status: implemented_not_public
+    notes: Match and bind a vehicle in a retained pre-trigger interval; outputs compact track continuation.
+  hosted_vlm_identity_comparator:
+    category: identity
+    implementation: fable.providers.identity.HostedVLMIdentityComparatorProvider
+    status: implemented_pluggable_client
+    notes: Bounded hosted visual identity comparison used only as an ambiguity fallback.
+current_explicit_predicate_providers:
+  present_basic: fable.providers.predicate_implementations.PresentBasicProvider
+  enters_basic: fable.providers.predicate_implementations.EntersBasicProvider
+  exits_basic: fable.providers.predicate_implementations.ExitsBasicProvider
+  moving_basic: fable.providers.predicate_implementations.MovingBasicProvider
+  near_geometry: fable.providers.predicate_implementations.NearGeometryProvider
+  boards_person_vehicle: fable.providers.predicate_implementations.BoardsPersonVehicleProvider
+  disembarks_person_vehicle: fable.providers.predicate_implementations.DisembarksPersonVehicleProvider
+  transfer_custody: fable.providers.predicate_implementations.TransferCustodyProvider
+  conversation_av: fable.providers.predicate_implementations.ConversationAVProvider

@@ -1,0 +1,22 @@
+version: 1
+event: two_vehicle_chase
+description: A leader enters the monitored view and a distinct follower pursues it for at least three seconds.
+
+roles:
+  LEADER:
+    class: vehicle
+  FOLLOWER:
+    class: vehicle
+
+pattern:
+  seq:
+    - enters:
+        object: LEADER
+
+    - for:
+        duration: 3s
+        pattern:
+          follows:
+            leader: LEADER
+            follower: FOLLOWER
+            max_gap_m: 30

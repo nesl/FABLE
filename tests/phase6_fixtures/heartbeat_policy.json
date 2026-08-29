@@ -1,6 +1,0 @@
-{
-  "interval_seconds": 1,
-  "recovery_heartbeats": 2,
-  "suspect_after_misses": 3,
-  "unavailable_after_misses": 5
-}

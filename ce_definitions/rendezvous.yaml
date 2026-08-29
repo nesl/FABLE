@@ -1,0 +1,36 @@
+version: 1
+event: rendezvous
+description: A vehicle enters the view, two people interact, and the same vehicle later leaves the view.
+
+roles:
+  VEHICLE:
+    class: vehicle
+  PERSON_A:
+    class: person
+  PERSON_B:
+    class: person
+
+pattern:
+  seq:
+    - enters:
+        object: VEHICLE
+
+    - any:
+        - for:
+            duration: 3s
+            pattern:
+              conversation:
+                participant_a: PERSON_A
+                participant_b: PERSON_B
+                max_distance_m: 5
+
+        - for:
+            duration: 3s
+            pattern:
+              near:
+                object_a: PERSON_A
+                object_b: PERSON_B
+                max_normalized_gap: 2.5
+
+    - exits:
+        object: VEHICLE

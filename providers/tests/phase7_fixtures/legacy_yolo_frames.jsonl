@@ -1,3 +1,0 @@
-[{"node":"dvpg_gq_orin_11","source_host":"dvpg_gq_orin_11","model":"yolov8n","class":"car","conf":0.92,"box":[10.0,5.0,4.0,2.0],"depth":12.0,"world":[-1.0,0.0,12.0],"t":"2026-04-14T18:19:51Z"},{"node":"dvpg_gq_orin_11","source_host":"dvpg_gq_orin_11","model":"yolov8n","class":"person","conf":0.81,"box":[20.0,7.0,2.0,5.0],"t":"2026-04-14T18:19:51Z"}]
-[{"node":"dvpg_gq_orin_11","source_host":"dvpg_gq_orin_11","model":"yolov8n","class":"car","conf":0.93,"box":[12.0,5.0,4.0,2.0],"depth":11.0,"world":[1.0,0.0,11.0],"t":"2026-04-14T18:19:52Z"}]
-[{"node":"dvpg_gq_orin_11","source_host":"dvpg_gq_orin_11","model":"yolov8n","class":"car","conf":0.94,"box":[14.0,5.0,4.0,2.0],"depth":10.0,"world":[3.0,0.0,10.0],"t":"2026-04-14T18:19:53Z"}]

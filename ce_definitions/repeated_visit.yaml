@@ -1,0 +1,25 @@
+version: 1
+event: repeated_visit
+description: The same vehicle leaves the monitored view and then re-enters it 30 seconds to 5 minutes later.
+
+roles:
+  VEHICLE:
+    class: vehicle
+
+pattern:
+  seq:
+    - enters:
+        object: VEHICLE
+
+    - exits:
+        object: VEHICLE
+
+    - within:
+        min: 30s
+        max: 5m
+        pattern:
+          enters:
+            object: VEHICLE
+
+    - exits:
+        object: VEHICLE

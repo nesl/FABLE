@@ -1,6 +1,0 @@
-{
-  "input_class": "track_set.v1",
-  "provider_id": "historical_vehicle_interval_matcher",
-  "target_id": "calibration_target_002ebca4e03b369274b95e73",
-  "tier": "sensor"
-}

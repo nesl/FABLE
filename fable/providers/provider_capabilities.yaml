@@ -1,0 +1,467 @@
+version: 1
+label_spaces:
+  coco80:
+    description: Standard 80-class COCO label space used by the default YOLOv8s weights.
+    labels:
+    - person
+    - bicycle
+    - car
+    - motorcycle
+    - airplane
+    - bus
+    - train
+    - truck
+    - boat
+    - traffic light
+    - fire hydrant
+    - stop sign
+    - parking meter
+    - bench
+    - bird
+    - cat
+    - dog
+    - horse
+    - sheep
+    - cow
+    - elephant
+    - bear
+    - zebra
+    - giraffe
+    - backpack
+    - umbrella
+    - handbag
+    - tie
+    - suitcase
+    - frisbee
+    - skis
+    - snowboard
+    - sports ball
+    - kite
+    - baseball bat
+    - baseball glove
+    - skateboard
+    - surfboard
+    - tennis racket
+    - bottle
+    - wine glass
+    - cup
+    - fork
+    - knife
+    - spoon
+    - bowl
+    - banana
+    - apple
+    - sandwich
+    - orange
+    - broccoli
+    - carrot
+    - hot dog
+    - pizza
+    - donut
+    - cake
+    - chair
+    - couch
+    - potted plant
+    - bed
+    - dining table
+    - toilet
+    - tv
+    - laptop
+    - mouse
+    - remote
+    - keyboard
+    - cell phone
+    - microwave
+    - oven
+    - toaster
+    - sink
+    - refrigerator
+    - book
+    - clock
+    - vase
+    - scissors
+    - teddy bear
+    - hair drier
+    - toothbrush
+providers:
+  yolo_vehicle_fast_640:
+    kind: visual_detector
+    enabled: true
+    native_label_space: coco80
+    native_labels:
+    - car
+    - motorcycle
+    - bus
+    - truck
+    expose_native_labels_as_semantic_classes: true
+    semantic_classes:
+      vehicle:
+      - car
+      - motorcycle
+      - bus
+      - truck
+    inputs:
+    - video_frame
+    outputs:
+    - detections
+  yolo_vehicle_balanced_960:
+    kind: visual_detector
+    enabled: true
+    native_label_space: coco80
+    native_labels:
+    - car
+    - motorcycle
+    - bus
+    - truck
+    expose_native_labels_as_semantic_classes: true
+    semantic_classes:
+      vehicle:
+      - car
+      - motorcycle
+      - bus
+      - truck
+    inputs:
+    - video_frame
+    outputs:
+    - detections
+  yolo_full_context_960:
+    kind: visual_detector
+    enabled: true
+    native_label_space: coco80
+    expose_native_labels_as_semantic_classes: true
+    semantic_classes:
+      vehicle:
+      - car
+      - motorcycle
+      - bus
+      - truck
+      package:
+      - backpack
+      - handbag
+      - suitcase
+    inputs:
+    - video_frame
+    outputs:
+    - detections
+  package_detector:
+    kind: visual_detector
+    enabled: true
+    native_label_space: coco80
+    native_labels:
+    - backpack
+    - handbag
+    - suitcase
+    expose_native_labels_as_semantic_classes: true
+    semantic_classes:
+      package:
+      - backpack
+      - handbag
+      - suitcase
+    inputs:
+    - video_frame
+    outputs:
+    - detections
+  present_basic:
+    kind: predicate_implementation
+    enabled: true
+    predicates:
+      present:
+        visual_arguments:
+          object: '*'
+    inputs:
+    - tracks
+    outputs:
+    - predicate_match:present
+  enters_basic:
+    kind: predicate_implementation
+    enabled: true
+    predicates:
+      enters:
+        visual_arguments:
+          object: '*'
+    inputs:
+    - tracks
+    outputs:
+    - predicate_match:enters
+  exits_basic:
+    kind: predicate_implementation
+    enabled: true
+    predicates:
+      exits:
+        visual_arguments:
+          object: '*'
+    inputs:
+    - tracks
+    outputs:
+    - predicate_match:exits
+  moving_basic:
+    kind: predicate_implementation
+    enabled: true
+    predicates:
+      moving:
+        visual_arguments:
+          object: '*'
+    inputs:
+    - tracks
+    outputs:
+    - predicate_match:moving
+  near_geometry:
+    kind: predicate_implementation
+    enabled: true
+    predicates:
+      near:
+        visual_arguments:
+          object_a: '*'
+          object_b: '*'
+    inputs:
+    - tracks
+    outputs:
+    - predicate_match:near
+  follows_local_geometry:
+    kind: predicate_implementation
+    enabled: true
+    predicates:
+      follows:
+        visual_arguments:
+          leader: '*'
+          follower: '*'
+    inputs:
+    - tracks
+    outputs:
+    - predicate_match:follows
+  follows_cross_sensor:
+    kind: predicate_implementation
+    enabled: true
+    predicates:
+      follows:
+        visual_arguments:
+          leader: '*'
+          follower: '*'
+    inputs:
+    - tracks
+    - identity_associations
+    outputs:
+    - predicate_match:follows
+  boards_person_vehicle:
+    kind: predicate_implementation
+    enabled: true
+    predicates:
+      boards:
+        visual_arguments:
+          person:
+          - person
+          vehicle:
+          - vehicle
+          - car
+          - truck
+          - bus
+          - motorcycle
+    inputs:
+    - tracks
+    outputs:
+    - predicate_match:boards
+  disembarks_person_vehicle:
+    kind: predicate_implementation
+    enabled: true
+    predicates:
+      disembarks:
+        visual_arguments:
+          person:
+          - person
+          vehicle:
+          - vehicle
+          - car
+          - truck
+          - bus
+          - motorcycle
+    inputs:
+    - tracks
+    outputs:
+    - predicate_match:disembarks
+  transfer_custody:
+    kind: predicate_implementation
+    enabled: true
+    predicates:
+      transfer:
+        visual_arguments:
+          item:
+          - package
+          - backpack
+          - handbag
+          - suitcase
+          giver:
+          - person
+          - vehicle
+          - car
+          - truck
+          - bus
+          - motorcycle
+          receiver:
+          - person
+          - vehicle
+          - car
+          - truck
+          - bus
+          - motorcycle
+    inputs:
+    - tracks
+    outputs:
+    - predicate_match:transfer
+  conversation_av:
+    kind: predicate_implementation
+    enabled: true
+    predicates:
+      conversation:
+        visual_arguments:
+          participant_a:
+          - person
+          participant_b:
+          - person
+    inputs:
+    - tracks
+    - diarized_speech
+    outputs:
+    - predicate_match:conversation
+  audio_event_classifier:
+    kind: predicate_implementation
+    enabled: true
+    predicates:
+      audio_event:
+        semantic_literals:
+          class:
+            gunshot:
+              native_labels:
+              - Gunshot
+              - gunfire
+              - Machine gun
+              - Fusillade
+            alarm:
+              native_labels:
+              - Alarm
+              - Alarm clock
+              - Fire alarm
+              - Siren
+    inputs:
+    - audio_window
+    outputs:
+    - predicate_match:audio_event
+  multi_object_tracker:
+    kind: intermediate
+    enabled: true
+    inputs:
+    - detections
+    outputs:
+    - tracks
+  camera_projection:
+    kind: intermediate
+    enabled: true
+    inputs:
+    - tracks
+    outputs:
+    - projected_tracks
+  track_crop_extractor:
+    kind: intermediate
+    enabled: true
+    inputs:
+    - video_frame
+    - tracks
+    outputs:
+    - track_crops
+  vehicle_reid_descriptor:
+    kind: intermediate
+    enabled: true
+    inputs:
+    - track_crops
+    outputs:
+    - identity_embeddings
+    accepts_classes:
+    - vehicle
+    - car
+    - truck
+    - bus
+    - motorcycle
+  openclip_visual_descriptor:
+    kind: intermediate
+    enabled: true
+    inputs:
+    - track_crops
+    outputs:
+    - visual_embeddings
+  cross_sensor_identity_association:
+    kind: intermediate
+    enabled: true
+    inputs:
+    - identity_embeddings
+    - identity_embeddings
+    outputs:
+    - identity_associations
+  hosted_vlm_identity_comparator:
+    kind: intermediate
+    enabled: true
+    inputs:
+    - track_crops
+    - track_crops
+    outputs:
+    - identity_comparisons
+  voice_activity_detector:
+    kind: intermediate
+    enabled: true
+    inputs:
+    - audio_window
+    outputs:
+    - speech_segments
+  speaker_embedding_provider:
+    kind: intermediate
+    enabled: true
+    inputs:
+    - audio_window
+    - speech_segments
+    outputs:
+    - speaker_embeddings
+  speaker_diarization_provider:
+    kind: intermediate
+    enabled: true
+    inputs:
+    - speaker_embeddings
+    outputs:
+    - diarized_speech
+  keyword_or_asr_provider:
+    kind: intermediate
+    enabled: true
+    inputs:
+    - audio_window
+    - speech_segments
+    outputs:
+    - transcripts
+  gcc_phat_audio_localizer:
+    kind: intermediate
+    enabled: true
+    inputs:
+    - multichannel_audio
+    outputs:
+    - audio_bearings
+  audio_visual_association:
+    kind: intermediate
+    enabled: true
+    inputs:
+    - audio_bearings
+    - tracks
+    outputs:
+    - audio_visual_associations
+  interaction_evidence_analyzer:
+    kind: intermediate
+    enabled: true
+    inputs:
+    - video_frame
+    - tracks
+    outputs:
+    - interaction_evidence
+  person_reid_descriptor:
+    kind: intermediate
+    enabled: true
+    inputs:
+    - track_crops
+    outputs:
+    - identity_embeddings
+    accepts_classes:
+    - person

@@ -1,6 +1,0 @@
-{
-  "input_class": "projected_track_set.v1+speaker_turn_set.v1",
-  "provider_id": "conversation_provider",
-  "target_id": "calibration_target_a6f05fe0a706357216802f4e",
-  "tier": "sensor"
-}

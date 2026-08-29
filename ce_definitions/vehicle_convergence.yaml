@@ -1,0 +1,25 @@
+version: 1
+event: vehicle_convergence
+description: One vehicle enters the monitored view, a second vehicle converges near it, and both later leave.
+
+roles:
+  VEHICLE_A:
+    class: vehicle
+  VEHICLE_B:
+    class: vehicle
+
+pattern:
+  seq:
+    - enters:
+        object: VEHICLE_A
+
+    - near:
+        object_a: VEHICLE_A
+        object_b: VEHICLE_B
+        max_distance_m: 10
+
+    - all:
+        - exits:
+            object: VEHICLE_A
+        - exits:
+            object: VEHICLE_B
