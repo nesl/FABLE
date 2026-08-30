@@ -1,0 +1,24 @@
+version: 1
+name: refactored_core_smoke
+cells:
+  - id: convoy-fable-planning
+    event: ../../ce_definitions/convoy.yaml
+    deployment: ../../config/deployment.example.yaml
+    policy: FABLE
+    repetition: 1
+  - id: convoy-b1-planning
+    event: ../../ce_definitions/convoy.yaml
+    deployment: ../../config/deployment.example.yaml
+    policy: B1_STATIC
+    static_placements: ../baselines/static_placements.example.yaml
+    repetition: 1
+  - id: convoy-b3-planning
+    event: ../../ce_definitions/convoy.yaml
+    deployment: ../../config/deployment.example.yaml
+    policy: B3_RESOURCE
+    repetition: 1
+  - id: convoy-b4-planning
+    event: ../../ce_definitions/convoy.yaml
+    deployment: ../../config/deployment.example.yaml
+    policy: B4_GREEDY
+    repetition: 1

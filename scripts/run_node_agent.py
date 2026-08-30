@@ -35,6 +35,7 @@ import yaml
 
 from fable.execution import (
     DataflowProviderRuntime,
+    GatedSourceAdapter,
     NodeAgent,
     NodeAgentTCPServer,
     OpenCVVideoSourceAdapter,
@@ -42,26 +43,31 @@ from fable.execution import (
     SystemResourceProbe,
     TcpResultTransport,
     WaveAudioSourceAdapter,
+    parse_input_gates,
 )
 from fable.planning import NodeState
 
 
-def _sources(raw: dict) -> dict:
+def _sources(raw: dict, gates: dict) -> dict:
     output = {}
     for source_id, spec in raw.get("sources", {}).items():
         kind = str(spec.get("type", "video")).lower()
         if kind == "video":
-            output[str(source_id)] = OpenCVVideoSourceAdapter(
+            adapter = OpenCVVideoSourceAdapter(
                 str(source_id), spec["uri"], realtime=bool(spec.get("realtime", True))
             )
         elif kind in {"wav", "audio"}:
-            output[str(source_id)] = WaveAudioSourceAdapter(
+            adapter = WaveAudioSourceAdapter(
                 str(source_id), spec["path"],
                 window_ms=int(spec.get("window_ms", 1000)),
                 realtime=bool(spec.get("realtime", True)),
             )
         else:
             raise ValueError(f"unsupported source adapter type {kind!r}")
+        output[str(source_id)] = (
+            GatedSourceAdapter(adapter, gates[str(source_id)])
+            if str(source_id) in gates else adapter
+        )
     return output
 
 
@@ -84,16 +90,39 @@ def main() -> int:
     )
 
     runtime_kind = str(raw.get("runtime", "dataflow")).lower()
-    if runtime_kind == "dataflow":
+    input_gates = parse_input_gates(raw.get("input_gates"))
+    if runtime_kind in {"dataflow", "bridged_dataflow"}:
         result_raw = raw.get("controller_results")
         if not isinstance(result_raw, dict):
             raise ValueError("dataflow node agents require controller_results.host/port")
-        provider_runtime = DataflowProviderRuntime(
+        local_runtime = DataflowProviderRuntime(
             result_transport=TcpResultTransport(
                 str(result_raw["host"]), int(result_raw.get("port", 8766))
             ),
-            source_adapters=_sources(raw),
+            source_adapters=_sources(raw, input_gates),
         )
+        if runtime_kind == "dataflow":
+            provider_runtime = local_runtime
+        else:
+            from deployment.external_provider import ExternalProviderBridgeRuntime
+
+            bridge_raw = raw.get("external_provider_bridge")
+            if not isinstance(bridge_raw, dict):
+                raise ValueError("bridged_dataflow requires external_provider_bridge")
+            commands = {
+                str(provider_id): tuple(spec["command"])
+                for provider_id, spec in bridge_raw.get("providers", {}).items()
+                if isinstance(spec, dict) and isinstance(spec.get("command"), list)
+            }
+            if not commands:
+                raise ValueError("external_provider_bridge requires provider commands")
+            provider_runtime = ExternalProviderBridgeRuntime(
+                local_runtime,
+                commands,
+                cwd=bridge_raw.get("cwd"),
+                ready_timeout_seconds=float(bridge_raw.get("ready_timeout_seconds", 30)),
+                input_gates=input_gates,
+            )
     elif runtime_kind == "subprocess":
         commands = {
             str(provider_id): tuple(spec["command"])
@@ -102,7 +131,7 @@ def main() -> int:
         }
         provider_runtime = SubprocessProviderRuntime(commands)
     else:
-        raise ValueError("runtime must be 'dataflow' or 'subprocess'")
+        raise ValueError("runtime must be 'dataflow', 'bridged_dataflow', or 'subprocess'")
 
     resource_probe = (
         SystemResourceProbe(node.node_id, node.node_type)

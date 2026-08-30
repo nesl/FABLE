@@ -17,6 +17,7 @@ import yaml
 from fable.execution import FableRuntime, ResultTCPServer, TcpCommandTransport
 from fable.language import load_and_compile_event
 from fable.planning import LinkState, NodeState, RuntimeState, SourceState, load_provider_profiles
+from evaluation.artifacts import CompletionArtifact, CompletionWriter
 
 
 def main() -> int:
@@ -25,6 +26,12 @@ def main() -> int:
     parser.add_argument("deployment", type=Path)
     parser.add_argument("--result-host", default="0.0.0.0")
     parser.add_argument("--result-port", type=int, default=8766)
+    parser.add_argument("--output-jsonl", type=Path)
+    parser.add_argument("--cell-id")
+    parser.add_argument(
+        "--command-timeout-seconds", type=float, default=30.0,
+        help="Bound for one NodeAgent lifecycle acknowledgement.",
+    )
     args = parser.parse_args()
 
     event = load_and_compile_event(args.event)
@@ -62,18 +69,27 @@ def main() -> int:
     runtime_state = RuntimeState(
         nodes=nodes, sources=sources, links=links, profiles=load_provider_profiles()
     )
-    runtime = FableRuntime(event, runtime_state, TcpCommandTransport(endpoints))
+    runtime = FableRuntime(
+        event,
+        runtime_state,
+        TcpCommandTransport(endpoints, timeout_s=args.command_timeout_seconds),
+    )
+    writer = CompletionWriter(args.output_jsonl) if args.output_jsonl else None
 
     def on_match(match):
         update = runtime.handle_predicate_match(match)
         for instance in update.completed_instances:
-            print(json.dumps({
-                "event": instance.event_name,
-                "matched_at": instance.matched_at.isoformat(),
-                "matched_source": instance.matched_source,
-                "bindings": dict(instance.bindings),
-                "completed": True,
-            }), flush=True)
+            artifact = CompletionArtifact(
+                event=instance.event_name,
+                completed_at=instance.completed_at or match.event_time,
+                matched_at=instance.matched_at,
+                matched_source=instance.matched_source,
+                bindings=dict(instance.bindings),
+                cell_id=args.cell_id,
+            )
+            if writer is not None:
+                writer.append(artifact)
+            print(json.dumps(artifact.to_dict(), sort_keys=True), flush=True)
 
     def on_identity(association):
         runtime.handle_identity_association(association)

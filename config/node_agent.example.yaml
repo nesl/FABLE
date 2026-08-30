@@ -1,0 +1,25 @@
+version: 1
+node:
+  node_id: sensor1
+  node_type: sensor
+  available: true
+  cpu_free: 4
+  memory_mb_free: 8192
+  gpu_memory_mb_free: 4096
+runtime: dataflow
+controller_results:
+  host: 127.0.0.1
+  port: 8766
+system_probe: true
+sources:
+  camera1:
+    type: video
+    uri: /path/to/recording.mp4
+    realtime: true
+# Optional NodeAgent-owned replay gates. The lower off threshold provides
+# hysteresis, preventing rapid open/closed oscillation around one cutoff.
+input_gates:
+  camera1:
+    type: video_frame_difference
+    on_threshold: 0.04
+    off_threshold: 0.02

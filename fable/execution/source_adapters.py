@@ -11,6 +11,7 @@ import wave
 from fable.providers.data_models import AudioWindow, VideoFrame
 
 from .stream_bus import StreamBus, StreamKey
+from .input_gate import HysteresisInputGate, InputGateConfig
 
 
 class SourceAdapter(Protocol):
@@ -18,6 +19,30 @@ class SourceAdapter(Protocol):
     data_type: str
     def start(self, bus: StreamBus) -> None: ...
     def stop(self) -> None: ...
+
+
+class GatedSourceAdapter:
+    """Apply a NodeAgent-owned activity gate before publishing replay input."""
+
+    def __init__(self, adapter: SourceAdapter, config: InputGateConfig) -> None:
+        self.adapter = adapter
+        self.source_id = adapter.source_id
+        self.data_type = adapter.data_type
+        self.gate = HysteresisInputGate(config)
+
+    def start(self, bus: StreamBus) -> None:
+        outer = self
+
+        class GateBus:
+            def publish(self, key: StreamKey, value: object) -> int:
+                if not outer.gate.accept(value):
+                    return 0
+                return bus.publish(key, value)
+
+        self.adapter.start(GateBus())  # type: ignore[arg-type]
+
+    def stop(self) -> None:
+        self.adapter.stop()
 
 
 class ManualSourceAdapter:

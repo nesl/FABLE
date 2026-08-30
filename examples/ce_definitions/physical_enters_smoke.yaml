@@ -1,0 +1,9 @@
+version: 1
+event: physical_enters_smoke
+description: Bounded infrastructure validation for one vehicle entering a replay view.
+roles:
+  VEHICLE:
+    class: vehicle
+pattern:
+  enters:
+    object: VEHICLE

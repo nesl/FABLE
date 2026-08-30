@@ -24,6 +24,18 @@ htmlcov/
 /debug/
 /debug.local-migration-backup/
 /iobt-minimal-ce-replay/generated/
+/replay-cache/
+
+# Raw sensor recordings and derived media are staged outside Git. Tiny test
+# fixtures should use explicit force-adds only when their licensing is clear.
+*.mp4
+*.mkv
+*.avi
+*.mov
+*.wav
+*.flac
+*.pcap
+*.pcapng
 
 # Generated campaign matrices and deployable bundles may contain absolute
 # paths, physical topology, host telemetry, or copied runtime configuration.
@@ -44,12 +56,20 @@ htmlcov/
 /config/physical_network_profiles.yaml
 /config/physical_provider_runtimes.yaml
 /config/physical_retention.yaml
+/config/deployment.physical-bridge-smoke.yaml
+/config/node_agent.desktop.yaml
+/config/node_agent.jetson.yaml
+/config/node_agent.rpi.yaml
+/config/*.local.yaml
 /profiles/physical/inventory*.json
 /profiles/physical/raw/
 /iobt-minimal-ce-replay/setup/zed_settings/SN*.conf
 /netwaggle/configs/physical_external_*.json
 /netwaggle/configs/profiles/physical_external_*.json
 /netwaggle/compose.physical_external_*.yaml
+
+# Host-specific physical readiness snapshots are generated during deployment.
+/deployment/PHYSICAL_READINESS.local.md
 
 # Machine-specific storage migration record. config/storage.yaml is portable
 # through the FABLE_STORAGE_ROOT environment override and remains versioned.

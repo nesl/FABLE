@@ -32,6 +32,12 @@ Main folders:
 - `fable/planning/` — dynamic provider search, runtime conditions, placement enumeration, and beam plan selection.
 - `fable/execution/` — live provider workers/dataflow, identity/ReID, plan reconciliation, node agents, control/result transport, online network measurement, and the top-level runtime.
 - `ce_definitions/` — authored complex-event YAML files.
+- `evaluation/` — manifests, baseline policies, metrics, and generated reports.
+- `netwaggle/` — network-emulation integration and measured link-state updates.
+- `replay/` — recording/testbed adapters around the execution source API.
+- `config/` — deployment and node-agent configuration examples.
+
+The core/integration dependency policy is documented in `ARCHITECTURE.md`.
 
 The frontier is the semantic-to-physical interface. There is no separate `EvidenceDemand` layer and there is no hand-authored provider-chain catalog.
 

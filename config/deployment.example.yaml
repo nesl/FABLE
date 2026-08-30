@@ -1,0 +1,36 @@
+version: 1
+nodes:
+  sensor1:
+    node_type: sensor
+    available: true
+    cpu_free: 4
+    memory_mb_free: 8192
+    gpu_memory_mb_free: 4096
+    agent_host: 127.0.0.1
+    agent_port: 8765
+  edge1:
+    node_type: edge
+    available: true
+    cpu_free: 12
+    memory_mb_free: 32768
+    gpu_memory_mb_free: 16384
+    agent_host: 127.0.0.1
+    agent_port: 8767
+sources:
+  camera1:
+    node_id: sensor1
+    data_type: video_frame
+    site_id: example_site
+    sample_bytes: 921600
+    available: true
+links:
+  - source_node: sensor1
+    destination_node: edge1
+    latency_ms: 2
+    bandwidth_mbps: 1000
+    available: true
+  - source_node: edge1
+    destination_node: sensor1
+    latency_ms: 2
+    bandwidth_mbps: 1000
+    available: true

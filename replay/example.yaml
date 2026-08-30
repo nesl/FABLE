@@ -1,0 +1,9 @@
+version: 1
+replay_id: example-replay
+speed: 1.0
+sources:
+  - source_id: camera1
+    modality: video
+    path: /path/to/recording.mp4
+    event_time_start: 2026-01-01T12:00:00Z
+    offset_seconds: 0

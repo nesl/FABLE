@@ -1,0 +1,17 @@
+version: 1
+events:
+  convoy:
+    description: Fixed whole-event placement derived once and held for the run.
+    steps:
+      - provider_id: yolo_vehicle_fast_640
+        node_id: sensor1
+        source_ids: [camera1]
+        output_type: detections
+      - provider_id: multi_object_tracker
+        node_id: sensor1
+        source_ids: [camera1]
+        output_type: tracks
+      - provider_id: enters_basic
+        node_id: sensor1
+        source_ids: [camera1]
+        output_type: predicate_match:enters

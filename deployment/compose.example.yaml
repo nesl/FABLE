@@ -1,0 +1,27 @@
+services:
+  controller:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile
+    command:
+      - scripts/run_fable.py
+      - ce_definitions/convoy.yaml
+      - config/deployment.example.yaml
+    volumes:
+      - ../ce_definitions:/workspace/FABLE/ce_definitions:ro
+      - ../config:/workspace/FABLE/config:ro
+    ports:
+      - "8766:8766"
+
+  sensor1-agent:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile
+    command:
+      - scripts/run_node_agent.py
+      - config/node_agent.example.yaml
+    volumes:
+      - ../config:/workspace/FABLE/config:ro
+      - ${RECORDING_ROOT:-../replay}:/recordings:ro
+    ports:
+      - "8765:8765"

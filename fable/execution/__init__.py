@@ -11,12 +11,14 @@ from .dataflow_runtime import DataflowProviderRuntime
 from .provider_worker import DefaultProviderFactory, ProviderWorker, WorkerStatus
 from .result_transport import DirectResultTransport, ResultTCPServer, ResultTransport, TcpResultTransport
 from .source_adapters import (
+    GatedSourceAdapter,
     IterableSourceAdapter,
     ManualSourceAdapter,
     OpenCVVideoSourceAdapter,
     SourceAdapter,
     WaveAudioSourceAdapter,
 )
+from .input_gate import HysteresisInputGate, InputGateConfig, parse_input_gates
 from .stream_bus import StreamBus, StreamKey, Subscription
 from .identity_resolver import IdentityResolver
 from .local_runner import ActivationEvent, LocalRunner, RunnerUpdate
@@ -67,6 +69,9 @@ __all__ = [
     "DefaultProviderFactory",
     "DirectResultTransport",
     "IterableSourceAdapter",
+    "GatedSourceAdapter",
+    "HysteresisInputGate",
+    "InputGateConfig",
     "ManualSourceAdapter",
     "OpenCVVideoSourceAdapter",
     "ProviderWorker",
@@ -79,4 +84,5 @@ __all__ = [
     "TcpResultTransport",
     "WaveAudioSourceAdapter",
     "WorkerStatus",
+    "parse_input_gates",
 ]

@@ -1,0 +1,46 @@
+version: 1
+# Portable inventory template for a desktop/Pi/Jetson testbed. Replace the
+# documentation-only addresses with addresses reachable in your installation.
+nodes:
+  physical-rpi:
+    node_type: sensor
+    available: true
+    cpu_free: 4
+    memory_mb_free: 2048
+    gpu_memory_mb_free: 0
+    agent_host: 192.0.2.21
+    agent_port: 8765
+  physical-jetson:
+    node_type: edge
+    available: true
+    cpu_free: 8
+    memory_mb_free: 8192
+    gpu_memory_mb_free: 4096
+    agent_host: 192.0.2.22
+    agent_port: 8765
+  desktop:
+    node_type: site
+    available: true
+    cpu_free: 16
+    memory_mb_free: 32768
+    gpu_memory_mb_free: 16384
+    agent_host: 127.0.0.1
+    agent_port: 8767
+sources:
+  physical-rpi-camera:
+    node_id: physical-rpi
+    data_type: video_frame
+    site_id: physical-testbed
+    sample_bytes: 6220800
+    available: true
+links:
+  - source_node: physical-rpi
+    destination_node: desktop
+    latency_ms: 1
+    bandwidth_mbps: 1000
+    available: true
+  - source_node: physical-jetson
+    destination_node: desktop
+    latency_ms: 1
+    bandwidth_mbps: 1000
+    available: true

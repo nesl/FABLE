@@ -1,0 +1,15 @@
+version: 1
+event: physical_vehicle_visit
+roles:
+  VEHICLE:
+    class: vehicle
+description: >-
+  A vehicle enters the camera view and subsequently exits. This bounded
+  physical validation exercises multi-predicate graph progression while
+  retaining the same vehicle binding across both observations.
+pattern:
+  seq:
+    - enters:
+        object: VEHICLE
+    - exits:
+        object: VEHICLE

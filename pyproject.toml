@@ -49,7 +49,7 @@ fable = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["fable*"]
+include = ["fable*", "evaluation*", "netwaggle*", "replay*", "deployment*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

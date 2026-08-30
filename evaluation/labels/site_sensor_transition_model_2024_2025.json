@@ -1,0 +1,1334 @@
+{
+  "schema_version": "1.0",
+  "model_name": "West Point qualitative sensor transition model",
+  "model_type": "qualitative_topology_not_calibrated_geometry",
+  "coordinate_frame": {
+    "origin": "approximately the center of the map grid",
+    "x_axis": "positive values point east/right",
+    "y_axis": "positive values point north/up",
+    "units": "approximate map-grid units read from the diagrams",
+    "heading_convention": {
+      "N": "up",
+      "E": "right",
+      "S": "down",
+      "W": "left"
+    }
+  },
+  "assumptions": [
+    "All fixed and selected mobile nodes are available.",
+    "Blue sectors are approximate fixed-camera fields of view.",
+    "White sectors/arrows are approximate mobile-camera fields of view.",
+    "All nodes have microphones, but this model predicts camera handoffs only.",
+    "Audio range and obstruction are not inferable from the diagrams and require calibration.",
+    "Observation groups may overlap; sensors in the same group may see an object nearly simultaneously.",
+    "Scenario letters such as A and B are local aliases and are not stable site coordinates.",
+    "Container walls and moving-object occlusion are not modeled."
+  ],
+  "confidence_scale": {
+    "high": "directly supported by a clearly drawn route crossing a field of view",
+    "medium": "supported by approximate overlap or multiple diagrams",
+    "low": "plausible adjacency but should be calibrated before operational use"
+  },
+  "zones": {
+    "northwest_entry": {
+      "center": [
+        -25,
+        12
+      ],
+      "description": "Upper-left approach used by the 2024 C-origin route."
+    },
+    "west_entry": {
+      "center": [
+        -36,
+        -7
+      ],
+      "description": "Far-left entrance/exit used by the cyan route near 2024 B."
+    },
+    "southwest_loop": {
+      "center": [
+        -22,
+        -24
+      ],
+      "description": "Lower-left curved roadway between the west side and the central junction."
+    },
+    "west_center": {
+      "center": [
+        -8,
+        -9
+      ],
+      "description": "Roadway between the western containers and the central junction."
+    },
+    "central_south_junction": {
+      "center": [
+        4,
+        -18
+      ],
+      "description": "Primary central branching/meeting area. It corresponds approximately to D in the 2024 temporal maps and A in the 2025 robbery map."
+    },
+    "central_building": {
+      "center": [
+        6,
+        -5
+      ],
+      "description": "Central container/building area, including the 2025 robbery building POI."
+    },
+    "north_central": {
+      "center": [
+        15,
+        14
+      ],
+      "description": "Roadway and container corridor around fixed nodes 3 and 4."
+    },
+    "east_center": {
+      "center": [
+        29,
+        -5
+      ],
+      "description": "Eastern bend and approach covered strongly by fixed node 5."
+    },
+    "northeast_entry": {
+      "center": [
+        40,
+        12
+      ],
+      "description": "Far-right/northeast entrance and POI area covered by fixed node 6."
+    },
+    "southeast_exit": {
+      "center": [
+        24,
+        -25
+      ],
+      "description": "Southeast departure segment corresponding to 2024 spatial E."
+    },
+    "north_perimeter": {
+      "center": [
+        5,
+        31
+      ],
+      "description": "Upper perimeter roadway used by the unscripted outer loop."
+    }
+  },
+  "fixed_sensors": {
+    "orin_1": {
+      "label": "1",
+      "position": [
+        6,
+        -22
+      ],
+      "camera_facing_approx": "W",
+      "facing_confidence": "medium",
+      "microphone": true,
+      "primary_zones": [
+        "central_south_junction",
+        "southwest_loop"
+      ]
+    },
+    "orin_2": {
+      "label": "2",
+      "position": [
+        4,
+        -7
+      ],
+      "camera_facing_approx": "E",
+      "facing_confidence": "medium",
+      "microphone": true,
+      "primary_zones": [
+        "central_building",
+        "central_south_junction"
+      ]
+    },
+    "orin_3": {
+      "label": "3",
+      "position": [
+        10,
+        0
+      ],
+      "camera_facing_approx": "W",
+      "facing_confidence": "medium",
+      "microphone": true,
+      "primary_zones": [
+        "central_building",
+        "north_central"
+      ]
+    },
+    "orin_4": {
+      "label": "4",
+      "position": [
+        19,
+        16
+      ],
+      "camera_facing_approx": "W",
+      "facing_confidence": "medium",
+      "microphone": true,
+      "primary_zones": [
+        "north_central",
+        "north_perimeter"
+      ]
+    },
+    "orin_5": {
+      "label": "5",
+      "position": [
+        30,
+        -12
+      ],
+      "camera_facing_approx": "W-NW",
+      "facing_confidence": "high",
+      "microphone": true,
+      "primary_zones": [
+        "east_center",
+        "central_south_junction",
+        "southeast_exit"
+      ]
+    },
+    "orin_6": {
+      "label": "6",
+      "position": [
+        42,
+        15
+      ],
+      "camera_facing_approx": "W-SW",
+      "facing_confidence": "high",
+      "microphone": true,
+      "primary_zones": [
+        "northeast_entry",
+        "east_center"
+      ]
+    },
+    "orin_7": {
+      "label": "7",
+      "position": [
+        -9,
+        0
+      ],
+      "camera_facing_approx": "NW",
+      "facing_confidence": "high",
+      "microphone": true,
+      "primary_zones": [
+        "west_center",
+        "northwest_entry"
+      ]
+    },
+    "orin_8": {
+      "label": "8",
+      "position": [
+        -6,
+        -14
+      ],
+      "camera_facing_approx": "E-SE",
+      "facing_confidence": "medium",
+      "microphone": true,
+      "primary_zones": [
+        "west_center",
+        "central_south_junction",
+        "southwest_loop"
+      ]
+    },
+    "orin_9": {
+      "label": "9",
+      "position": [
+        -33,
+        -14
+      ],
+      "camera_facing_approx": "W-SW",
+      "facing_confidence": "high",
+      "microphone": true,
+      "primary_zones": [
+        "west_entry",
+        "southwest_loop"
+      ]
+    },
+    "orin_10": {
+      "label": "10",
+      "position": [
+        -18,
+        -31
+      ],
+      "camera_facing_approx": "N-NE",
+      "facing_confidence": "high",
+      "microphone": true,
+      "primary_zones": [
+        "southwest_loop",
+        "west_center"
+      ]
+    }
+  },
+  "mobile_deployments": {
+    "2024_spatial_ce1": {
+      "source": "2024_experiments.pdf page 2",
+      "nodes": {
+        "n1": {
+          "position": [
+            -14,
+            -2
+          ],
+          "camera_facing_approx": "NW",
+          "coverage_zones": [
+            "northwest_entry",
+            "west_center"
+          ],
+          "confidence": "high"
+        },
+        "n2": {
+          "position": [
+            24,
+            7
+          ],
+          "camera_facing_approx": "W",
+          "coverage_zones": [
+            "north_central",
+            "east_center"
+          ],
+          "confidence": "high"
+        },
+        "n3": {
+          "position": [
+            24,
+            1
+          ],
+          "camera_facing_approx": "SW",
+          "coverage_zones": [
+            "east_center",
+            "central_south_junction"
+          ],
+          "confidence": "high"
+        }
+      }
+    },
+    "2024_temporal_ce1": {
+      "source": "2024_experiments.pdf page 3",
+      "nodes": {
+        "n1": {
+          "position": [
+            -22,
+            -17
+          ],
+          "camera_facing_approx": "E-SE",
+          "coverage_zones": [
+            "southwest_loop",
+            "west_center"
+          ],
+          "confidence": "high"
+        },
+        "n2": {
+          "position": [
+            15,
+            3
+          ],
+          "camera_facing_approx": "W-NW",
+          "coverage_zones": [
+            "central_building",
+            "north_central"
+          ],
+          "confidence": "high"
+        },
+        "n3": {
+          "position": [
+            17,
+            -17
+          ],
+          "camera_facing_approx": "W-NW",
+          "coverage_zones": [
+            "central_south_junction",
+            "east_center"
+          ],
+          "confidence": "high"
+        }
+      }
+    },
+    "2024_temporal_ce2_page5": {
+      "source": "2024_experiments.pdf page 5",
+      "notes": "First of two visibly different mobile-node layouts shown for temporal_ce2.",
+      "nodes": {
+        "n1": {
+          "position": [
+            -22,
+            -17
+          ],
+          "camera_facing_approx": "E-SE",
+          "coverage_zones": [
+            "southwest_loop",
+            "west_center"
+          ],
+          "confidence": "high"
+        },
+        "n2": {
+          "position": [
+            15,
+            3
+          ],
+          "camera_facing_approx": "W-NW",
+          "coverage_zones": [
+            "central_building",
+            "north_central"
+          ],
+          "confidence": "high"
+        },
+        "n3": {
+          "position": [
+            17,
+            -17
+          ],
+          "camera_facing_approx": "W-NW",
+          "coverage_zones": [
+            "central_south_junction",
+            "east_center"
+          ],
+          "confidence": "high"
+        }
+      }
+    },
+    "2024_temporal_ce2_page6": {
+      "source": "2024_experiments.pdf page 6",
+      "notes": "Alternative temporal_ce2 deployment. Select the page matching the physical run; the PDF does not explain why the mobile positions differ.",
+      "nodes": {
+        "n1": {
+          "position": [
+            -24,
+            -15
+          ],
+          "camera_facing_approx": "E-SE",
+          "coverage_zones": [
+            "west_entry",
+            "southwest_loop"
+          ],
+          "confidence": "high"
+        },
+        "n2": {
+          "position": [
+            -14,
+            0
+          ],
+          "camera_facing_approx": "N",
+          "coverage_zones": [
+            "northwest_entry",
+            "west_center"
+          ],
+          "confidence": "high"
+        },
+        "n3": {
+          "position": [
+            17,
+            -17
+          ],
+          "camera_facing_approx": "W-NW",
+          "coverage_zones": [
+            "central_south_junction",
+            "east_center"
+          ],
+          "confidence": "high"
+        }
+      }
+    },
+    "2025_package_exchange": {
+      "source": "exp_package(1).png",
+      "nodes": {
+        "d1": {
+          "position": [
+            -2,
+            8
+          ],
+          "camera_facing_approx": "SE",
+          "coverage_zones": [
+            "central_building",
+            "central_south_junction"
+          ],
+          "confidence": "medium"
+        },
+        "d2": {
+          "position": [
+            28,
+            -13
+          ],
+          "camera_facing_approx": "NW",
+          "coverage_zones": [
+            "east_center",
+            "central_south_junction"
+          ],
+          "confidence": "high"
+        },
+        "d3": {
+          "position": [
+            25,
+            10
+          ],
+          "camera_facing_approx": "E-SE",
+          "coverage_zones": [
+            "northeast_entry",
+            "east_center"
+          ],
+          "confidence": "medium"
+        }
+      }
+    },
+    "2025_flee_police": {
+      "source": "exp_flee(1).png",
+      "nodes": {
+        "d1": {
+          "position": [
+            -20,
+            -23
+          ],
+          "camera_facing_approx": "NE",
+          "coverage_zones": [
+            "southwest_loop",
+            "central_south_junction"
+          ],
+          "confidence": "medium"
+        },
+        "d2": {
+          "position": [
+            -6,
+            -29
+          ],
+          "camera_facing_approx": "NW",
+          "coverage_zones": [
+            "southwest_loop",
+            "central_south_junction"
+          ],
+          "confidence": "medium"
+        },
+        "d3": {
+          "position": [
+            43,
+            10
+          ],
+          "camera_facing_approx": "SW",
+          "coverage_zones": [
+            "northeast_entry",
+            "east_center"
+          ],
+          "confidence": "high"
+        }
+      }
+    },
+    "2025_robbery": {
+      "source": "exp_robbery(1).png",
+      "nodes": {
+        "d1": {
+          "position": [
+            -6,
+            -14
+          ],
+          "camera_facing_approx": "E-SE",
+          "coverage_zones": [
+            "west_center",
+            "central_south_junction"
+          ],
+          "confidence": "medium"
+        },
+        "d2": {
+          "position": [
+            4,
+            -22
+          ],
+          "camera_facing_approx": "N",
+          "coverage_zones": [
+            "central_south_junction",
+            "central_building"
+          ],
+          "confidence": "high"
+        },
+        "d3": {
+          "position": [
+            14,
+            -16
+          ],
+          "camera_facing_approx": "W-NW",
+          "coverage_zones": [
+            "central_south_junction",
+            "east_center"
+          ],
+          "confidence": "high"
+        }
+      }
+    }
+  },
+  "corridors": {
+    "northeast_to_central_east_arc": {
+      "from_zone": "northeast_entry",
+      "to_zone": "central_south_junction",
+      "reverse_supported": true,
+      "motion_forward": "southwest, then west",
+      "fixed_observation_groups_forward": [
+        [
+          "orin_6"
+        ],
+        [
+          "orin_5"
+        ],
+        [
+          "orin_1"
+        ]
+      ],
+      "fixed_observation_groups_reverse": [
+        [
+          "orin_1"
+        ],
+        [
+          "orin_5"
+        ],
+        [
+          "orin_6"
+        ]
+      ],
+      "mobile_augmentations": {
+        "2024_spatial_ce1": [
+          [
+            "n3"
+          ]
+        ],
+        "2024_temporal_ce1": [
+          [
+            "n3"
+          ]
+        ],
+        "2024_temporal_ce2_page5": [
+          [
+            "n3"
+          ]
+        ],
+        "2024_temporal_ce2_page6": [
+          [
+            "n3"
+          ]
+        ],
+        "2025_package_exchange": [
+          [
+            "d3"
+          ],
+          [
+            "d2"
+          ]
+        ],
+        "2025_flee_police": [
+          [
+            "d2"
+          ],
+          [
+            "d3"
+          ]
+        ],
+        "2025_robbery": [
+          [
+            "d3"
+          ]
+        ]
+      },
+      "confidence": "high"
+    },
+    "central_to_west_lower_corridor": {
+      "from_zone": "central_south_junction",
+      "to_zone": "west_entry",
+      "reverse_supported": true,
+      "motion_forward": "west, curving northwest",
+      "fixed_observation_groups_forward": [
+        [
+          "orin_1"
+        ],
+        [
+          "orin_8",
+          "orin_10"
+        ],
+        [
+          "orin_9"
+        ]
+      ],
+      "fixed_observation_groups_reverse": [
+        [
+          "orin_9"
+        ],
+        [
+          "orin_10",
+          "orin_8"
+        ],
+        [
+          "orin_1"
+        ]
+      ],
+      "mobile_augmentations": {
+        "2024_temporal_ce1": [
+          [
+            "n1"
+          ]
+        ],
+        "2024_temporal_ce2_page5": [
+          [
+            "n1"
+          ]
+        ],
+        "2024_temporal_ce2_page6": [
+          [
+            "n1"
+          ]
+        ],
+        "2025_flee_police": [
+          [
+            "d1"
+          ],
+          [
+            "d2"
+          ]
+        ]
+      },
+      "confidence": "high"
+    },
+    "central_to_northwest_branch": {
+      "from_zone": "central_south_junction",
+      "to_zone": "northwest_entry",
+      "reverse_supported": true,
+      "motion_forward": "northwest through the branch near the central containers",
+      "fixed_observation_groups_forward": [
+        [
+          "orin_1",
+          "orin_8"
+        ],
+        [
+          "orin_2"
+        ],
+        [
+          "orin_7"
+        ]
+      ],
+      "fixed_observation_groups_reverse": [
+        [
+          "orin_7"
+        ],
+        [
+          "orin_2"
+        ],
+        [
+          "orin_8",
+          "orin_1"
+        ]
+      ],
+      "mobile_augmentations": {
+        "2024_temporal_ce1": [
+          [
+            "n3"
+          ],
+          [
+            "n2"
+          ]
+        ],
+        "2024_temporal_ce2_page5": [
+          [
+            "n3"
+          ],
+          [
+            "n2"
+          ]
+        ],
+        "2024_temporal_ce2_page6": [
+          [
+            "n3"
+          ],
+          [
+            "n2"
+          ]
+        ]
+      },
+      "confidence": "medium_high"
+    },
+    "northcentral_to_central_diagonal": {
+      "from_zone": "north_central",
+      "to_zone": "central_south_junction",
+      "reverse_supported": true,
+      "motion_forward": "southwest along the diagonal passage",
+      "fixed_observation_groups_forward": [
+        [
+          "orin_4"
+        ],
+        [
+          "orin_3",
+          "orin_2"
+        ],
+        [
+          "orin_1",
+          "orin_8"
+        ]
+      ],
+      "fixed_observation_groups_reverse": [
+        [
+          "orin_1",
+          "orin_8"
+        ],
+        [
+          "orin_2",
+          "orin_3"
+        ],
+        [
+          "orin_4"
+        ]
+      ],
+      "mobile_augmentations": {
+        "2024_spatial_ce1": [
+          [
+            "n2"
+          ],
+          [
+            "n3"
+          ]
+        ],
+        "2024_temporal_ce1": [
+          [
+            "n2"
+          ],
+          [
+            "n3"
+          ]
+        ]
+      },
+      "confidence": "medium_high"
+    },
+    "northwest_entry_to_central_via_west_loop": {
+      "from_zone": "northwest_entry",
+      "to_zone": "central_south_junction",
+      "reverse_supported": true,
+      "motion_forward": "south along the west boundary, then east through the southwest loop",
+      "fixed_observation_groups_forward": [
+        [
+          "orin_9"
+        ],
+        [
+          "orin_10"
+        ],
+        [
+          "orin_8",
+          "orin_1"
+        ]
+      ],
+      "fixed_observation_groups_reverse": [
+        [
+          "orin_1",
+          "orin_8"
+        ],
+        [
+          "orin_10"
+        ],
+        [
+          "orin_9"
+        ]
+      ],
+      "mobile_augmentations": {
+        "2024_spatial_ce1": [
+          [
+            "n1"
+          ]
+        ]
+      },
+      "confidence": "medium_high",
+      "note": "Fixed node 7 may see the route edge near the start, but the drawn trajectory is not clearly inside its field of view."
+    },
+    "central_to_southeast_exit": {
+      "from_zone": "central_south_junction",
+      "to_zone": "southeast_exit",
+      "reverse_supported": true,
+      "motion_forward": "east-southeast",
+      "fixed_observation_groups_forward": [
+        [
+          "orin_1"
+        ],
+        [
+          "orin_5"
+        ]
+      ],
+      "fixed_observation_groups_reverse": [
+        [
+          "orin_5"
+        ],
+        [
+          "orin_1"
+        ]
+      ],
+      "mobile_augmentations": {
+        "2024_spatial_ce1": [
+          [
+            "n3"
+          ]
+        ],
+        "2025_robbery": [
+          [
+            "d3"
+          ]
+        ]
+      },
+      "confidence": "medium"
+    },
+    "central_north_loop": {
+      "from_zone": "central_south_junction",
+      "to_zone": "central_south_junction",
+      "reverse_supported": true,
+      "motion_forward": "northwest, then east across the upper roadway, then south to the center",
+      "fixed_observation_groups_forward": [
+        [
+          "orin_8",
+          "orin_7"
+        ],
+        [
+          "orin_3",
+          "orin_4"
+        ],
+        [
+          "orin_6"
+        ],
+        [
+          "orin_5"
+        ],
+        [
+          "orin_1"
+        ]
+      ],
+      "fixed_observation_groups_reverse": [
+        [
+          "orin_1"
+        ],
+        [
+          "orin_5"
+        ],
+        [
+          "orin_6"
+        ],
+        [
+          "orin_4",
+          "orin_3"
+        ],
+        [
+          "orin_7",
+          "orin_8"
+        ]
+      ],
+      "mobile_augmentations": {
+        "2025_robbery": [
+          [
+            "d1"
+          ],
+          [
+            "d3"
+          ],
+          [
+            "d2"
+          ]
+        ]
+      },
+      "confidence": "medium"
+    },
+    "outer_perimeter_loop": {
+      "from_zone": "north_perimeter",
+      "to_zone": "north_perimeter",
+      "reverse_supported": true,
+      "motion_forward": "clockwise or counterclockwise around the site perimeter",
+      "fixed_observation_groups_forward": [
+        [
+          "orin_6",
+          "orin_4"
+        ],
+        [
+          "orin_7",
+          "orin_9"
+        ],
+        [
+          "orin_10",
+          "orin_1"
+        ],
+        [
+          "orin_5"
+        ]
+      ],
+      "fixed_observation_groups_reverse": [
+        [
+          "orin_5"
+        ],
+        [
+          "orin_1",
+          "orin_10"
+        ],
+        [
+          "orin_9",
+          "orin_7"
+        ],
+        [
+          "orin_4",
+          "orin_6"
+        ]
+      ],
+      "mobile_augmentations": {},
+      "confidence": "low",
+      "note": "The purple route is drawn as a broad perimeter loop and often lies outside the fixed camera sectors. This sequence needs empirical validation."
+    }
+  },
+  "directional_next_sensor_rules": [
+    {
+      "current_sensor": "orin_6",
+      "observed_heading": [
+        "SW",
+        "W-SW"
+      ],
+      "likely_next": [
+        {
+          "sensor": "orin_5",
+          "rank": 1,
+          "confidence": "high"
+        },
+        {
+          "sensor": "d3",
+          "rank": 1,
+          "confidence": "high",
+          "deployment_ids": [
+            "2025_package_exchange",
+            "2025_flee_police"
+          ]
+        }
+      ],
+      "corridor": "northeast_to_central_east_arc"
+    },
+    {
+      "current_sensor": "orin_5",
+      "observed_heading": [
+        "W",
+        "SW"
+      ],
+      "likely_next": [
+        {
+          "sensor": "orin_1",
+          "rank": 1,
+          "confidence": "high"
+        },
+        {
+          "sensor": "d2",
+          "rank": 1,
+          "confidence": "high",
+          "deployment_ids": [
+            "2025_package_exchange"
+          ]
+        },
+        {
+          "sensor": "n3",
+          "rank": 1,
+          "confidence": "high",
+          "deployment_ids": [
+            "2024_spatial_ce1",
+            "2024_temporal_ce1",
+            "2024_temporal_ce2_page5",
+            "2024_temporal_ce2_page6"
+          ]
+        }
+      ],
+      "corridor": "northeast_to_central_east_arc"
+    },
+    {
+      "current_sensor": "orin_1",
+      "observed_heading": [
+        "W",
+        "NW"
+      ],
+      "likely_next": [
+        {
+          "sensor": "orin_8",
+          "rank": 1,
+          "confidence": "high"
+        },
+        {
+          "sensor": "orin_10",
+          "rank": 2,
+          "confidence": "medium"
+        }
+      ],
+      "corridor": "central_to_west_lower_corridor"
+    },
+    {
+      "current_sensor": "orin_8",
+      "observed_heading": [
+        "W",
+        "SW"
+      ],
+      "likely_next": [
+        {
+          "sensor": "orin_10",
+          "rank": 1,
+          "confidence": "high"
+        },
+        {
+          "sensor": "orin_9",
+          "rank": 2,
+          "confidence": "high"
+        }
+      ],
+      "corridor": "central_to_west_lower_corridor"
+    },
+    {
+      "current_sensor": "orin_10",
+      "observed_heading": [
+        "W",
+        "NW"
+      ],
+      "likely_next": [
+        {
+          "sensor": "orin_9",
+          "rank": 1,
+          "confidence": "high"
+        }
+      ],
+      "corridor": "central_to_west_lower_corridor"
+    },
+    {
+      "current_sensor": "orin_9",
+      "observed_heading": [
+        "E",
+        "SE"
+      ],
+      "likely_next": [
+        {
+          "sensor": "orin_10",
+          "rank": 1,
+          "confidence": "high"
+        },
+        {
+          "sensor": "orin_8",
+          "rank": 2,
+          "confidence": "medium"
+        }
+      ],
+      "corridor": "central_to_west_lower_corridor"
+    },
+    {
+      "current_sensor": "orin_1",
+      "observed_heading": [
+        "N",
+        "NW"
+      ],
+      "likely_next": [
+        {
+          "sensor": "orin_2",
+          "rank": 1,
+          "confidence": "medium_high"
+        },
+        {
+          "sensor": "orin_8",
+          "rank": 1,
+          "confidence": "medium_high"
+        }
+      ],
+      "corridor": "central_to_northwest_branch"
+    },
+    {
+      "current_sensor": "orin_2",
+      "observed_heading": [
+        "N",
+        "NW"
+      ],
+      "likely_next": [
+        {
+          "sensor": "orin_7",
+          "rank": 1,
+          "confidence": "medium_high"
+        }
+      ],
+      "corridor": "central_to_northwest_branch"
+    },
+    {
+      "current_sensor": "orin_7",
+      "observed_heading": [
+        "S",
+        "SE"
+      ],
+      "likely_next": [
+        {
+          "sensor": "orin_2",
+          "rank": 1,
+          "confidence": "medium"
+        },
+        {
+          "sensor": "orin_8",
+          "rank": 2,
+          "confidence": "medium"
+        }
+      ],
+      "corridor": "central_to_northwest_branch"
+    },
+    {
+      "current_sensor": "orin_4",
+      "observed_heading": [
+        "SW"
+      ],
+      "likely_next": [
+        {
+          "sensor": "orin_3",
+          "rank": 1,
+          "confidence": "medium_high"
+        },
+        {
+          "sensor": "orin_2",
+          "rank": 2,
+          "confidence": "medium"
+        }
+      ],
+      "corridor": "northcentral_to_central_diagonal"
+    },
+    {
+      "current_sensor": "orin_3",
+      "observed_heading": [
+        "S",
+        "SW"
+      ],
+      "likely_next": [
+        {
+          "sensor": "orin_2",
+          "rank": 1,
+          "confidence": "medium_high"
+        },
+        {
+          "sensor": "orin_1",
+          "rank": 2,
+          "confidence": "medium"
+        }
+      ],
+      "corridor": "northcentral_to_central_diagonal"
+    },
+    {
+      "current_sensor": "orin_7",
+      "observed_heading": [
+        "S",
+        "SW"
+      ],
+      "likely_next": [
+        {
+          "sensor": "orin_9",
+          "rank": 1,
+          "confidence": "medium"
+        },
+        {
+          "sensor": "orin_10",
+          "rank": 2,
+          "confidence": "medium"
+        }
+      ],
+      "corridor": "northwest_entry_to_central_via_west_loop"
+    },
+    {
+      "current_sensor": "orin_1",
+      "observed_heading": [
+        "E",
+        "SE"
+      ],
+      "likely_next": [
+        {
+          "sensor": "orin_5",
+          "rank": 1,
+          "confidence": "medium"
+        }
+      ],
+      "corridor": "central_to_southeast_exit"
+    },
+    {
+      "current_sensor": "orin_3",
+      "observed_heading": [
+        "E",
+        "NE"
+      ],
+      "likely_next": [
+        {
+          "sensor": "orin_4",
+          "rank": 1,
+          "confidence": "medium"
+        },
+        {
+          "sensor": "orin_6",
+          "rank": 2,
+          "confidence": "medium"
+        }
+      ],
+      "corridor": "central_north_loop"
+    },
+    {
+      "current_sensor": "orin_4",
+      "observed_heading": [
+        "E",
+        "SE"
+      ],
+      "likely_next": [
+        {
+          "sensor": "orin_6",
+          "rank": 1,
+          "confidence": "medium_high"
+        }
+      ],
+      "corridor": "central_north_loop"
+    }
+  ],
+  "scenario_route_bindings": {
+    "2024_spatial_ce1": {
+      "C_to_D": "northwest_entry_to_central_via_west_loop",
+      "B_to_D": "northcentral_to_central_diagonal",
+      "A_to_D": "northeast_to_central_east_arc",
+      "D_to_E": "central_to_southeast_exit"
+    },
+    "2024_temporal_ce1": {
+      "A_to_B": [
+        "northeast_to_central_east_arc",
+        "central_to_west_lower_corridor"
+      ],
+      "B_to_A": [
+        "central_to_west_lower_corridor:reverse",
+        "northeast_to_central_east_arc:reverse"
+      ],
+      "D_to_C": "central_to_northwest_branch",
+      "purple_background_route": "outer_perimeter_loop"
+    },
+    "2024_temporal_ce2": {
+      "A_to_B": [
+        "northeast_to_central_east_arc",
+        "central_to_west_lower_corridor"
+      ],
+      "B_to_A": [
+        "central_to_west_lower_corridor:reverse",
+        "northeast_to_central_east_arc:reverse"
+      ],
+      "D_to_C": "central_to_northwest_branch",
+      "purple_background_route": "outer_perimeter_loop"
+    },
+    "2025_flee_police": {
+      "vehicle1_start_to_A": "central_to_west_lower_corridor:reverse",
+      "vehicle1_A_to_B": "northeast_to_central_east_arc:reverse",
+      "vehicle1_return": [
+        "northeast_to_central_east_arc",
+        "central_to_west_lower_corridor"
+      ]
+    },
+    "2025_package_exchange": {
+      "exchange_area": "northeast_entry",
+      "vehicle1_A_to_B": "northeast_to_central_east_arc",
+      "vehicle2_return_from_A": "outside_east; not fully represented by fixed-site corridors"
+    },
+    "2025_robbery": {
+      "vehicle_arrive_to_A": "central_to_west_lower_corridor:partial_reverse",
+      "vehicle_departure_loop": "central_north_loop",
+      "person_A_to_building_B": {
+        "from_zone": "central_south_junction",
+        "to_zone": "central_building",
+        "best_sensors": [
+          "d2",
+          "d1",
+          "d3",
+          "orin_2",
+          "orin_1"
+        ]
+      }
+    }
+  },
+  "software_usage": {
+    "recommended_lookup": [
+      "Choose the active mobile deployment.",
+      "Identify the current camera and estimate object heading.",
+      "Search directional_next_sensor_rules for the current camera and heading.",
+      "If no direct rule exists, identify the current corridor and advance to the next observation group.",
+      "Activate all sensors in the next group when coverage overlaps or the route branch is unresolved.",
+      "Use microphones as supplementary evidence only until audio range is calibrated."
+    ],
+    "python_loading_example": "import json\nwith open('site_sensor_transition_model_2024_2025.json') as f:\n    model = json.load(f)\nrules = model['directional_next_sensor_rules']"
+  },
+  "known_issues": [
+    "Pages 5 and 6 of the 2024 PDF show different placements for n1 and n2 in temporal_ce2. Both are preserved as separate deployment IDs.",
+    "The diagrams provide qualitative fields of view, not measured polygons, camera intrinsics, detection ranges, or occlusion maps.",
+    "Mobile-node arrow directions in the 2025 maps are less explicit than the 2024 triangular fields of view; several headings are marked medium confidence."
+  ]
+}

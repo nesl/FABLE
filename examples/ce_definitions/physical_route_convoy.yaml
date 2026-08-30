@@ -1,0 +1,20 @@
+version: 1
+event: physical_route_convoy
+roles:
+  LEADER:
+    class: vehicle
+  FOLLOWER:
+    class: vehicle
+description: >-
+  A leading vehicle enters a monitored view, a distinct vehicle follows it in
+  the same view, and the leader subsequently exits. This is the refactored
+  physical validation of the labeled route-convoy research event.
+pattern:
+  seq:
+    - enters:
+        object: LEADER
+    - follows:
+        leader: LEADER
+        follower: FOLLOWER
+    - exits:
+        object: LEADER
