@@ -7,8 +7,21 @@ __pycache__
 .mypy_cache
 .ruff_cache
 
-# Generated evaluation/runtime artifacts are mounted or read from the host;
+# Generated runtime artifacts are mounted or read from the host;
 # they must never inflate immutable application image build contexts.
-runs
+.fable
 debug
-evaluation/results
+
+# Recordings and provisioned model binaries are runtime mounts/assets, not
+# immutable image inputs.
+*.mp4
+*.mkv
+*.avi
+*.mov
+*.wav
+*.flac
+*.pt
+*.pth
+*.onnx
+*.engine
+*.weights

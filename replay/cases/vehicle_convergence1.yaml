@@ -1,0 +1,159 @@
+version: 1
+case_id: vehicle_convergence1
+aliases:
+- vehicle_converge1
+description: Detect three distinct vehicles converging in the camera view.
+verified_end_to_end: false
+timeout_seconds: 330
+require_completion: true
+event:
+  version: 1
+  event: vehicle_convergence
+  description: Three distinct vehicles arrive and converge together in the monitored
+    view.
+  roles:
+    VEHICLE_A:
+      class: vehicle
+    VEHICLE_B:
+      class: vehicle
+    VEHICLE_C:
+      class: vehicle
+  pattern:
+    seq:
+    - enters:
+        object: VEHICLE_A
+    - all:
+      - near:
+          object_a: VEHICLE_A
+          object_b: VEHICLE_B
+          max_distance_m: 10
+      - near:
+          object_a: VEHICLE_A
+          object_b: VEHICLE_C
+          max_distance_m: 10
+      - near:
+          object_a: VEHICLE_B
+          object_b: VEHICLE_C
+          max_distance_m: 10
+replay:
+  version: 1
+  replay_id: 20241008-vehicle-convergence-3-r006
+  speed: 1.0
+  source_policy:
+    monitor: all
+    inference:
+    - orin1_camera
+    - orin4_camera
+    - orin7_camera
+  sources:
+  - source_id: orin1_camera
+    modality: video
+    path: /gq-recordings/20241008/orin1/20241008_102107_dvpg_gq_orin_1_zed_left.mp4
+    event_time_start: '2024-10-08T14:21:07Z'
+    offset_seconds: 7.0
+    duration_seconds: 94.666667
+  - source_id: orin2_camera
+    modality: video
+    path: /gq-recordings/20241008/orin2/20241008_102107_dvpg_gq_orin_2_zed_left.mp4
+    event_time_start: '2024-10-08T14:21:07Z'
+    offset_seconds: 7.0
+    duration_seconds: 94.6
+  - source_id: orin3_camera
+    modality: video
+    path: /gq-recordings/20241008/orin3/20241008_102107_dvpg_gq_orin_3_zed_left.mp4
+    event_time_start: '2024-10-08T14:21:07Z'
+    offset_seconds: 7.0
+    duration_seconds: 94.8
+  - source_id: orin4_camera
+    modality: video
+    path: /gq-recordings/20241008/orin4/20241008_102107_dvpg_gq_orin_4_zed_left.mp4
+    event_time_start: '2024-10-08T14:21:07Z'
+    offset_seconds: 7.0
+    duration_seconds: 94.866667
+  - source_id: orin5_camera
+    modality: video
+    path: /gq-recordings/20241008/orin5/20241008_102107_dvpg_gq_orin_5_zed_left.mp4
+    event_time_start: '2024-10-08T14:21:07Z'
+    offset_seconds: 7.0
+    duration_seconds: 94.8
+  - source_id: orin6_camera
+    modality: video
+    path: /gq-recordings/20241008/orin6/20241008_102107_dvpg_gq_orin_6_zed_left.mp4
+    event_time_start: '2024-10-08T14:21:07Z'
+    offset_seconds: 7.0
+    duration_seconds: 94.866667
+  - source_id: orin7_camera
+    modality: video
+    path: /gq-recordings/20241008/orin7/20241008_102107_dvpg_gq_orin_7_zed_left.mp4
+    event_time_start: '2024-10-08T14:21:07Z'
+    offset_seconds: 7.0
+    duration_seconds: 94.866667
+  - source_id: orin8_camera
+    modality: video
+    path: /gq-recordings/20241008/orin8/20241008_102107_dvpg_gq_orin_8_zed_left.mp4
+    event_time_start: '2024-10-08T14:21:07Z'
+    offset_seconds: 7.0
+    duration_seconds: 94.8
+  - source_id: orin9_camera
+    modality: video
+    path: /gq-recordings/20241008/orin9/20241008_102107_dvpg_gq_orin_9_zed_left.mp4
+    event_time_start: '2024-10-08T14:21:07Z'
+    offset_seconds: 7.0
+    duration_seconds: 94.733333
+  - source_id: orin10_camera
+    modality: video
+    path: /gq-recordings/20241008/orin10/20241008_102107_dvpg_gq_orin_10_zed_left.mp4
+    event_time_start: '2024-10-08T14:21:07Z'
+    offset_seconds: 7.0
+    duration_seconds: 94.8
+  - source_id: mobile_1_all
+    modality: video
+    path: /recordings/mobile 1 all/recording_spatial_ce1_3_1728397264576.mp4
+    event_time_start: '2024-10-08T14:21:04.576Z'
+    offset_seconds: 9.4
+    duration_seconds: 71.4886
+    segments:
+    - path: /recordings/mobile 1 all/recording_spatial_ce1_3_1728397264576.mp4
+      event_time_start: '2024-10-08T14:21:04.576Z'
+      offset_seconds: 9.4
+      duration_seconds: 71.4886
+    - path: /recordings/mobile 1 all/recording_spatial_ce1_3_1728397345837.mp4
+      event_time_start: '2024-10-08T14:22:25.837Z'
+      offset_seconds: 0.0
+      duration_seconds: 67.123
+    rotation_degrees: 270
+    orientation_note: portrait-sideways source
+  - source_id: mobile_2_all
+    modality: video
+    path: /recordings/mobile 2 all/recording_spatial_ce1_3_1728397264640.mp4
+    event_time_start: '2024-10-08T14:21:04.640Z'
+    offset_seconds: 9.36
+    duration_seconds: 71.5081
+    segments:
+    - path: /recordings/mobile 2 all/recording_spatial_ce1_3_1728397264640.mp4
+      event_time_start: '2024-10-08T14:21:04.640Z'
+      offset_seconds: 9.36
+      duration_seconds: 71.5081
+    - path: /recordings/mobile 2 all/recording_spatial_ce1_3_1728397345867.mp4
+      event_time_start: '2024-10-08T14:22:25.867Z'
+      offset_seconds: 0.0
+      duration_seconds: 67.194
+    rotation_degrees: 90
+    orientation_note: source was upside down; rotate 90 degrees before inference
+  - source_id: mobile_3_all
+    modality: video
+    path: /recordings/mobile 3 all/recording_spatial_ce1_3_1728397264612.mp4
+    event_time_start: '2024-10-08T14:21:04.612Z'
+    offset_seconds: 9.388
+    duration_seconds: 71.3053
+    segments:
+    - path: /recordings/mobile 3 all/recording_spatial_ce1_3_1728397264612.mp4
+      event_time_start: '2024-10-08T14:21:04.612Z'
+      offset_seconds: 9.388
+      duration_seconds: 71.3053
+    - path: /recordings/mobile 3 all/recording_spatial_ce1_3_1728397345743.mp4
+      event_time_start: '2024-10-08T14:22:25.743Z'
+      offset_seconds: 0.0
+      duration_seconds: 47.108
+    rotation_degrees: 270
+    orientation_note: portrait-sideways source

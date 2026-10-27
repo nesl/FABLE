@@ -69,6 +69,21 @@ PredicateMatch
 
 Workers subscribe to their declared input types from `provider_capabilities.yaml` and publish their declared output type. Shared prefixes are physically shared: one `TrackFrame` can feed several predicate workers.
 
+For distributed video placement, a source-owning node may enable
+`mqtt_video_relay`. It JPEG-encodes configured `VideoFrame` sources onto
+`fable/v1/source/video/<source_id>`; remote node agents inject those frames into
+their local `StreamBus`. Provider intermediates stay local because the default
+planner places one discovered chain on one node. Terminal `PredicateMatch` and
+identity results are sent to the controller immediately over MQTT. The
+controller advances CE instances and replans from those results; it does not
+replay the recording. Historical replay remains a separate query/replay path.
+
+Network experiments publish an atomic pair of directed `LinkState` updates to
+`fable/v1/runtime/link`. The controller starts replacement providers before
+stopping the old chain, acknowledges the resulting execution plan, and only
+then does the experiment runner apply a hard disconnect. QoS-1 request IDs are
+handled idempotently.
+
 The same-node data plane uses the existing small provider models (`VideoFrame`, `DetectionFrame`, `TrackFrame`, `AudioWindow`, embeddings, etc.). There is no new artifact hierarchy.
 
 ### Current deliberate boundary
@@ -123,6 +138,24 @@ If the same key occurs in the old state and new plan it is `KEEP`; new-only is `
 
 ## Node-agent configuration
 
+Distributed deployments should set `transport: mqtt` and provide `mqtt.host`
+and `mqtt.port`. Lifecycle commands use correlated QoS-1 request/reply messages;
+terminal predicate/ReID results use an asynchronous QoS-1 topic. TCP remains
+available for local compatibility. Raw streams stay on the node-local bus.
+
+Set `historical_store.database` to record configured compact stream types in a
+node-local SQLite index. `HistoricalStore` also indexes media paths and supports
+overlap, contained, and covering interval retrieval plus retention expiry.
+
+`runtime: docker` launches configured `providers.<id>.image` containers. Mount
+the Docker socket into the node-agent container when using this mode.
+
+Terminal predicate plan steps carry a deliberately small semantic demand:
+bound object IDs, authored predicate parameters, and expiry. Shared worker
+identity remains `(provider_id, node_id, source_ids)`; replanning refreshes its
+demands without restarting it. Disabled capability entries are retained for
+implementation status but are excluded from planner search.
+
 The standard node-agent path now uses `runtime: dataflow`:
 
 ```yaml
@@ -153,7 +186,7 @@ python scripts/run_node_agent.py node_agent.yaml
 The controller starts a result receiver automatically:
 
 ```bash
-python scripts/run_fable.py ce_definitions/<event>.yaml deployment.yaml
+python scripts/run_fable.py .fable/runs/resolved/<case>.event.yaml deployment.yaml
 ```
 
 ## Network measurement

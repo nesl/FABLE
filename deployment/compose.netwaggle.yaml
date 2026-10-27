@@ -1,0 +1,8 @@
+services:
+  sensor1-agent:
+    container_name: fable-e2e-sensor1-agent
+    command:
+      - scripts/run_node_agent.py
+      - deployment/config/node_agent.netwaggle.example.yaml
+    environment:
+      FABLE_REPLAY_START_BARRIER_FILE: /tmp/fable-network-ready

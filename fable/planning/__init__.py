@@ -4,6 +4,7 @@ from .physical_planner import (
     PhysicalRequirement,
     PlanAlternative,
     PlanStep,
+    ProviderDemand,
     coalesce_frontier,
 )
 from .profiles import load_provider_profiles
@@ -25,6 +26,7 @@ __all__ = [
     "PhysicalRequirement",
     "PlanAlternative",
     "PlanStep",
+    "ProviderDemand",
     "ProviderProfile",
     "ProviderRecipe",
     "ProviderSearcher",

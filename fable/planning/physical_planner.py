@@ -34,11 +34,23 @@ class PhysicalRequirement:
 
 
 @dataclass(frozen=True, slots=True)
+class ProviderDemand:
+    """Small semantic request delivered to a terminal predicate worker."""
+
+    demand_id: str
+    predicate: str
+    arguments: Mapping[str, str | None] = field(default_factory=dict)
+    parameters: Mapping[str, Any] = field(default_factory=dict)
+    expires_at: datetime | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class PlanStep:
     provider_id: str
     node_id: str
     source_ids: tuple[str, ...]
     output_type: str
+    demands: tuple[ProviderDemand, ...] = ()
 
     @property
     def key(self) -> tuple[str, str, tuple[str, ...]]:
@@ -138,6 +150,8 @@ class PhysicalPlanner:
                     break
             rows = sorted(rows, key=_alternative_rank)
             if not rows:
+                if requirement.item.optional:
+                    continue
                 raise RuntimeError(
                     f"no feasible physical implementation for {requirement.item.predicate!r} "
                     f"at site {requirement.site_id!r}"
@@ -145,12 +159,14 @@ class PhysicalPlanner:
             alternatives[requirement.requirement_id] = tuple(rows[: self.max_placements_per_recipe])
 
         ordered = sorted(
-            requirements,
+            (row for row in requirements if row.requirement_id in alternatives),
             key=lambda row: (
                 row.item.expires_at or datetime.max.replace(tzinfo=now.tzinfo),
                 row.requirement_id,
             ),
         )
+        if not ordered:
+            raise RuntimeError("no feasible physical implementation for optional frontier branches")
         beam = [_BeamState()]
         for requirement in ordered:
             expanded: list[_BeamState] = []
@@ -189,7 +205,14 @@ class PhysicalPlanner:
         placed = self._place(recipe, requirement.site_id, runtime, limit=self.max_placements_per_recipe)
         output: list[PlanAlternative] = []
         for row in placed:
-            steps = _unique_steps(row.steps)
+            demand = ProviderDemand(
+                requirement.requirement_id,
+                requirement.item.predicate,
+                dict(requirement.item.arguments),
+                dict(requirement.item.parameters),
+                requirement.item.expires_at,
+            )
+            steps = _attach_demand(_unique_steps(row.steps), recipe, demand)
             if not _resources_feasible(steps, runtime):
                 continue
             new_count, peak = _plan_resource_metrics(steps, runtime)
@@ -307,7 +330,18 @@ class PhysicalPlanner:
     ) -> _BeamState | None:
         steps = dict(partial.steps)
         for step in alternative.steps:
-            steps[step.key] = step
+            existing = steps.get(step.key)
+            if existing is None:
+                steps[step.key] = step
+            else:
+                demands = {
+                    demand.demand_id: demand
+                    for demand in (*existing.demands, *step.demands)
+                }
+                steps[step.key] = PlanStep(
+                    step.provider_id, step.node_id, step.source_ids, step.output_type,
+                    tuple(demands[key] for key in sorted(demands)),
+                )
         merged_steps = tuple(steps.values())
         if not _resources_feasible(merged_steps, runtime):
             return None
@@ -352,6 +386,7 @@ def coalesce_frontier(frontier: ActiveFrontier, runtime: RuntimeState) -> tuple[
             key = (
                 site,
                 item.predicate,
+                tuple(sorted(item.arguments.items())),
                 tuple(sorted(item.classes.items())),
                 tuple(sorted((name, _freeze(value)) for name, value in item.parameters.items())),
             )
@@ -401,8 +436,31 @@ def _sites_for_item(item: FrontierItem, runtime: RuntimeState) -> tuple[str, ...
 
 
 def _unique_steps(steps: Sequence[PlanStep]) -> tuple[PlanStep, ...]:
-    by_key = {step.key: step for step in steps}
+    by_key: dict[tuple[str, str, tuple[str, ...]], PlanStep] = {}
+    for step in steps:
+        existing = by_key.get(step.key)
+        if existing is None:
+            by_key[step.key] = step
+            continue
+        demands = {demand.demand_id: demand for demand in (*existing.demands, *step.demands)}
+        by_key[step.key] = PlanStep(
+            step.provider_id, step.node_id, step.source_ids, step.output_type,
+            tuple(demands[key] for key in sorted(demands)),
+        )
     return tuple(sorted(by_key.values(), key=lambda step: step.key))
+
+
+def _attach_demand(
+    steps: tuple[PlanStep, ...], recipe: ProviderRecipe, demand: ProviderDemand,
+) -> tuple[PlanStep, ...]:
+    """Attach semantic context only to the recipe's terminal provider."""
+    return tuple(
+        PlanStep(step.provider_id, step.node_id, step.source_ids, step.output_type,
+                 (*step.demands, demand))
+        if step.provider_id == recipe.provider_id and step.output_type == recipe.output_type
+        else step
+        for step in steps
+    )
 
 
 def _resources_feasible(steps: Sequence[PlanStep], runtime: RuntimeState) -> bool:

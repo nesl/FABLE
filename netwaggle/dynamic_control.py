@@ -22,6 +22,7 @@ ALLOWED_REQUEST_KEYS = {
     "condition",
     "action",
     "condition_epoch",
+    "conditions",
 }
 
 
@@ -139,7 +140,7 @@ class DynamicProfileServer:
         *,
         net,
         base_topology: NetWaggleTopology,
-        condition_profiles: dict[str, Path],
+        condition_profiles: dict[str, Path] | None,
         socket_path: str | Path,
         qdisc_inspector: QdiscInspector = inspect_qdisc,
     ) -> None:
@@ -147,10 +148,8 @@ class DynamicProfileServer:
         self.base_topology = base_topology
         self.condition_profiles = {
             condition: path.resolve(strict=True)
-            for condition, path in condition_profiles.items()
+            for condition, path in (condition_profiles or {}).items()
         }
-        if not self.condition_profiles:
-            raise ValueError("dynamic control requires condition profiles")
         self.socket_path = Path(socket_path)
         self.qdisc_inspector = qdisc_inspector
         if not self.socket_path.is_absolute():
@@ -240,6 +239,12 @@ class DynamicProfileServer:
         kind = document.get("kind")
         target = str(document.get("target") or "")
         action = str(document.get("action") or "")
+        if kind == "LINK_CONDITION":
+            return self._handle_link_condition(
+                target=target,
+                conditions=document.get("conditions"),
+                condition_epoch=int(document.get("condition_epoch", 0)),
+            )
         if kind == "LINK_STATE":
             return self._handle_link_state(
                 target=target,
@@ -285,6 +290,73 @@ class DynamicProfileServer:
             "profile": str(profile.get("name") or profile_path.stem),
             "measurements": measurements,
             "reason": "Mininet TCLink interfaces reconfigured and qdisc state read back",
+        }
+
+    def _handle_link_condition(
+        self,
+        *,
+        target: str,
+        conditions: Any,
+        condition_epoch: int,
+    ) -> dict[str, Any]:
+        configured = next((item for item in self.base_topology.links if item.name == target), None)
+        if configured is None:
+            raise NetWaggleError(f"unknown link name: {target}")
+        if not isinstance(conditions, dict) or not conditions:
+            raise NetWaggleError("LINK_CONDITION requires a non-empty conditions mapping")
+        allowed = {
+            "connection_status", "bandwidth_mbps", "latency_ms", "jitter_ms",
+            "packet_loss_fraction",
+        }
+        unknown = set(conditions) - allowed
+        if unknown:
+            raise NetWaggleError(f"unknown link condition fields: {sorted(unknown)}")
+        status = conditions.get("connection_status", "connected")
+        if status not in {"connected", "disconnected"}:
+            raise NetWaggleError("connection_status must be connected or disconnected")
+        for key in ("bandwidth_mbps", "latency_ms", "jitter_ms"):
+            if key in conditions and float(conditions[key]) < 0:
+                raise NetWaggleError(f"{key} must be nonnegative")
+        if "packet_loss_fraction" in conditions and not 0 <= float(conditions["packet_loss_fraction"]) <= 1:
+            raise NetWaggleError("packet_loss_fraction must be between 0 and 1")
+        key = frozenset((configured.src, configured.dst))
+        live = next(
+            (item for item in self.net.links if frozenset((item.intf1.node.name, item.intf2.node.name)) == key),
+            None,
+        )
+        if live is None:
+            raise NetWaggleError(f"link {target!r} does not exist in the running topology")
+        state = "up" if status == "connected" else "down"
+        live.intf1.ifconfig(state)
+        live.intf2.ifconfig(state)
+        params = {}
+        if "bandwidth_mbps" in conditions: params["bw"] = float(conditions["bandwidth_mbps"])
+        if "latency_ms" in conditions: params["delay"] = f"{float(conditions['latency_ms']):g}ms"
+        if "jitter_ms" in conditions: params["jitter"] = f"{float(conditions['jitter_ms']):g}ms"
+        if "packet_loss_fraction" in conditions: params["loss"] = 100.0 * float(conditions["packet_loss_fraction"])
+        if status == "connected" and params:
+            live.intf1.config(**params)
+            live.intf2.config(**params)
+        readback = [_interface_up(live.intf1), _interface_up(live.intf2)]
+        if any(item is not (status == "connected") for item in readback):
+            raise NetWaggleError("link administrative-state readback mismatch")
+        measurements = {
+            "target": target,
+            "interfaces": [live.intf1.name, live.intf2.name],
+            "interface_up": readback,
+            "requested_conditions": conditions,
+        }
+        if status == "connected" and params:
+            measurements["qdisc_state"] = [
+                {"interface": interface.name, "qdiscs": self.qdisc_inspector(interface.name)}
+                for interface in (live.intf1, live.intf2)
+            ]
+        return {
+            "schema_version": "netwaggle.dynamic_control_result.v1",
+            "validated": True,
+            "condition_epoch": condition_epoch,
+            "measurements": measurements,
+            "reason": "named link condition applied and read back",
         }
 
     def _handle_link_state(
@@ -560,4 +632,3 @@ def _sensor_switch_name(sensor: str) -> str:
 
     match = re.fullmatch(r"s_mobile_archive_([1-6])", sensor)
     return f"s_mob{match.group(1)}" if match is not None else sensor
-

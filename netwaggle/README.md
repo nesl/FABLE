@@ -1,17 +1,40 @@
 # NetWaggle integration
 
-NetWaggle is the network-emulation layer surrounding, not embedded in, FABLE.
-Its responsibilities are:
+NetWaggle supplies reusable network environments around FABLE. It creates the
+sensor/edge topology, applies bandwidth, latency, loss, or connectivity
+conditions, and publishes the measured link state back to the FABLE planner.
 
-1. create or attach logical network links;
-2. apply versioned bandwidth, latency, loss, and availability conditions;
-3. measure the applied condition;
-4. translate measurements into FABLE `LinkState` updates.
+It is an integration layer: `fable/` does not import `netwaggle/`.
 
-The Mininet/OVS runner is isolated from FABLE core and maintained independently
-because it does not depend on the old semantic runtime. Until that runner is
-fully validated, this directory exposes only the typed bridge and condition
-schema; it does not claim that privileged host mutations are available.
+## Reusable network plans
 
-`fable/` must never import this package. The controller or evaluation harness
-may consume `NetwaggleLinkObservation` and update `RuntimeState`.
+User-facing plans live under [`replay/plans`](../replay/plans) and contain no
+case or event names:
+
+- `direct.yaml` uses ordinary Docker networking and does not start NetWaggle.
+- `network_nominal.yaml` starts NetWaggle without injecting an impairment.
+- `network_disconnect.yaml` starts NetWaggle and disconnects the sensor/edge uplink.
+
+Any replay case can use any plan:
+
+```bash
+./run --case convoy1 --plan direct
+./run --case convoy1 --plan network_nominal
+./run --case convoy1 --plan network_disconnect
+```
+
+A NetWaggle plan contains a topology and a condition schedule. Conditions are
+relative to replay release:
+
+```yaml
+version: 1
+mode: netwaggle
+topology: netwaggle/topologies/sensor_edge.yaml
+conditions:
+  - starts_at_seconds: 0
+    affected_link_name: sensor_edge_uplink
+    connection_status: disconnected
+```
+
+The runner invokes sudo only for the Mininet/OVS process. Direct mode bypasses
+sudo, Mininet, OVS, and the NetWaggle control socket.

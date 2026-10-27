@@ -117,10 +117,22 @@ class OpenCVVideoSourceAdapter:
         uri: str | int,
         *,
         realtime: bool = True,
+        event_time_start: datetime | None = None,
+        offset_seconds: float = 0.0,
+        playback_speed: float = 1.0,
+        rotation_degrees: int = 0,
     ) -> None:
         self.source_id = source_id
         self.uri = uri
         self.realtime = realtime
+        self.event_time_start = event_time_start
+        self.offset_seconds = float(offset_seconds)
+        self.playback_speed = float(playback_speed)
+        self.rotation_degrees = int(rotation_degrees)
+        if self.offset_seconds < 0 or self.playback_speed <= 0:
+            raise ValueError("offset_seconds must be non-negative and playback_speed positive")
+        if self.rotation_degrees not in {0, 90, 180, 270}:
+            raise ValueError("rotation_degrees must be one of 0, 90, 180, or 270")
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
 
@@ -137,17 +149,38 @@ class OpenCVVideoSourceAdapter:
             capture = cv2.VideoCapture(self.uri)
             if not capture.isOpened():
                 return
+            if self.offset_seconds:
+                capture.set(cv2.CAP_PROP_POS_MSEC, self.offset_seconds * 1000.0)
             fps = float(capture.get(cv2.CAP_PROP_FPS) or 0.0)
             frame_period = 1.0 / fps if fps > 0 else 0.0
             index = 0
-            start = datetime.now(timezone.utc)
+            start = self.event_time_start or datetime.now(timezone.utc)
+            replay_started = time.monotonic()
             try:
                 while not self._stop.is_set():
+                    # Provider callbacks are synchronous and may take longer
+                    # than a source frame period. Keep file replay tied to an
+                    # absolute clock by dropping overdue frames rather than
+                    # allowing inference time to slow the camera timeline.
+                    if self.realtime and frame_period > 0:
+                        due_index = int(
+                            (time.monotonic() - replay_started)
+                            * self.playback_speed / frame_period
+                        )
+                        while index < due_index and capture.grab():
+                            index += 1
                     ok, image = capture.read()
                     if not ok:
                         break
+                    if self.rotation_degrees:
+                        rotations = {
+                            90: cv2.ROTATE_90_CLOCKWISE,
+                            180: cv2.ROTATE_180,
+                            270: cv2.ROTATE_90_COUNTERCLOCKWISE,
+                        }
+                        image = cv2.rotate(image, rotations[self.rotation_degrees])
                     event_time = (
-                        start + timedelta(seconds=index * frame_period)
+                        start + timedelta(seconds=self.offset_seconds + index * frame_period)
                         if frame_period > 0
                         else datetime.now(timezone.utc)
                     )
@@ -157,7 +190,8 @@ class OpenCVVideoSourceAdapter:
                     )
                     index += 1
                     if self.realtime and frame_period > 0:
-                        self._stop.wait(frame_period)
+                        deadline = replay_started + index * frame_period / self.playback_speed
+                        self._stop.wait(max(0.0, deadline - time.monotonic()))
             finally:
                 capture.release()
 
@@ -183,11 +217,19 @@ class WaveAudioSourceAdapter:
         *,
         window_ms: int = 1000,
         realtime: bool = True,
+        event_time_start: datetime | None = None,
+        offset_seconds: float = 0.0,
+        playback_speed: float = 1.0,
     ) -> None:
         self.source_id = source_id
         self.path = Path(path)
         self.window_ms = int(window_ms)
         self.realtime = realtime
+        self.event_time_start = event_time_start
+        self.offset_seconds = float(offset_seconds)
+        self.playback_speed = float(playback_speed)
+        if self.offset_seconds < 0 or self.playback_speed <= 0:
+            raise ValueError("offset_seconds must be non-negative and playback_speed positive")
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
 
@@ -205,22 +247,31 @@ class WaveAudioSourceAdapter:
                 if channels != 1 or sample_width != 2:
                     raise RuntimeError("minimal WAV adapter expects mono 16-bit PCM")
                 count = max(1, int(rate * self.window_ms / 1000.0))
-                start = datetime.now(timezone.utc)
+                if self.offset_seconds:
+                    handle.setpos(min(handle.getnframes(), int(self.offset_seconds * rate)))
+                start = self.event_time_start or datetime.now(timezone.utc)
                 index = 0
+                replay_started = time.monotonic()
                 while not self._stop.is_set():
                     raw = handle.readframes(count)
                     if not raw:
                         break
                     ints = struct.unpack("<" + "h" * (len(raw) // 2), raw)
                     samples = tuple(value / 32768.0 for value in ints)
-                    event_time = start + timedelta(seconds=index * count / rate)
+                    event_time = start + timedelta(
+                        seconds=self.offset_seconds + index * count / rate
+                    )
                     bus.publish(
                         StreamKey(self.data_type, (self.source_id,)),
                         AudioWindow(self.source_id, event_time, samples, rate),
                     )
                     index += 1
                     if self.realtime:
-                        self._stop.wait(count / rate)
+                        deadline = (
+                            replay_started
+                            + index * count / rate / self.playback_speed
+                        )
+                        self._stop.wait(max(0.0, deadline - time.monotonic()))
 
         self._thread = threading.Thread(target=run, daemon=True)
         self._thread.start()

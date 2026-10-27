@@ -14,19 +14,24 @@ def load_provider_profiles(path: str | Path | None = None) -> dict[tuple[str, st
     if not isinstance(raw, dict) or raw.get("version") != 1 or not isinstance(raw.get("profiles"), dict):
         raise ValueError(f"{source}: invalid provider profile document")
     result: dict[tuple[str, str], ProviderProfile] = {}
-    for provider_id, spec in raw["profiles"].items():
-        if not isinstance(spec, dict):
-            raise ValueError(f"{source}.profiles.{provider_id}: expected mapping")
-        node_type = str(spec.get("node_type", "*"))
-        result[(provider_id, node_type)] = ProviderProfile(
-            provider_id=provider_id,
-            node_type=node_type,
-            startup_ms=float(spec.get("startup_ms", 0)),
-            execution_ms=float(spec.get("execution_ms", 0)),
-            cpu=float(spec.get("cpu", 0)),
-            memory_mb=float(spec.get("memory_mb", 0)),
-            gpu_memory_mb=float(spec.get("gpu_memory_mb", 0)),
-            output_bytes=int(spec.get("output_bytes", 0)),
-            quality=float(spec.get("quality", 1.0)),
-        )
+    for provider_id, value in raw["profiles"].items():
+        specs = value if isinstance(value, list) else [value]
+        for spec in specs:
+            if not isinstance(spec, dict):
+                raise ValueError(f"{source}.profiles.{provider_id}: expected mapping or list of mappings")
+            node_type = str(spec.get("node_type", "*"))
+            key = (provider_id, node_type)
+            if key in result:
+                raise ValueError(f"{source}: duplicate profile {provider_id!r} for {node_type!r}")
+            result[key] = ProviderProfile(
+                provider_id=provider_id,
+                node_type=node_type,
+                startup_ms=float(spec.get("startup_ms", 0)),
+                execution_ms=float(spec.get("execution_ms", 0)),
+                cpu=float(spec.get("cpu", 0)),
+                memory_mb=float(spec.get("memory_mb", 0)),
+                gpu_memory_mb=float(spec.get("gpu_memory_mb", 0)),
+                output_bytes=int(spec.get("output_bytes", 0)),
+                quality=float(spec.get("quality", 1.0)),
+            )
     return result

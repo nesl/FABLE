@@ -1,0 +1,8 @@
+version: 1
+mode: netwaggle
+description: Replay through NetWaggle with the sensor/edge uplink disconnected.
+topology: netwaggle/topologies/sensor_edge.yaml
+conditions:
+  - starts_at_seconds: 0
+    affected_link_name: sensor_edge_uplink
+    connection_status: disconnected

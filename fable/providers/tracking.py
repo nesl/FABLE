@@ -47,7 +47,7 @@ class IoUTrackerProvider:
             if tid in at or _object_id(frame.source_id,tid) in current_ids: continue
             states[tid].missed_frames+=1
             if states[tid].missed_frames>self.maximum_missed_frames: states.pop(tid,None)
-        return TrackFrame(frame.source_id,frame.event_time,tuple(sorted(output,key=lambda t:t.object_id)))
+        return TrackFrame(frame.source_id,frame.event_time,tuple(sorted(output,key=lambda t:t.object_id)),frame.image_width,frame.image_height)
 
 class MultiObjectTrackerProvider:
     """Public tracker facade matching the old ``multi_object_tracker`` provider.
@@ -70,20 +70,24 @@ class _SupervisionByteTrackProvider:
             import supervision as sv
         except ImportError as exc:  # pragma: no cover
             raise OptionalProviderDependency("supervision is required for ByteTrack") from exc
-        self._sv=sv; self._tracker=sv.ByteTrack()
+        self._sv=sv; self._tracker=sv.ByteTrack(); self._ages:dict[tuple[str,int],int]={}
     def update(self,frame:DetectionFrame)->TrackFrame:
         try:
             import numpy as np
         except ImportError as exc: raise OptionalProviderDependency("NumPy is required for ByteTrack") from exc
-        xyxy=np.asarray([[d.bbox.x1,d.bbox.y1,d.bbox.x2,d.bbox.y2] for d in frame.detections],dtype=float)
+        xyxy=np.asarray(
+            [[d.bbox.x1,d.bbox.y1,d.bbox.x2,d.bbox.y2] for d in frame.detections],
+            dtype=float,
+        ).reshape((-1,4))
         conf=np.asarray([d.confidence for d in frame.detections],dtype=float); class_id=np.arange(len(frame.detections),dtype=int)
         detections=self._sv.Detections(xyxy=xyxy,confidence=conf,class_id=class_id); tracked=self._tracker.update_with_detections(detections)
         out=[]
         for i,(box,tid) in enumerate(zip(tracked.xyxy,tracked.tracker_id)):
             # Supervision may reorder boxes; use nearest current detector box for class/confidence.
-            bbox=BoundingBox(*map(float,box)); nearest=min(frame.detections,key=lambda d:1-d.bbox.iou(bbox))
-            out.append(Track(f"{frame.source_id}:track_{int(tid)}",frame.source_id,nearest.class_name,nearest.confidence,bbox,frame.event_time))
-        return TrackFrame(frame.source_id,frame.event_time,tuple(out))
+            bbox=BoundingBox(*map(float,box)); nearest=min(frame.detections,key=lambda d:1-d.bbox.iou(bbox)); key=(frame.source_id,int(tid))
+            self._ages[key]=self._ages.get(key,0)+1
+            out.append(Track(f"{frame.source_id}:track_{int(tid)}",frame.source_id,nearest.class_name,nearest.confidence,bbox,frame.event_time,age_frames=self._ages[key]))
+        return TrackFrame(frame.source_id,frame.event_time,tuple(out),frame.image_width,frame.image_height)
 
 def _object_id(source_id:str,local_id:int)->str: return f"{source_id}:track_{local_id}"
 def _to_track(source_id:str,state:_TrackState,velocity:tuple[float,float]|None)->Track:

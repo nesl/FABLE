@@ -11,12 +11,22 @@ import yaml
 
 
 @dataclass(frozen=True)
+class ReplaySegment:
+    path: Path
+    event_time_start: datetime
+    offset_seconds: float = 0.0
+    duration_seconds: float | None = None
+
+
+@dataclass(frozen=True)
 class ReplaySource:
     source_id: str
     modality: str
     path: Path
     event_time_start: datetime
     offset_seconds: float = 0.0
+    rotation_degrees: int = 0
+    segments: tuple[ReplaySegment, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -49,20 +59,44 @@ def load_replay_manifest(path: str | Path) -> ReplayManifest:
         if source_id in seen:
             raise ValueError(f"duplicate replay source {source_id!r}")
         seen.add(source_id)
-        recording = Path(str(item["path"]))
+        segments = []
+        for segment in item.get("segments", ()):
+            segment_path = Path(str(segment["path"]))
+            segment_path = segment_path if segment_path.is_absolute() else (source.parent / segment_path).resolve()
+            if not segment_path.is_file():
+                raise FileNotFoundError(segment_path)
+            duration = segment.get("duration_seconds")
+            if duration is not None and float(duration) <= 0:
+                raise ValueError("segment duration_seconds must be positive")
+            segments.append(ReplaySegment(
+                segment_path, _time(segment["event_time_start"]),
+                float(segment.get("offset_seconds", 0.0)),
+                None if duration is None else float(duration),
+            ))
+        recording_value = item.get("path")
+        if recording_value is None and not segments:
+            raise ValueError(f"replay source {source_id!r} requires path or segments")
+        recording = segments[0].path if recording_value is None else Path(str(recording_value))
         recording = recording if recording.is_absolute() else (source.parent / recording).resolve()
         if not recording.is_file():
             raise FileNotFoundError(recording)
         modality = str(item["modality"])
         if modality not in {"video", "audio"}:
             raise ValueError(f"unsupported replay modality {modality!r}")
+        rotation = int(item.get("rotation_degrees", 0))
+        if rotation not in {0, 90, 180, 270}:
+            raise ValueError("rotation_degrees must be one of 0, 90, 180, or 270")
+        if modality != "video" and rotation:
+            raise ValueError("rotation_degrees is only valid for video replay sources")
         rows.append(
             ReplaySource(
                 source_id,
                 modality,
                 recording,
-                _time(item["event_time_start"]),
+                _time(item.get("event_time_start", segments[0].event_time_start.isoformat() if segments else None)),
                 float(item.get("offset_seconds", 0.0)),
+                rotation,
+                tuple(segments),
             )
         )
     if not rows:

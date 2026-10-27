@@ -37,8 +37,7 @@ providers/
 │   ├── person_vehicle.py     # boards / disembarks
 │   ├── transfer.py           # transfer support + custody-change result
 │   └── conversation.py       # conversation
-├── legacy_compatibility.py   # old zone/pass/route/dwell providers; not CE-v1 primitives
-├── provider_inventory.yaml   # complete original 36-provider recovery/history inventory
+├── provider_inventory.yaml   # current implementations and runtime status
 ├── provider_inventory.py     # tiny loader for the inventory
 ├── provider_capabilities.yaml# active compile-time capabilities + native labels
 └── provider_capabilities.py  # loader/query helpers used by compile_event()
@@ -110,23 +109,18 @@ pluggable adapters are present for:
 
 Heavy model libraries/checkpoints are loaded lazily. The pinned ReID model metadata lives under `providers/reid/`; provision the actual checkpoints with `python scripts/provision_reid_models.py`. Install the ReID Python stack with `pip install -e ".[reid]"`.
 
-## Complete old provider inventory
+## Current provider inventory
 
-`provider_inventory.yaml` contains **all 36 provider IDs from the previous FABLE
-physical-provider catalog**. Each entry says where it lives in the rebuild and
-whether it is:
+`provider_inventory.yaml` contains only current provider implementations. Each
+entry says where it lives and whether it is runnable or disabled pending a
+specific integration:
 
 - directly implemented,
 - implemented with an optional model backend,
-- replaced by a simpler/current predicate provider, or
-- retained only for compatibility because its old predicate is not in the new
-  CE language.
+- disabled because its live configuration or downstream path is incomplete.
 
-Examples that are retained but are *not* current CE-v1 primitives include zone
-membership/transition, `passes`, route matching, dwell, and retrospective
-`vehicle_present_before`. Keeping these in `legacy_compatibility.py` lets us
-recover useful code without letting old semantics leak back into the new
-language.
+Legacy-only zone, pass, route, dwell, alias, and historical matcher providers
+have been removed rather than advertised as current implementations.
 
 ## Why model providers and predicate implementations are separate
 
@@ -158,14 +152,20 @@ The CE runtime never sees the YOLO boxes or tracker state.
 
 ## Provider capability and label catalog
 
+Planner search considers only entries with `enabled: true`. The currently
+disabled entries are `camera_projection`, `follows_cross_sensor`,
+`audio_visual_association`, `interaction_evidence_analyzer`, and
+`hosted_vlm_identity_comparator`; each has a class but lacks required live
+configuration, wiring, or a downstream consumer. This prevents a class that is
+merely present in source from being mistaken for an activatable provider.
+
 `provider_capabilities.yaml` is the compile-time description of what the
 currently configured provider set can understand.  It is deliberately separate
 from `provider_inventory.yaml`:
 
-- `provider_inventory.yaml` is the recovery/history inventory of old and new
-  provider implementations.
-- `provider_capabilities.yaml` is the small executable contract used by the CE
-  compiler.
+- `provider_inventory.yaml` records implementation/runtime status for humans.
+- `provider_capabilities.yaml` is the executable contract used by the compiler
+  and planner; entries with `enabled: false` are not planner-visible.
 
 The capability catalog records three kinds of information:
 

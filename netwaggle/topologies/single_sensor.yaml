@@ -1,0 +1,29 @@
+topology_id: single_sensor
+
+gateway:
+  ip: 10.255.0.1/16
+  switch: edge_switch
+  host_ifname: nwg-host
+  switch_ifname: nwg-sw
+
+nodes:
+  sensor1:
+    deployment:
+      container_name: fable-e2e-sensor1-agent
+    network:
+      address: 10.255.10.2/16
+      attach_to: sensor_switch
+      gateway: 10.255.0.1
+
+switches:
+  sensor_switch: {}
+  edge_switch: {}
+
+links:
+  sensor1_uplink:
+    endpoints: [sensor_switch, edge_switch]
+    connection_status: connected
+    bandwidth_mbps: 100
+    latency_ms: 5
+    jitter_ms: 0
+    packet_loss_fraction: 0

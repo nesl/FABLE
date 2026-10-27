@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from .docker_attach import DockerAttachment
@@ -23,6 +23,7 @@ class Gateway:
 class Link:
     src: str
     dst: str
+    name: str = ""
     bw: float | None = None
     delay: str | None = None
     jitter: str | None = None
@@ -32,13 +33,21 @@ class Link:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "Link":
+        endpoints = data.get("endpoints")
+        if endpoints is not None:
+            if not isinstance(endpoints, list) or len(endpoints) != 2:
+                raise ValueError("link endpoints must contain exactly two switch names")
+            src, dst = endpoints
+        else:
+            src, dst = data["from"], data["to"]
         return cls(
-            src=data["from"],
-            dst=data["to"],
-            bw=data.get("bw"),
-            delay=data.get("delay"),
-            jitter=data.get("jitter"),
-            loss=data.get("loss"),
+            src=str(src),
+            dst=str(dst),
+            name=str(data.get("name", "")),
+            bw=data.get("bw", data.get("bandwidth_mbps")),
+            delay=data.get("delay", _milliseconds(data.get("latency_ms"))),
+            jitter=data.get("jitter", _milliseconds(data.get("jitter_ms"))),
+            loss=data.get("loss", _loss_percent(data.get("packet_loss_fraction"))),
             max_queue_size=data.get("max_queue_size"),
             reverse=data.get("reverse"),
         )
@@ -114,13 +123,33 @@ class NetWaggleTopology:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "NetWaggleTopology":
         gw = Gateway(**data.get("gateway", {}))
-        nodes = data.get("logical_nodes", [])
+        raw_nodes = data.get("nodes")
+        if isinstance(raw_nodes, dict):
+            nodes = []
+            for name, node in raw_nodes.items():
+                deployment = node.get("deployment", {})
+                network = node.get("network", {})
+                if network.get("attach_to") is None:
+                    continue
+                nodes.append({
+                    "name": name,
+                    "anchor_container": deployment.get("container_name"),
+                    "switch": network["attach_to"],
+                    "ip": network["address"],
+                    "gateway": network.get("gateway", gw.ip_without_prefix),
+                    "container_ifname": network.get("interface", "netwaggle0"),
+                })
+        else:
+            nodes = data.get("logical_nodes", [])
         attachments: list[DockerAttachment] = []
         for node in nodes:
+            anchor = node.get("anchor_container", f"netwaggle-node-{node['name']}")
+            if not isinstance(anchor, str) or not anchor:
+                raise ValueError(f"logical node {node['name']!r} requires deployment.container_name")
             attachments.append(
                 DockerAttachment(
                     name=node["name"],
-                    anchor_container=node.get("anchor_container", f"netwaggle-node-{node['name']}"),
+                    anchor_container=anchor,
                     switch=node["switch"],
                     ip=node["ip"],
                     gateway=node.get("gateway", gw.ip_without_prefix),
@@ -129,7 +158,8 @@ class NetWaggleTopology:
                     switch_ifname=node.get("switch_ifname"),
                 )
             )
-        switches = list(data.get("switches", []))
+        raw_switches = data.get("switches", [])
+        switches = list(raw_switches) if isinstance(raw_switches, dict) else list(raw_switches)
         for required in [gw.switch] + [a.switch for a in attachments]:
             if required not in switches:
                 switches.append(required)
@@ -139,20 +169,18 @@ class NetWaggleTopology:
             for item in data.get("external_proxies", [])
         ]
         return cls(
-            name=data.get("name", "netwaggle"),
+            name=data.get("topology_id", data.get("name", "netwaggle")),
             switches=switches,
-            links=[Link.from_dict(x) for x in data.get("links", [])],
+            links=_links(data.get("links", [])),
             gateway=gw,
             attachments=attachments,
             external_proxies=external_proxies,
         )
 
     def with_profile(self, profile: dict[str, Any] | None) -> "NetWaggleTopology":
-        if not profile:
+        if not profile or "links" not in profile:
             return self
-        if "links" not in profile:
-            return self
-        profile_links = [Link.from_dict(x) for x in profile["links"]]
+        profile_links = _links(profile["links"])
         return NetWaggleTopology(
             name=f"{self.name}:{profile.get('name', 'profile')}",
             switches=self.switches,
@@ -162,3 +190,28 @@ class NetWaggleTopology:
             external_proxies=self.external_proxies,
         )
 
+    def with_runtime_switch_names(self) -> "NetWaggleTopology":
+        """Use short Mininet names while retaining public logical link names."""
+        names = {name: f"s{index + 1}" for index, name in enumerate(self.switches)}
+        return NetWaggleTopology(
+            name=self.name,
+            switches=[names[name] for name in self.switches],
+            links=[replace(link, src=names[link.src], dst=names[link.dst]) for link in self.links],
+            gateway=replace(self.gateway, switch=names[self.gateway.switch]),
+            attachments=[replace(item, switch=names[item.switch]) for item in self.attachments],
+            external_proxies=self.external_proxies,
+        )
+
+
+def _milliseconds(value: Any) -> str | None:
+    return None if value is None else f"{float(value):g}ms"
+
+
+def _loss_percent(value: Any) -> float | None:
+    return None if value is None else float(value) * 100.0
+
+
+def _links(value: Any) -> list[Link]:
+    if isinstance(value, dict):
+        return [Link.from_dict({"name": name, **spec}) for name, spec in value.items()]
+    return [Link.from_dict(spec) for spec in value]

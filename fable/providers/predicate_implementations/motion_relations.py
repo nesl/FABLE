@@ -25,6 +25,8 @@ class MovingBasicProvider:
 
 class NearGeometryProvider:
     provider_id="near_geometry"; provider_version="1"
+    def __init__(self,*,minimum_track_age_frames:int=2,maximum_pair_iou:float=0.0)->None:
+        self.minimum_track_age_frames=max(1,int(minimum_track_age_frames));self.maximum_pair_iou=float(maximum_pair_iou)
     def evaluate(self,frame:TrackFrame,*,object_a_id:str|None=None,object_b_id:str|None=None,max_distance_m:float|None=None,max_normalized_gap:float|None=None)->tuple[PredicateMatch,...]:
         if max_distance_m is not None and max_distance_m<0:raise ValueError("max_distance_m cannot be negative")
         if max_normalized_gap is not None and max_normalized_gap<0:raise ValueError("max_normalized_gap cannot be negative")
@@ -34,6 +36,16 @@ class NearGeometryProvider:
             rights=[t for t in tracks if t.object_id==object_b_id] if object_b_id is not None else tracks
             for right in rights:
                 if left.object_id==right.object_id:continue
+                # A new fragment or a highly overlapping duplicate box is not
+                # evidence that two physical objects are together. Bound IDs
+                # may be young because they were established by an earlier CE
+                # predicate, but newly discovered partners must be stable.
+                if object_a_id is None and left.age_frames<self.minimum_track_age_frames:continue
+                if object_b_id is None and right.age_frames<self.minimum_track_age_frames:continue
+                # Every output track in this frame maps to one detection in the
+                # same YOLO frame. Requiring disjoint boxes prevents two IDs on
+                # one physical vehicle from satisfying NEAR.
+                if left.bbox.iou(right.bbox)>self.maximum_pair_iou:continue
                 pair=tuple(sorted((left.object_id,right.object_id)))
                 if pair in seen:continue
                 seen.add(pair)

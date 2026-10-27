@@ -45,7 +45,7 @@ Load it with:
 ```python
 from fable.language import load_event
 
-event = load_event("ce_definitions/two_vehicle_chase.yaml")
+event = load_event(".fable/runs/resolved/convoy1.event.yaml")
 
 print(event.name)          # two_vehicle_chase
 print(event.roles)         # {'LEADER': 'vehicle', 'FOLLOWER': 'vehicle'}
@@ -533,7 +533,7 @@ pattern:
 Place it in:
 
 ```text
-ce_definitions/<event_name>.yaml
+.fable/runs/resolved/<case>.event.yaml
 ```
 
 ## Step 6: Validate it
@@ -541,7 +541,7 @@ ce_definitions/<event_name>.yaml
 ```python
 from fable.language import load_event
 
-load_event("ce_definitions/drive_up_shooting.yaml")
+load_event(".fable/runs/resolved/convoy1.event.yaml")
 ```
 
 The parser reports path-specific errors for unknown roles, unknown predicate arguments, malformed role declarations, missing required arguments, and malformed temporal syntax.
@@ -624,7 +624,7 @@ Compilation checks the definition against
 ```python
 from fable.language import load_and_compile_event
 
-event = load_and_compile_event("ce_definitions/two_vehicle_chase.yaml")
+event = load_and_compile_event(".fable/runs/resolved/convoy1.event.yaml")
 ```
 
 A `dragon` role is rejected at this stage because no enabled visual detector

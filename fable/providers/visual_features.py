@@ -52,7 +52,7 @@ class CameraProjectionProvider:
                     track.age_frames,
                 )
             )
-        return TrackFrame(frame.source_id, frame.event_time, tuple(out))
+        return TrackFrame(frame.source_id, frame.event_time, tuple(out), frame.image_width, frame.image_height)
 
 
 class TrackCropExtractorProvider:

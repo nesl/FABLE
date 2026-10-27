@@ -1,0 +1,111 @@
+version: 1
+case_id: robbery1
+aliases:
+- burglary1
+description: Detect an alarm or gunshot followed by the getaway vehicle leaving.
+verified_end_to_end: false
+timeout_seconds: 240
+require_completion: true
+event:
+  version: 1
+  event: robbery
+  description: A gunshot or alarm is observed, followed by a vehicle leaving the monitored
+    view within three minutes.
+  roles:
+    GETAWAY_VEHICLE:
+      class: vehicle
+  pattern:
+    seq:
+    - any:
+      - audio_event:
+          class: gunshot
+      - audio_event:
+          class: alarm
+          minimum_confidence: 0.4
+    - within:
+        max: 3m
+        pattern:
+          exits:
+            object: GETAWAY_VEHICLE
+replay:
+  version: 1
+  replay_id: 20250812-robbery-with-alarm-burglary-c-r024
+  speed: 1.0
+  source_policy:
+    monitor: all
+    inference:
+    - orin6_audio
+    - orin1_camera
+    - orin4_camera
+    - orin7_camera
+  sources:
+  - source_id: orin6_audio
+    modality: audio
+    path: /replay-assets/20250812_150825_orin6_respeaker_mono.wav
+    event_time_start: '2025-08-12T19:08:25Z'
+    duration_seconds: 136.0
+  - source_id: orin1_camera
+    modality: video
+    path: /gq-recordings/20250812/orin1/20250812_150825_dvpg_gq_orin_1_zed_left.mp4
+    event_time_start: '2025-08-12T19:08:25Z'
+    duration_seconds: 128.933333
+  - source_id: orin2_camera
+    modality: video
+    path: /gq-recordings/20250812/orin2/20250812_150825_dvpg_gq_orin_2_zed_left.mp4
+    event_time_start: '2025-08-12T19:08:25Z'
+    duration_seconds: 124.8
+  - source_id: orin3_camera
+    modality: video
+    path: /gq-recordings/20250812/orin3/20250812_150825_dvpg_gq_orin_3_zed_left.mp4
+    event_time_start: '2025-08-12T19:08:25Z'
+    duration_seconds: 123.666667
+  - source_id: orin4_camera
+    modality: video
+    path: /gq-recordings/20250812/orin4/20250812_150825_dvpg_gq_orin_4_zed_left.mp4
+    event_time_start: '2025-08-12T19:08:25Z'
+    duration_seconds: 124.8
+  - source_id: orin5_camera
+    modality: video
+    path: /gq-recordings/20250812/orin5/20250812_150825_dvpg_gq_orin_5_zed_left.mp4
+    event_time_start: '2025-08-12T19:08:25Z'
+    duration_seconds: 123.2
+  - source_id: orin6_camera
+    modality: video
+    path: /gq-recordings/20250812/orin6/20250812_150825_dvpg_gq_orin_6_zed_left.mp4
+    event_time_start: '2025-08-12T19:08:25Z'
+    duration_seconds: 125.0
+  - source_id: orin7_camera
+    modality: video
+    path: /gq-recordings/20250812/orin7/20250812_150825_dvpg_gq_orin_7_zed_left.mp4
+    event_time_start: '2025-08-12T19:08:25Z'
+    duration_seconds: 126.866667
+  - source_id: orin8_camera
+    modality: video
+    path: /gq-recordings/20250812/orin8/20250812_150825_dvpg_gq_orin_8_zed_left.mp4
+    event_time_start: '2025-08-12T19:08:25Z'
+    duration_seconds: 121.8
+  - source_id: orin9_camera
+    modality: video
+    path: /gq-recordings/20250812/orin9/20250812_150825_dvpg_gq_orin_9_zed_left.mp4
+    event_time_start: '2025-08-12T19:08:25Z'
+    duration_seconds: 128.0
+  - source_id: orin10_camera
+    modality: video
+    path: /gq-recordings/20250812/orin10/20250812_150825_dvpg_gq_orin_10_zed_left.mp4
+    event_time_start: '2025-08-12T19:08:25Z'
+    duration_seconds: 133.733333
+  - source_id: mobile_4_all
+    modality: video
+    path: /recordings/mobile 4 all/recording__1755025713610.mp4
+    event_time_start: '2025-08-12T19:08:33.610Z'
+    rotation_degrees: 270
+  - source_id: mobile_5_all
+    modality: video
+    path: /recordings/mobile 5 all/recording__1755025713533.mp4
+    event_time_start: '2025-08-12T19:08:33.533Z'
+    rotation_degrees: 270
+  - source_id: mobile_6_all
+    modality: video
+    path: /recordings/mobile 6 all/recording__1755025713392.mp4
+    event_time_start: '2025-08-12T19:08:33.392Z'
+    rotation_degrees: 270

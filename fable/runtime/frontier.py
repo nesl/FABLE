@@ -53,6 +53,11 @@ class FrontierItem:
     required_duration_ms: int | None = None
     sustain_path: PatternPath | None = None
 
+    # A leaf below ``any`` is useful but not individually mandatory. Physical
+    # planning may omit an infeasible optional branch while retaining another
+    # implementable branch of the same semantic choice.
+    optional: bool = False
+
 
 @dataclass(frozen=True, slots=True)
 class ActiveFrontier:
@@ -75,6 +80,38 @@ def derive_discovery_frontier(
 
     catalog = predicate_catalog if predicate_catalog is not None else load_predicates()
     return tuple(_discover(event.pattern, (), event=event, catalog=catalog))
+
+
+def derive_predicate_frontier(
+    event: Event,
+    predicate: str,
+    *,
+    predicate_catalog: PredicateCatalog | None = None,
+) -> tuple[FrontierItem, ...]:
+    """Return every authored leaf for ``predicate`` as an unbound demand.
+
+    This is used for cheap, streaming predicates whose observations must be
+    available before their sequential CE stage becomes active (currently
+    audio classification). Semantic advancement still follows the ordinary
+    continuation frontier; this only keeps the physical provider warm.
+    """
+    catalog = predicate_catalog if predicate_catalog is not None else load_predicates()
+    items: list[FrontierItem] = []
+
+    def visit(expr: Expr, path: PatternPath) -> None:
+        if expr.is_predicate:
+            if expr.op == predicate:
+                items.append(
+                    _make_item(
+                        expr, path, event=event, instance=None, catalog=catalog
+                    )
+                )
+            return
+        for index, child in enumerate(expr.children):
+            visit(child, path + (index,))
+
+    visit(event.pattern, ())
+    return tuple(items)
 
 
 def derive_continuation_frontier(
@@ -201,11 +238,12 @@ def _discover(
         return _discover(expr.children[0], path + (0,), event=event, catalog=catalog)
 
     if expr.op in {"all", "any", "k_of_n"}:
-        return [
+        items = [
             item
             for index, child in enumerate(expr.children)
             for item in _discover(child, path + (index,), event=event, catalog=catalog)
         ]
+        return [replace(item, optional=True) for item in items] if expr.op == "any" else items
 
     if expr.op == "within":
         # Before a candidate exists there is no preceding semantic completion
@@ -355,7 +393,8 @@ def _visit(
         if all(status == "failed" for status, _, _ in results):
             return _fail(instance, path, "all any-branches failed")
         return "pending", None, [
-            item for status, _, items in results if status == "pending" for item in items
+            replace(item, optional=True)
+            for status, _, items in results if status == "pending" for item in items
         ]
 
     if expr.op == "k_of_n":

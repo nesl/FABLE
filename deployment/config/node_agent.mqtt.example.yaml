@@ -1,0 +1,17 @@
+version: 1
+node:
+  node_id: sensor1
+  node_type: sensor
+runtime: dataflow
+transport: mqtt
+mqtt:
+  # Use the controller/broker device's reachable address on physical devices.
+  host: mqtt
+  port: 1883
+system_probe: true
+historical_store:
+  database: /var/lib/fable/history.sqlite3
+  media_root: /var/lib/fable/media
+# Either declare individual live/file sources here or point at a replay
+# manifest. Paths inside that manifest are resolved relative to the manifest.
+replay_manifest: /etc/fable/replay.yaml

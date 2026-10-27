@@ -3,17 +3,18 @@ requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "fable-language-rebuild"
+name = "fable-ce"
 version = "0.13.0"
-description = "Simplified FABLE CE language, providers, frontiers, dynamic planning, distributed execution, and live provider dataflow"
+description = "Adaptive complex-event detection over distributed perception sources"
+license = "MIT"
 requires-python = ">=3.11"
 dependencies = [
   "PyYAML>=6,<7",
 ]
 
 [project.optional-dependencies]
-dev = [
-  "pytest>=8,<10",
+distributed = [
+  "paho-mqtt>=2,<3",
 ]
 vision = [
   "numpy>=1.26,<3",
@@ -45,13 +46,9 @@ fable = [
   "providers/*.yaml",
   "providers/reid/*.yaml",
   "providers/reid/*.json",
+  "visualization/*.html",
 ]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["fable*", "evaluation*", "netwaggle*", "replay*", "deployment*"]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-addopts = "-ra"
-pythonpath = ["."]
+include = ["fable*", "netwaggle*", "replay*", "deployment*"]

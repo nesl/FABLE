@@ -231,7 +231,8 @@ providers:
     - predicate_match:follows
   follows_cross_sensor:
     kind: predicate_implementation
-    enabled: true
+    # Disabled until the live worker has multi-source projected-track input.
+    enabled: false
     predicates:
       follows:
         visual_arguments:
@@ -354,7 +355,8 @@ providers:
     - tracks
   camera_projection:
     kind: intermediate
-    enabled: true
+    # Requires deployment-specific homography configuration not yet carried by plans.
+    enabled: false
     inputs:
     - tracks
     outputs:
@@ -397,7 +399,8 @@ providers:
     - identity_associations
   hosted_vlm_identity_comparator:
     kind: intermediate
-    enabled: true
+    # Requires an injected hosted comparator client and has no live worker adapter.
+    enabled: false
     inputs:
     - track_crops
     - track_crops
@@ -430,7 +433,7 @@ providers:
     enabled: true
     inputs:
     - audio_window
-    - speech_segments
+    - diarized_speech
     outputs:
     - transcripts
   gcc_phat_audio_localizer:
@@ -442,7 +445,8 @@ providers:
     - audio_bearings
   audio_visual_association:
     kind: intermediate
-    enabled: true
+    # Visual-bearing production is not connected to the live worker graph.
+    enabled: false
     inputs:
     - audio_bearings
     - tracks
@@ -450,7 +454,8 @@ providers:
     - audio_visual_associations
   interaction_evidence_analyzer:
     kind: intermediate
-    enabled: true
+    # Not yet consumed by the live transfer provider path.
+    enabled: false
     inputs:
     - video_frame
     - tracks

@@ -1,0 +1,4 @@
+version: 1
+mode: direct
+description: Replay over the ordinary Docker host network without NetWaggle.
+conditions: []

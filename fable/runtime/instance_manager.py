@@ -47,6 +47,7 @@ class CEInstanceManager:
         )
         self._active: dict[str, CEInstance] = {}
         self._completed: list[CEInstance] = []
+        self._completed_keys: set[tuple[object, ...]] = set()
         self._expired: list[CEInstance] = []
         self._seen_observations: set[tuple[object, ...]] = set()
         self._seen_seeds: set[tuple[object, ...]] = set()
@@ -83,7 +84,9 @@ class CEInstanceManager:
             continuation=self.continuation_frontiers(now),
         )
 
-    def handle_match(self, match: PredicateMatch) -> tuple[CEInstance, ...]:
+    def handle_match(
+        self, match: PredicateMatch, *, now: datetime | None = None
+    ) -> tuple[CEInstance, ...]:
         """Advance compatible candidates and/or create new candidates.
 
         A single observation can advance several existing instances and also
@@ -96,7 +99,11 @@ class CEInstanceManager:
             return ()
         self._seen_observations.add(observation_key)
 
-        self.expire(match.event_time)
+        # Provider results from independent cameras can arrive out of event-time
+        # order.  Expiry/planning must use a monotonic watermark, while an old
+        # observation must never advance a candidate that is already newer.
+        logical_now = max(match.event_time, now or match.event_time)
+        self.expire(logical_now)
         produced: list[CEInstance] = []
 
         # 1. Advance every compatible existing candidate.  Preserve the parent
@@ -107,6 +114,8 @@ class CEInstanceManager:
         # prevents a completed deterministic step (for example exits(V1)) from
         # leaving an immortal duplicate continuation behind.
         for instance_id, instance in tuple(self._active.items()):
+            if match.event_time < instance.matched_at:
+                continue
             branches = advance_instance(
                 self.event,
                 instance,
@@ -181,6 +190,9 @@ class CEInstanceManager:
                 role: canonicalize(object_id)
                 for role, object_id in instance.bindings.items()
             }
+        self._completed_keys = {
+            _completed_occurrence_key(instance) for instance in self._completed
+        }
 
     def deduplicate_instances(self) -> tuple[str, ...]:
         """Conservatively remove semantically identical active candidates.
@@ -209,7 +221,7 @@ class CEInstanceManager:
 
     def _store(self, instance: CEInstance) -> None:
         if instance.completed:
-            self._completed.append(instance)
+            self._store_completed(instance)
         elif instance.failed:
             self._expired.append(instance)
         else:
@@ -218,11 +230,36 @@ class CEInstanceManager:
     def _sweep_terminal(self) -> None:
         for instance_id, instance in tuple(self._active.items()):
             if instance.completed:
-                self._completed.append(instance)
+                self._store_completed(instance)
                 del self._active[instance_id]
             elif instance.failed:
                 self._expired.append(instance)
                 del self._active[instance_id]
+
+    def _store_completed(self, instance: CEInstance) -> None:
+        """Store one canonical occurrence, not every evidence-time branch."""
+        key = _completed_occurrence_key(instance)
+        if key in self._completed_keys:
+            return
+        self._completed_keys.add(key)
+        self._completed.append(instance)
+
+
+def _completed_occurrence_key(instance: CEInstance) -> tuple[object, ...]:
+    """Identify an occurrence by its seed and canonical participants.
+
+    Intermediate matches may arrive once per frame and create several valid
+    branches. They are evidence alternatives for the same occurrence when the
+    seed observation and final role bindings are identical.
+    """
+    return (
+        instance.event_name,
+        instance.matched_predicate,
+        instance.matched_path,
+        instance.matched_at,
+        instance.matched_source,
+        tuple(sorted(instance.bindings.items())),
+    )
 
 
 def _instance_equivalence_key(instance: CEInstance) -> tuple[object, ...]:

@@ -17,14 +17,12 @@ __pycache__/
 htmlcov/
 .ipynb_checkpoints/
 
-# Generated runtime and experiment data
+# Generated runtime data
+/.fable/
 /runs/
-/evaluation/results/
-/evaluation/results.local-migration-backup/
 /debug/
-/debug.local-migration-backup/
-/iobt-minimal-ce-replay/generated/
 /replay-cache/
+/deployment/replays/
 
 # Raw sensor recordings and derived media are staged outside Git. Tiny test
 # fixtures should use explicit force-adds only when their licensing is clear.
@@ -37,33 +35,16 @@ htmlcov/
 *.pcap
 *.pcapng
 
-# Generated campaign matrices and deployable bundles may contain absolute
-# paths, physical topology, host telemetry, or copied runtime configuration.
-/evaluation/manifests/adaptation/**/preflight_bundle/
-/evaluation/manifests/adaptation/
-/evaluation/manifests/spatial/e3_prepared_*/
-/evaluation/manifests/providers/calibrated_desktop_profiles.json
-/evaluation/manifests/baselines/fable_derived_ce_templates.yaml
-/evaluation/manifests/baselines/*.summary.json
-/evaluation/manifests/workloads/*.jsonl
-!/evaluation/manifests/workloads/ground_truth.jsonl
-/evaluation/manifests/workloads/*.summary.json
-/evaluation/RQ3_RUNBOOK.txt
-/evaluation/RQ3A_UPDATED_RUNBOOK.txt
-
 # Lab-local physical deployment details. Commit the corresponding *.example
 # files, not inventories, addresses, serial-number calibration, or raw probes.
-/config/physical_network_profiles.yaml
-/config/physical_provider_runtimes.yaml
-/config/physical_retention.yaml
-/config/deployment.physical-bridge-smoke.yaml
-/config/node_agent.desktop.yaml
-/config/node_agent.jetson.yaml
-/config/node_agent.rpi.yaml
-/config/*.local.yaml
-/profiles/physical/inventory*.json
-/profiles/physical/raw/
-/iobt-minimal-ce-replay/setup/zed_settings/SN*.conf
+/deployment/config/physical_network_profiles.yaml
+/deployment/config/physical_provider_runtimes.yaml
+/deployment/config/physical_retention.yaml
+/deployment/config/deployment.physical-bridge-smoke.yaml
+/deployment/config/node_agent.desktop.yaml
+/deployment/config/node_agent.jetson.yaml
+/deployment/config/node_agent.rpi.yaml
+/deployment/config/*.local.yaml
 /netwaggle/configs/physical_external_*.json
 /netwaggle/configs/profiles/physical_external_*.json
 /netwaggle/compose.physical_external_*.yaml
@@ -71,9 +52,9 @@ htmlcov/
 # Host-specific physical readiness snapshots are generated during deployment.
 /deployment/PHYSICAL_READINESS.local.md
 
-# Machine-specific storage migration record. config/storage.yaml is portable
+# Machine-specific storage migration record. deployment/config/storage.yaml is portable
 # through the FABLE_STORAGE_ROOT environment override and remains versioned.
-/config/storage_migration_*.yaml
+/deployment/config/storage_migration_*.yaml
 
 # Model binaries are provisioned separately; keep manifests and metadata.
 *.pt
@@ -84,11 +65,6 @@ htmlcov/
 
 # Local archives and copied source trees are not source-of-truth code.
 /fable/semantic/definitions.zip
-
-# Local research inputs, generated answers, and assembled result reports
-/paper.pdf
-/answers/
-/final/
 
 # Local process output
 *.log

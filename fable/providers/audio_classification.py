@@ -65,7 +65,7 @@ class AudioThreshold:
     semantic_class:str; minimum_score:float; minimum_consecutive_windows:int=1; refractory_seconds:float=0.0
 class AudioEventClassifierProvider:
     provider_id="audio_event_classifier"; provider_version="1"
-    def __init__(self,backend:AudioBackend,*,thresholds:Sequence[AudioThreshold]=(AudioThreshold("gunshot",.35),AudioThreshold("alarm",.30,2,1.0)),label_aliases:Mapping[str,Sequence[str]]=DEFAULT_AUDIO_ALIASES)->None:
+    def __init__(self,backend:AudioBackend,*,thresholds:Sequence[AudioThreshold]=(AudioThreshold("gunshot",.35),AudioThreshold("alarm",.40,1,1.0)),label_aliases:Mapping[str,Sequence[str]]=DEFAULT_AUDIO_ALIASES)->None:
         self.backend=backend; self.provider_version=str(getattr(backend,"backend_version","1")); self.thresholds={x.semantic_class:x for x in thresholds}; self.label_aliases={k:tuple(v) for k,v in label_aliases.items()}; self._consecutive=defaultdict(int); self._last={}
     def classify(self,window:AudioWindow,*,minimum_confidence:Mapping[str,float]|None=None)->tuple[PredicateMatch,...]:
         raw={str(k):max(0,min(1,float(v))) for k,v in self.backend.score(window).items()}; out=[]; overrides=dict(minimum_confidence or {})

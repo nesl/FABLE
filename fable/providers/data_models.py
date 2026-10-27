@@ -139,11 +139,17 @@ class TrackFrame:
     source_id: str
     event_time: datetime
     tracks: tuple[Track, ...]
+    frame_width: int | None = None
+    frame_height: int | None = None
 
     def __post_init__(self) -> None:
         if not self.source_id: raise ValueError("source_id must be non-empty")
         _require_aware(self.event_time)
         object.__setattr__(self, "tracks", tuple(self.tracks))
+        if self.frame_width is not None and self.frame_width <= 0:
+            raise ValueError("frame_width must be positive")
+        if self.frame_height is not None and self.frame_height <= 0:
+            raise ValueError("frame_height must be positive")
         ids: set[str] = set()
         for track in self.tracks:
             if track.source_id != self.source_id:

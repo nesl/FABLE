@@ -1,0 +1,11 @@
+version: 1
+node: {node_id: sensor1, node_type: sensor}
+runtime: dataflow
+transport: mqtt
+mqtt: {host: 10.253.0.1, port: 1884}
+system_probe: true
+# Quantitative event-only runs must not silently include dashboard JPEGs or
+# per-frame visualization metadata in their network totals.
+mqtt_video_relay: {enabled: false}
+mqtt_vision_metadata_relay: {enabled: false}
+replay_manifest: /etc/fable/replay.yaml

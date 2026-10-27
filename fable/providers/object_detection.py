@@ -2,6 +2,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, replace
 from datetime import datetime
+import os
 from typing import Any, Iterable
 
 from .data_models import BoundingBox, Detection, DetectionFrame
@@ -53,16 +54,19 @@ class UltralyticsObjectDetectorProvider:
         return DetectionFrame(source_id,event_time,tuple(out),frame_id,w,h)
 
 class YoloVehicleFast640Provider(UltralyticsObjectDetectorProvider):
-    def __init__(self, *, model: Any | None=None, model_path: str="yolov8s.pt", device: str="auto") -> None:
-        super().__init__(YoloConfig("yolo_vehicle_fast_640",model_path,image_size=640,class_allowlist=("car","truck","bus","motorcycle"),device=device),model=model)
+    def __init__(self, *, model: Any | None=None, model_path: str="yolov8s.pt", device: str|None=None) -> None:
+        super().__init__(YoloConfig("yolo_vehicle_fast_640",model_path,image_size=640,class_allowlist=("car","truck","bus","motorcycle"),device=_device(device)),model=model)
 
 class YoloVehicleBalanced960Provider(UltralyticsObjectDetectorProvider):
-    def __init__(self, *, model: Any | None=None, model_path: str="yolov8s.pt", device: str="auto") -> None:
-        super().__init__(YoloConfig("yolo_vehicle_balanced_960",model_path,image_size=960,class_allowlist=("car","truck","bus","motorcycle"),device=device),model=model)
+    def __init__(self, *, model: Any | None=None, model_path: str="yolov8s.pt", device: str|None=None) -> None:
+        super().__init__(YoloConfig("yolo_vehicle_balanced_960",model_path,image_size=960,class_allowlist=("car","truck","bus","motorcycle"),device=_device(device)),model=model)
 
 class YoloFullContext960Provider(UltralyticsObjectDetectorProvider):
-    def __init__(self, *, model: Any | None=None, model_path: str="yolov8s.pt", device: str="auto") -> None:
-        super().__init__(YoloConfig("yolo_full_context_960",model_path,image_size=960,device=device),model=model)
+    def __init__(self, *, model: Any | None=None, model_path: str="yolov8s.pt", device: str|None=None) -> None:
+        # People in the fixed wide-angle views occupy relatively few pixels.
+        # Keep this lower than the vehicle-only providers so a second person
+        # can participate in pairwise predicates such as rendezvous/near.
+        super().__init__(YoloConfig("yolo_full_context_960",model_path,image_size=960,confidence_threshold=.15,device=_device(device)),model=model)
 
 class PackageDetectorProvider(UltralyticsObjectDetectorProvider):
     """High-resolution package-like detector/filter.
@@ -71,8 +75,11 @@ class PackageDetectorProvider(UltralyticsObjectDetectorProvider):
     default allowlist uses bag/luggage classes and therefore should be treated as
     an approximation rather than a universal package detector.
     """
-    def __init__(self, *, model: Any | None=None, model_path: str="yolov8s.pt", labels: Iterable[str]=("backpack","handbag","suitcase"), device: str="auto") -> None:
-        super().__init__(YoloConfig("package_detector",model_path,image_size=960,class_allowlist=tuple(labels),device=device),model=model)
+    def __init__(self, *, model: Any | None=None, model_path: str="yolov8s.pt", labels: Iterable[str]=("backpack","handbag","suitcase"), device: str|None=None) -> None:
+        super().__init__(YoloConfig("package_detector",model_path,image_size=960,class_allowlist=tuple(labels),device=_device(device)),model=model)
+
+def _device(value: str | None) -> str:
+    return value or os.environ.get("FABLE_YOLO_DEVICE", "auto")
 
 def _class_name(names: Any,index:int)->str: return str(names[index])
 def _rows(value: Any) -> list[list[float]]:

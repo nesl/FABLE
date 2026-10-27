@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable
 
-from fable.planning.physical_planner import ExecutionPlan, PlanStep
+from fable.planning.physical_planner import ExecutionPlan, PlanStep, ProviderDemand
 from fable.planning.runtime_state import RunningProvider
 from fable.providers.provider_capabilities import load_provider_capabilities
 
@@ -36,10 +36,11 @@ class ProviderInstanceKey:
 class ProviderInstanceSpec:
     key: ProviderInstanceKey
     output_type: str = ""
+    demands: tuple[ProviderDemand, ...] = ()
 
     @classmethod
     def from_step(cls, step: PlanStep) -> "ProviderInstanceSpec":
-        return cls(ProviderInstanceKey.from_step(step), step.output_type)
+        return cls(ProviderInstanceKey.from_step(step), step.output_type, step.demands)
 
 
 @dataclass(frozen=True, slots=True)

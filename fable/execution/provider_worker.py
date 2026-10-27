@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import datetime
+import os
 from typing import Callable, Mapping, Sequence
 
 from fable.providers.audio_classification import AudioEventClassifierProvider, YamNetBackend
@@ -64,6 +65,7 @@ from fable.providers.visual_features import (
 )
 
 from .plan_reconciler import ProviderInstanceKey, ProviderInstanceSpec
+from fable.planning.physical_planner import ProviderDemand
 from .result_transport import ResultTransport
 from .stream_bus import StreamBus, StreamKey, Subscription
 
@@ -85,10 +87,14 @@ class DefaultProviderFactory:
             "yolo_vehicle_balanced_960": YoloVehicleBalanced960Provider,
             "yolo_full_context_960": YoloFullContext960Provider,
             "package_detector": PackageDetectorProvider,
-            "multi_object_tracker": MultiObjectTrackerProvider,
+            "multi_object_tracker": lambda: MultiObjectTrackerProvider(
+                algorithm=os.environ.get("FABLE_TRACKER_ALGORITHM", "iou")
+            ),
             "present_basic": PresentBasicProvider,
             "enters_basic": EntersBasicProvider,
-            "exits_basic": ExitsBasicProvider,
+            "exits_basic": lambda: ExitsBasicProvider(
+                boundary_margin=float(os.environ.get("FABLE_EXIT_BOUNDARY_MARGIN", ".25"))
+            ),
             "moving_basic": MovingBasicProvider,
             "near_geometry": NearGeometryProvider,
             "follows_local_geometry": FollowsLocalGeometryProvider,
@@ -161,6 +167,10 @@ class ProviderWorker:
         self._last_signature: tuple | None = None
         self.ready = False
         self.last_error: str | None = None
+        self.demands: tuple[ProviderDemand, ...] = spec.demands
+
+    def set_demands(self, demands: Sequence[ProviderDemand]) -> None:
+        self.demands = tuple(demands)
 
     def start(self) -> None:
         if self.ready:
@@ -290,8 +300,29 @@ class ProviderWorker:
             return self.provider.update(first("detections"))
         if provider_id in {"present_basic", "enters_basic", "exits_basic", "moving_basic", "boards_person_vehicle", "disembarks_person_vehicle", "transfer_custody"}:
             return self.provider.update(first("tracks"))
-        if provider_id in {"near_geometry", "follows_local_geometry"}:
-            return self.provider.evaluate(first("tracks"))
+        if provider_id == "near_geometry":
+            return tuple(
+                match
+                for demand in (self.demands or (ProviderDemand("default", "near"),))
+                for match in self.provider.evaluate(
+                    first("tracks"),
+                    object_a_id=demand.arguments.get("object_a"),
+                    object_b_id=demand.arguments.get("object_b"),
+                    max_distance_m=_optional_float(demand.parameters.get("max_distance_m")),
+                    max_normalized_gap=_optional_float(demand.parameters.get("max_normalized_gap")),
+                )
+            )
+        if provider_id == "follows_local_geometry":
+            return tuple(
+                match
+                for demand in (self.demands or (ProviderDemand("default", "follows"),))
+                for match in self.provider.evaluate(
+                    first("tracks"),
+                    leader_id=demand.arguments.get("leader"),
+                    follower_id=demand.arguments.get("follower"),
+                    max_gap_m=float(demand.parameters.get("max_gap_m", 15.0)),
+                )
+            )
         if provider_id == "audio_event_classifier":
             return self.provider.classify(first("audio_window"))
         if provider_id == "track_crop_extractor":
@@ -321,7 +352,17 @@ class ProviderWorker:
             diarized = values.get("diarized_speech", values.get("speech_segments", []))[-1]
             return self.provider.transcribe(audio, diarized)
         if provider_id == "conversation_av":
-            return self.provider.evaluate(first("tracks"), first("diarized_speech"))
+            return tuple(
+                match
+                for demand in (self.demands or (ProviderDemand("default", "conversation"),))
+                for match in self.provider.evaluate(
+                    first("tracks"), first("diarized_speech"),
+                    participant_a_id=demand.arguments.get("participant_a"),
+                    participant_b_id=demand.arguments.get("participant_b"),
+                    max_distance_m=float(demand.parameters.get("max_distance_m", 2.5)),
+                    required_terms=_terms(demand.parameters.get("required_terms", "")),
+                )
+            )
         if provider_id == "gcc_phat_audio_localizer":
             return self.provider.localize(first("multichannel_audio"))
         if provider_id == "camera_projection":
@@ -347,7 +388,25 @@ class ProviderWorker:
         if isinstance(output, tuple) and output and all(
             isinstance(value, (PredicateMatch, IdentityAssociation)) for value in output
         ):
-            values = output
+            unique = []
+            seen = set()
+            for value in output:
+                if isinstance(value, PredicateMatch):
+                    key = (
+                        value.predicate,
+                        value.event_time,
+                        tuple(sorted(value.arguments.items())),
+                        tuple(sorted(value.classes.items())),
+                        value.provider_id,
+                        value.source_ids,
+                    )
+                else:
+                    key = ("identity", repr(value))
+                if key in seen:
+                    continue
+                seen.add(key)
+                unique.append(value)
+            values = tuple(unique)
         else:
             values = (output,)
 
@@ -369,3 +428,15 @@ def _source_id_from_embeddings(embeddings: object, fallback: tuple[str, ...]) ->
         if isinstance(source_id, str) and source_id:
             return source_id
     return fallback[0] if fallback else "unknown"
+
+
+def _optional_float(value: object) -> float | None:
+    return None if value is None else float(value)
+
+
+def _terms(value: object) -> tuple[str, ...]:
+    if isinstance(value, str):
+        return tuple(term.strip() for term in value.split(",") if term.strip())
+    if isinstance(value, Sequence):
+        return tuple(str(term).strip() for term in value if str(term).strip())
+    return ()

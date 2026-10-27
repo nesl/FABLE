@@ -30,6 +30,7 @@ from .plan_reconciler import (
     ReconcileActions,
     reconcile_plan,
 )
+from fable.planning import ProviderDemand
 from .provider_runtime import (
     DockerProviderRuntime,
     InProcessProviderRuntime,
@@ -37,6 +38,20 @@ from .provider_runtime import (
     SubprocessProviderRuntime,
 )
 from .reid import ReIDPipeline
+from .historical_store import (
+    EvidenceRecord, HistoricalSegment, HistoricalStore, StreamHistoryRecorder, TimeInterval,
+)
+from .mqtt_transport import (
+    ControllerMQTTResultService,
+    MqttCommandTransport,
+    MqttResultTransport,
+    MQTTVideoFrameRelay,
+    MQTTAudioWindowRelay,
+    MQTTVisionMetadataRelay,
+    MQTTEventEvidenceRelay,
+    NodeAgentMQTTService,
+    PahoMQTTClient,
+)
 
 __all__ = [
     "ActivationEvent",
@@ -56,6 +71,7 @@ __all__ = [
     "NodeStatus",
     "ProviderInstanceKey",
     "ProviderInstanceSpec",
+    "ProviderDemand",
     "ProviderRuntime",
     "ReIDPipeline",
     "ReconcileActions",
@@ -85,4 +101,18 @@ __all__ = [
     "WaveAudioSourceAdapter",
     "WorkerStatus",
     "parse_input_gates",
+    "ControllerMQTTResultService",
+    "EvidenceRecord",
+    "HistoricalSegment",
+    "HistoricalStore",
+    "MqttCommandTransport",
+    "MqttResultTransport",
+    "MQTTVideoFrameRelay",
+    "MQTTAudioWindowRelay",
+    "MQTTVisionMetadataRelay",
+    "MQTTEventEvidenceRelay",
+    "NodeAgentMQTTService",
+    "PahoMQTTClient",
+    "TimeInterval",
+    "StreamHistoryRecorder",
 ]

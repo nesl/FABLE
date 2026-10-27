@@ -1,21 +1,33 @@
-# Replay integration
+# Replay
 
-This directory is the destination for the IoBT recording/testbed port. Replay
-is intentionally an adapter around `fable.execution.SourceAdapter`, not a
-second semantic runtime.
-
-Initial mapping:
+Replay adapts recorded media to FABLE's live source interfaces:
 
 ```text
-video/RTSP recording -> OpenCVVideoSourceAdapter -> VideoFrame
-WAV recording        -> WaveAudioSourceAdapter   -> AudioWindow
-provider result      -> PredicateMatch           -> FableRuntime
+video file -> OpenCVVideoSourceAdapter -> VideoFrame
+WAV file   -> WaveAudioSourceAdapter   -> AudioWindow
 ```
 
-The large legacy Docker tree is not copied here yet because its orchestrator,
-NodeAgent, provider contracts, and campaign scripts target the old FABLE API.
-Only recording discovery, clock synchronization, and source-adapter behavior
-should be retained during that port.
+Fixed cameras and mobile phones use the same video path. A source may specify
+rotation, an event timestamp, a media offset, and multiple consecutive file
+segments. All sources share one release barrier and event-time clock.
 
-`replay.discovery.discover_recordings()` indexes media under a caller-supplied
-root. It never guesses mount points or mounts, moves, or rewrites recordings.
+Phone audio embedded in video must currently be extracted to mono PCM WAV.
+GPS and other generic mobile telemetry are not replay inputs.
+
+## Cases
+
+Each file in [`cases/`](cases) is one complete runnable case. It contains:
+
+- `event`: the complex event FABLE should detect;
+- `replay`: the synchronized video/audio source manifest;
+- case metadata such as aliases, timeout, and completion requirement.
+
+There is no separate case catalog or event-specific network experiment file.
+The launcher discovers case files directly.
+
+Media paths are container paths. `/recordings` is mounted from
+`RECORDING_ROOT`, `/gq-recordings` from `GQ_RECORDING_ROOT`, and
+`/replay-assets` from `.fable/runs/replay-assets`.
+
+Network behavior is deliberately separate from cases. Reusable choices are in
+[`plans`](plans).

@@ -14,7 +14,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 import yaml
 
-from evaluation.deployment import load_runtime_state
+from replay.evaluation.deployment import load_runtime_state
 
 
 def main() -> int:

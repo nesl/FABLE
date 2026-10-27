@@ -1,0 +1,8 @@
+version: 1
+node: {node_id: edge1, node_type: edge}
+runtime: dataflow
+transport: mqtt
+mqtt: {host: 10.253.0.1, port: 1884}
+system_probe: false
+prewarm_providers: [yolo_vehicle_fast_640, yolo_full_context_960]
+mqtt_video_relay: {enabled: true, jpeg_quality: 70, max_fps: 4}

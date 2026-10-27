@@ -18,14 +18,13 @@ try:
     from mininet.link import TCLink
     from mininet.log import setLogLevel
     from mininet.net import Mininet
-    from mininet.node import Controller, OVSKernelSwitch
+    from mininet.node import OVSBridge
 except Exception:  # pragma: no cover - import is expected to fail outside Mininet hosts
     mn_cleanup = None
     TCLink = None
     setLogLevel = None
     Mininet = None
-    Controller = None
-    OVSKernelSwitch = None
+    OVSBridge = None
 
 
 def ensure_mininet_imports() -> None:
@@ -46,11 +45,15 @@ def attach_gateway(gw) -> None:
     run(["ip", "addr", "flush", "dev", gw.host_ifname], check=False)
     run(["ip", "addr", "add", gw.ip, "dev", gw.host_ifname])
     run(["ip", "link", "set", gw.host_ifname, "up"])
+    run(["iptables", "-I", "INPUT", "-i", gw.host_ifname, "-j", "ACCEPT"])
+    run(["iptables", "-I", "DOCKER-USER", "-i", gw.host_ifname, "-j", "ACCEPT"])
     run(["ovs-vsctl", "add-port", gw.switch, gw.switch_ifname])
     run(["ip", "link", "set", gw.switch_ifname, "up"])
 
 
 def detach_gateway(gw) -> None:
+    run(["iptables", "-D", "DOCKER-USER", "-i", gw.host_ifname, "-j", "ACCEPT"], check=False)
+    run(["iptables", "-D", "INPUT", "-i", gw.host_ifname, "-j", "ACCEPT"], check=False)
     run(["ovs-vsctl", "--if-exists", "del-port", gw.switch, gw.switch_ifname], check=False)
     run(["ip", "link", "del", gw.host_ifname], check=False)
     run(["ip", "link", "del", gw.switch_ifname], check=False)
@@ -71,8 +74,21 @@ def _dpid_for_index(index: int) -> str:
 def build_mininet(topo: NetWaggleTopology):
     ensure_mininet_imports()
     setLogLevel("info")
-    net = Mininet(controller=Controller, switch=OVSKernelSwitch, link=TCLink, autoSetMacs=True, build=False)
-    controller = net.addController("c0")
+    # Mininet may leave deterministic switch/link names behind when topology
+    # construction itself is interrupted. Remove only names this topology is
+    # about to own so reruns do not require a global ``mn -c``.
+    port_numbers = {name: 0 for name in topo.switches}
+    for link in topo.links:
+        port_numbers[link.src] += 1
+        port_numbers[link.dst] += 1
+        run(["ip", "link", "del", f"{link.src}-eth{port_numbers[link.src]}"], check=False)
+        run(["ip", "link", "del", f"{link.dst}-eth{port_numbers[link.dst]}"], check=False)
+    for name in topo.switches:
+        run(["ovs-vsctl", "--if-exists", "del-br", name], check=False)
+    # These experiments need Ethernet forwarding, not an SDN controller.
+    # Standalone OVS bridges also avoid colliding with other Mininet testbeds'
+    # conventional controller port 6653.
+    net = Mininet(controller=None, switch=OVSBridge, link=TCLink, autoSetMacs=True, build=False)
     switches = {
         name: net.addSwitch(name, dpid=_dpid_for_index(idx))
         for idx, name in enumerate(topo.switches)
@@ -82,9 +98,11 @@ def build_mininet(topo: NetWaggleTopology):
             raise NetWaggleError(f"Link references unknown switch: {link.src} -> {link.dst}")
         net.addLink(switches[link.src], switches[link.dst], **link.tc_params())
     net.build()
-    controller.start()
-    for sw in switches.values():
-        sw.start([controller])
+    for name, sw in switches.items():
+        sw.start([])
+        # Explicit NORMAL forwarding keeps the topology independent of an SDN
+        # controller and avoids OVS fail-mode/version differences.
+        run(["ovs-ofctl", "add-flow", name, "actions=NORMAL"])
     return net
 
 
@@ -121,7 +139,7 @@ def run_topology(
             proxy_manager = ExternalProxyManager(topo.external_proxies, proxy_metrics)
             proxy_manager.start()
             print(f"External physical proxies: {len(topo.external_proxies)}", flush=True)
-        if condition_profiles is not None and control_socket is not None:
+        if control_socket is not None:
             profile_server = DynamicProfileServer(
                 net=net,
                 base_topology=base_topology,
@@ -168,11 +186,12 @@ def main(argv: list[str] | None = None) -> int:
     try:
         base_topology = NetWaggleTopology.from_dict(load_json(args.topology))
         profile = load_json(args.profile) if args.profile else None
+        base_topology = base_topology.with_runtime_switch_names()
         topo = base_topology.with_profile(profile)
-        if bool(args.control_socket) != bool(args.condition_map):
-            raise NetWaggleError("--control-socket and --condition-map must be supplied together")
         if args.control_socket is not None and not args.control_socket.is_absolute():
             raise NetWaggleError("--control-socket must be absolute")
+        if args.condition_map is not None and args.control_socket is None:
+            raise NetWaggleError("--condition-map requires --control-socket")
         condition_profiles = load_condition_map(args.condition_map) if args.condition_map else None
         print(f"Loaded topology: {topo.name}")
         print(f"Switches: {', '.join(topo.switches)}")

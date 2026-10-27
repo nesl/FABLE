@@ -1,0 +1,20 @@
+version: 1
+transport: mqtt
+mqtt:
+  host: mqtt
+  port: 1883
+nodes:
+  sensor1:
+    node_type: sensor
+    available: true
+    cpu_free: 4
+    memory_mb_free: 8192
+    gpu_memory_mb_free: 4096
+sources:
+  camera1:
+    node_id: sensor1
+    data_type: video_frame
+    site_id: example_site
+    sample_bytes: 921600
+    available: true
+links: []

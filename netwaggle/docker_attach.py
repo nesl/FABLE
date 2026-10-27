@@ -64,6 +64,9 @@ def attach_container(att: DockerAttachment) -> None:
     run(["nsenter", "-t", str(pid), "-n", "ip", "addr", "flush", "dev", att.container_ifname])
     run(["nsenter", "-t", str(pid), "-n", "ip", "addr", "add", att.ip, "dev", att.container_ifname])
     run(["nsenter", "-t", str(pid), "-n", "ip", "link", "set", att.container_ifname, "up"])
+    # Pin the emulated gateway to this interface.  A recently used Docker
+    # default route can otherwise remain selected briefly after attachment.
+    run(["nsenter", "-t", str(pid), "-n", "ip", "route", "replace", f"{att.gateway}/32", "dev", att.container_ifname])
     run(["nsenter", "-t", str(pid), "-n", "ip", "route", "replace", "default", "via", att.gateway])
 
 
@@ -76,4 +79,3 @@ def detach_container(att: DockerAttachment) -> None:
     except NetWaggleError:
         return
     run(["nsenter", "-t", str(pid), "-n", "ip", "link", "del", att.container_ifname], check=False)
-

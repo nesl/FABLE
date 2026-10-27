@@ -7,7 +7,7 @@ commit only the portable `*.example.yaml` templates.
 Run the read-only endpoint check from the repository root:
 
 ```bash
-python scripts/preflight_deployment.py config/deployment.physical.local.yaml
+python scripts/preflight_deployment.py deployment/config/deployment.physical.local.yaml
 ```
 
 Before installation, copy this clean source tree to a new directory on each

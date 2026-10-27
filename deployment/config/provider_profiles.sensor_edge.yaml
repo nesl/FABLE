@@ -1,0 +1,39 @@
+version: 1
+# Experiment-specific measured-shape profiles: the sensor is compute-limited,
+# while the CUDA edge device is faster enough to justify frame transfer on a
+# healthy link. Only providers reachable for the initial convergence frontier
+# are included.
+profiles:
+  audio_event_classifier:
+    - {node_type: sensor, startup_ms: 240, execution_ms: 30, cpu: 0.6, memory_mb: 1024, gpu_memory_mb: 0, output_bytes: 512, quality: 0.90}
+    - {node_type: edge, startup_ms: 240, execution_ms: 90, cpu: 0.6, memory_mb: 1024, gpu_memory_mb: 0, output_bytes: 512, quality: 0.90}
+  yolo_vehicle_fast_640:
+    - {node_type: sensor, startup_ms: 420, execution_ms: 128, cpu: 0.8, memory_mb: 640, gpu_memory_mb: 1024, output_bytes: 12000, quality: 0.84}
+    - {node_type: edge, startup_ms: 420, execution_ms: 8, cpu: 0.8, memory_mb: 640, gpu_memory_mb: 1024, output_bytes: 12000, quality: 0.84}
+  yolo_full_context_960:
+    - {node_type: sensor, startup_ms: 520, execution_ms: 190, cpu: 0.9, memory_mb: 768, gpu_memory_mb: 1536, output_bytes: 18000, quality: 0.90}
+    - {node_type: edge, startup_ms: 520, execution_ms: 12, cpu: 0.9, memory_mb: 768, gpu_memory_mb: 1536, output_bytes: 18000, quality: 0.90}
+  multi_object_tracker:
+    - {node_type: sensor, startup_ms: 80, execution_ms: 48, cpu: 0.8, memory_mb: 384, gpu_memory_mb: 0, output_bytes: 16000, quality: 0.95}
+    - {node_type: edge, startup_ms: 80, execution_ms: 3, cpu: 0.8, memory_mb: 384, gpu_memory_mb: 0, output_bytes: 16000, quality: 0.95}
+  enters_basic:
+    - {node_type: sensor, startup_ms: 5, execution_ms: 8, cpu: 0.1, memory_mb: 64, gpu_memory_mb: 0, output_bytes: 512, quality: 0.99}
+    - {node_type: edge, startup_ms: 5, execution_ms: 1, cpu: 0.1, memory_mb: 64, gpu_memory_mb: 0, output_bytes: 512, quality: 0.99}
+  present_basic:
+    - {node_type: sensor, startup_ms: 5, execution_ms: 8, cpu: 0.1, memory_mb: 64, gpu_memory_mb: 0, output_bytes: 512, quality: 0.99}
+    - {node_type: edge, startup_ms: 5, execution_ms: 1, cpu: 0.1, memory_mb: 64, gpu_memory_mb: 0, output_bytes: 512, quality: 0.99}
+  near_geometry:
+    - {node_type: sensor, startup_ms: 5, execution_ms: 8, cpu: 0.1, memory_mb: 64, gpu_memory_mb: 0, output_bytes: 512, quality: 0.99}
+    - {node_type: edge, startup_ms: 5, execution_ms: 1, cpu: 0.1, memory_mb: 64, gpu_memory_mb: 0, output_bytes: 512, quality: 0.99}
+  follows_local_geometry:
+    - {node_type: sensor, startup_ms: 20, execution_ms: 30, cpu: 0.3, memory_mb: 128, gpu_memory_mb: 0, output_bytes: 768, quality: 0.94}
+    - {node_type: edge, startup_ms: 20, execution_ms: 10, cpu: 0.3, memory_mb: 128, gpu_memory_mb: 0, output_bytes: 768, quality: 0.94}
+  exits_basic:
+    - {node_type: sensor, startup_ms: 5, execution_ms: 8, cpu: 0.1, memory_mb: 64, gpu_memory_mb: 0, output_bytes: 512, quality: 0.99}
+    - {node_type: edge, startup_ms: 5, execution_ms: 1, cpu: 0.1, memory_mb: 64, gpu_memory_mb: 0, output_bytes: 512, quality: 0.99}
+  disembarks_person_vehicle:
+    - {node_type: sensor, startup_ms: 12, execution_ms: 18, cpu: 0.25, memory_mb: 128, gpu_memory_mb: 0, output_bytes: 768, quality: 0.88}
+    - {node_type: edge, startup_ms: 12, execution_ms: 6, cpu: 0.25, memory_mb: 128, gpu_memory_mb: 0, output_bytes: 768, quality: 0.88}
+  boards_person_vehicle:
+    - {node_type: sensor, startup_ms: 12, execution_ms: 18, cpu: 0.25, memory_mb: 128, gpu_memory_mb: 0, output_bytes: 768, quality: 0.88}
+    - {node_type: edge, startup_ms: 12, execution_ms: 6, cpu: 0.25, memory_mb: 128, gpu_memory_mb: 0, output_bytes: 768, quality: 0.88}

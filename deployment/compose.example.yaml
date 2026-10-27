@@ -1,27 +1,35 @@
 services:
+  mqtt:
+    image: eclipse-mosquitto:2
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mqtt-data:/mosquitto/data
+    ports:
+      - "${FABLE_MQTT_HOST_PORT:-1883}:1883"
+    restart: unless-stopped
+
   controller:
     build:
       context: ..
       dockerfile: deployment/Dockerfile
-    command:
-      - scripts/run_fable.py
-      - ce_definitions/convoy.yaml
-      - config/deployment.example.yaml
-    volumes:
-      - ../ce_definitions:/workspace/FABLE/ce_definitions:ro
-      - ../config:/workspace/FABLE/config:ro
-    ports:
-      - "8766:8766"
+    depends_on:
+      - mqtt
+    restart: unless-stopped
 
   sensor1-agent:
     build:
       context: ..
       dockerfile: deployment/Dockerfile
-    command:
-      - scripts/run_node_agent.py
-      - config/node_agent.example.yaml
-    volumes:
-      - ../config:/workspace/FABLE/config:ro
-      - ${RECORDING_ROOT:-../replay}:/recordings:ro
-    ports:
-      - "8765:8765"
+    depends_on:
+      - mqtt
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+
+volumes:
+  mqtt-data:

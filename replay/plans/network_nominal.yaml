@@ -1,0 +1,5 @@
+version: 1
+mode: netwaggle
+description: Replay through the NetWaggle sensor/edge topology without impairment.
+topology: netwaggle/topologies/sensor_edge.yaml
+conditions: []

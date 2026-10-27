@@ -1,0 +1,24 @@
+name: sensor_edge_uplink
+switches: [sensor_switch, edge_switch]
+gateway:
+  # Put the MQTT/controller gateway beyond the constrained uplink so sensor
+  # event evidence must traverse the shaped link.
+  switch: edge_switch
+  ip: 10.253.0.1/16
+  host_ifname: nwg-host
+  switch_ifname: nwg-sw
+nodes:
+  sensor1:
+    deployment: {container_name: fable-e2e-sensor1-agent}
+    network: {attach_to: sensor_switch, address: 10.253.10.2/16, gateway: 10.253.0.1}
+  edge1:
+    deployment: {container_name: fable-e2e-edge1-agent}
+    network: {attach_to: edge_switch, address: 10.253.20.2/16, gateway: 10.253.0.1}
+links:
+  - name: sensor_edge_uplink
+    from: sensor_switch
+    to: edge_switch
+    connection_status: connected
+    bandwidth_mbps: 1000
+    latency_ms: 1
+    packet_loss_fraction: 0

@@ -1,0 +1,114 @@
+version: 1
+case_id: rendezvous1
+aliases:
+- rendezvous_brianjulian1
+description: A vehicle arrives, two people meet, and the vehicle later leaves.
+verified_end_to_end: false
+timeout_seconds: 240
+require_completion: true
+event:
+  version: 1
+  event: rendezvous
+  description: A vehicle enters the view, two people interact, and a vehicle later
+    leaves the view.
+  roles:
+    VEHICLE:
+      class: vehicle
+    DEPARTING_VEHICLE:
+      class: vehicle
+    PERSON_A:
+      class: person
+    PERSON_B:
+      class: person
+  pattern:
+    seq:
+    - enters:
+        object: VEHICLE
+    - any:
+      - for:
+          duration: 3s
+          pattern:
+            conversation:
+              participant_a: PERSON_A
+              participant_b: PERSON_B
+              max_distance_m: 5
+      - near:
+          object_a: PERSON_A
+          object_b: PERSON_B
+          max_normalized_gap: 6.0
+    - exits:
+        object: DEPARTING_VEHICLE
+replay:
+  version: 1
+  replay_id: 20250812-talking-rendezvous-rendezvous-brianjulian-1-r029
+  speed: 1.0
+  source_policy:
+    monitor: all
+    inference:
+    - orin6_camera
+  sources:
+  - source_id: orin1_camera
+    modality: video
+    path: /gq-recordings/20250812/orin1/20250812_161305_dvpg_gq_orin_1_zed_left.mp4
+    event_time_start: '2025-08-12T20:13:05Z'
+    duration_seconds: 150.2
+  - source_id: orin2_camera
+    modality: video
+    path: /gq-recordings/20250812/orin2/20250812_161305_dvpg_gq_orin_2_zed_left.mp4
+    event_time_start: '2025-08-12T20:13:05Z'
+    duration_seconds: 144.4
+  - source_id: orin3_camera
+    modality: video
+    path: /gq-recordings/20250812/orin3/20250812_161305_dvpg_gq_orin_3_zed_left.mp4
+    event_time_start: '2025-08-12T20:13:05Z'
+    duration_seconds: 144.266667
+  - source_id: orin4_camera
+    modality: video
+    path: /gq-recordings/20250812/orin4/20250812_161305_dvpg_gq_orin_4_zed_left.mp4
+    event_time_start: '2025-08-12T20:13:05Z'
+    duration_seconds: 145.066667
+  - source_id: orin5_camera
+    modality: video
+    path: /gq-recordings/20250812/orin5/20250812_161305_dvpg_gq_orin_5_zed_left.mp4
+    event_time_start: '2025-08-12T20:13:05Z'
+    duration_seconds: 145.0
+  - source_id: orin6_camera
+    modality: video
+    path: /gq-recordings/20250812/orin6/20250812_161305_dvpg_gq_orin_6_zed_left.mp4
+    event_time_start: '2025-08-12T20:13:05Z'
+    duration_seconds: 142.666667
+  - source_id: orin7_camera
+    modality: video
+    path: /gq-recordings/20250812/orin7/20250812_161305_dvpg_gq_orin_7_zed_left.mp4
+    event_time_start: '2025-08-12T20:13:05Z'
+    duration_seconds: 94.466667
+  - source_id: orin8_camera
+    modality: video
+    path: /gq-recordings/20250812/orin8/20250812_161305_dvpg_gq_orin_8_zed_left.mp4
+    event_time_start: '2025-08-12T20:13:05Z'
+    duration_seconds: 143.666667
+  - source_id: orin9_camera
+    modality: video
+    path: /gq-recordings/20250812/orin9/20250812_161305_dvpg_gq_orin_9_zed_left.mp4
+    event_time_start: '2025-08-12T20:13:05Z'
+    duration_seconds: 81.466667
+  - source_id: orin10_camera
+    modality: video
+    path: /gq-recordings/20250812/orin10/20250812_161305_dvpg_gq_orin_10_zed_left.mp4
+    event_time_start: '2025-08-12T20:13:05Z'
+    duration_seconds: 155.666667
+  - source_id: mobile_4_all
+    modality: video
+    path: /recordings/mobile 4 all/recording__1755029635827.mp4
+    event_time_start: '2025-08-12T20:13:55.827Z'
+    rotation_degrees: 270
+  - source_id: mobile_5_all
+    modality: video
+    path: /recordings/mobile 5 all/recording__1755029635773.mp4
+    event_time_start: '2025-08-12T20:13:55.773Z'
+    rotation_degrees: 270
+  - source_id: mobile_6_all
+    modality: video
+    path: /recordings/mobile 6 all/recording__1755029593292.mp4
+    event_time_start: '2025-08-12T20:13:13.292Z'
+    rotation_degrees: 270

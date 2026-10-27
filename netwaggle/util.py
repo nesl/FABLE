@@ -7,6 +7,8 @@ import subprocess
 from pathlib import Path
 from typing import Any, Iterable
 
+import yaml
+
 
 class NetWaggleError(RuntimeError):
     """Raised for recoverable NetWaggle setup/configuration errors."""
@@ -42,8 +44,12 @@ def sudo_check() -> None:
 
 
 def load_json(path: str | Path) -> dict[str, Any]:
-    with Path(path).open("r", encoding="utf-8") as f:
-        return json.load(f)
+    source = Path(path)
+    with source.open("r", encoding="utf-8") as f:
+        value = yaml.safe_load(f) if source.suffix.lower() in {".yaml", ".yml"} else json.load(f)
+    if not isinstance(value, dict):
+        raise NetWaggleError(f"configuration must contain a mapping: {source}")
+    return value
 
 
 def write_jsonl(path: str | Path, rows: Iterable[dict[str, Any]]) -> None:
@@ -61,4 +67,3 @@ def safe_ifname(prefix: str, name: str, max_len: int = 15) -> str:
         cleaned = "x"
     base = f"{prefix}{cleaned}"
     return base[:max_len]
-

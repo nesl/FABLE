@@ -1,0 +1,15 @@
+version: 1
+node:
+  node_id: sensor1
+  node_type: sensor
+runtime: dataflow
+transport: mqtt
+mqtt:
+  # Host-side broker address reached through the NetWaggle gateway.
+  host: 10.255.0.1
+  port: 1884
+system_probe: true
+historical_store:
+  database: /var/lib/fable/history.sqlite3
+  media_root: /var/lib/fable/media
+replay_manifest: /etc/fable/replay.yaml

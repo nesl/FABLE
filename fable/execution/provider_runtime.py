@@ -132,10 +132,12 @@ class DockerProviderRuntime:
         *,
         docker_binary: str = "docker",
         extra_args: Sequence[str] = (),
+        extra_env: Mapping[str, str] | None = None,
     ) -> None:
         self.images = dict(images)
         self.docker_binary = docker_binary
         self.extra_args = tuple(extra_args)
+        self.extra_env = dict(extra_env or {})
         self.containers: dict[ProviderInstanceKey, str] = {}
 
     def start(self, spec: ProviderInstanceSpec) -> None:
@@ -152,6 +154,7 @@ class DockerProviderRuntime:
             "--env", f"FABLE_NODE_ID={spec.key.node_id}",
             "--env", f"FABLE_SOURCE_IDS={','.join(spec.key.source_ids)}",
             "--env", f"FABLE_OUTPUT_TYPE={spec.output_type}",
+            *(item for key, value in sorted(self.extra_env.items()) for item in ("--env", f"{key}={value}")),
             *self.extra_args,
             image,
         ]
@@ -172,6 +175,16 @@ class DockerProviderRuntime:
         )
 
     def running(self) -> tuple[ProviderInstanceKey, ...]:
+        dead = []
+        for key, name in self.containers.items():
+            completed = subprocess.run(
+                (self.docker_binary, "inspect", "--format", "{{.State.Running}}", name),
+                check=False, capture_output=True, text=True,
+            )
+            if completed.returncode != 0 or completed.stdout.strip().lower() != "true":
+                dead.append(key)
+        for key in dead:
+            self.containers.pop(key, None)
         return tuple(sorted(self.containers))
 
 

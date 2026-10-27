@@ -1,0 +1,19 @@
+version: 1
+transport: mqtt
+mqtt: {host: 127.0.0.1, port: 1884}
+provider_profiles: provider_profiles.sensor_edge.yaml
+nodes:
+  sensor1: {node_type: sensor, available: true, cpu_free: 16, memory_mb_free: 32768, gpu_memory_mb_free: 16384}
+  edge1: {node_type: edge, available: true, cpu_free: 16, memory_mb_free: 32768, gpu_memory_mb_free: 16384}
+sources:
+  orin6_audio:
+    {node_id: sensor1, data_type: audio_window, site_id: convergence_site, sample_bytes: 32000, available: true}
+  orin1_camera:
+    {node_id: sensor1, data_type: video_frame, site_id: convergence_site, sample_bytes: 2000000, available: true}
+  orin4_camera:
+    {node_id: sensor1, data_type: video_frame, site_id: convergence_site, sample_bytes: 2000000, available: true}
+  orin7_camera:
+    {node_id: sensor1, data_type: video_frame, site_id: convergence_site, sample_bytes: 2000000, available: true}
+links:
+  - {source_node: sensor1, destination_node: edge1, latency_ms: 1, bandwidth_mbps: 1000, available: true}
+  - {source_node: edge1, destination_node: sensor1, latency_ms: 1, bandwidth_mbps: 1000, available: true}

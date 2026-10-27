@@ -5,6 +5,11 @@ predicates:
     description: The visual object is currently visible in the relevant camera view.
     arguments:
       object: visual_object
+      minimum_confidence:
+        type: number
+        required: false
+        minimum: 0
+        maximum: 1
 
   enters:
     description: The visual object transitions from not visible to visible in the relevant camera view.

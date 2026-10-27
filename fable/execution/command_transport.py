@@ -11,6 +11,7 @@ import json
 import socket
 import socketserver
 import threading
+from datetime import datetime
 from typing import Mapping, Protocol
 
 from .node_agent import CommandResult, NodeAgent, NodeStatus
@@ -152,11 +153,34 @@ def _key_from_dict(raw: Mapping) -> ProviderInstanceKey:
 
 
 def _spec_to_dict(spec: ProviderInstanceSpec) -> dict:
-    return {"key": _key_to_dict(spec.key), "output_type": spec.output_type}
+    return {
+        "key": _key_to_dict(spec.key), "output_type": spec.output_type,
+        "demands": [
+            {
+                "demand_id": demand.demand_id,
+                "predicate": demand.predicate,
+                "arguments": dict(demand.arguments),
+                "parameters": dict(demand.parameters),
+                "expires_at": None if demand.expires_at is None else demand.expires_at.isoformat(),
+            }
+            for demand in spec.demands
+        ],
+    }
 
 
 def _spec_from_dict(raw: Mapping) -> ProviderInstanceSpec:
-    return ProviderInstanceSpec(_key_from_dict(raw["key"]), str(raw.get("output_type", "")))
+    from fable.planning import ProviderDemand
+    demands = tuple(
+        ProviderDemand(
+            str(row["demand_id"]), str(row["predicate"]),
+            dict(row.get("arguments", {})), dict(row.get("parameters", {})),
+            None if row.get("expires_at") is None else datetime.fromisoformat(row["expires_at"]),
+        )
+        for row in raw.get("demands", ())
+    )
+    return ProviderInstanceSpec(
+        _key_from_dict(raw["key"]), str(raw.get("output_type", "")), demands
+    )
 
 
 def _status_to_dict(status: NodeStatus) -> dict:

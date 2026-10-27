@@ -1,0 +1,81 @@
+services:
+  visualization:
+    container_name: fable-e2e-visualization
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile
+    command:
+      - scripts/run_visualization.py
+      - --state-file
+      - /workspace/FABLE/.fable/runs/visualization-state.json
+      - --host
+      - 127.0.0.1
+      - --port
+      - "5000"
+    network_mode: host
+    volumes:
+      - ../.fable/runs:/workspace/FABLE/.fable/runs:ro
+    restart: unless-stopped
+
+  mqtt:
+    network_mode: host
+    volumes:
+      - ./mosquitto.netwaggle.conf:/mosquitto/config/mosquitto.conf:ro
+
+  controller:
+    container_name: fable-e2e-controller
+    network_mode: host
+    command:
+      - scripts/session_supervisor.py
+      - serve
+      - --socket
+      - /tmp/fable-session.sock
+    volumes:
+      - ../replay:/workspace/FABLE/replay:ro
+      - ./config:/workspace/FABLE/deployment/config:ro
+      - ../.fable/runs:/workspace/FABLE/.fable/runs
+
+  sensor1-agent:
+    container_name: fable-e2e-sensor1-agent
+    command: [scripts/session_supervisor.py, serve, --socket, /tmp/fable-session.sock]
+    environment:
+      FABLE_YOLO_DEVICE: cuda:0
+    network_mode: none
+    volumes:
+      - ./config:/workspace/FABLE/deployment/config:ro
+      - ${RECORDING_ROOT}:/recordings:ro
+      - ${GQ_RECORDING_ROOT}:/gq-recordings:ro
+      - ../.fable/runs/replay-assets:/replay-assets:ro
+      - ../deployment:/workspace/FABLE/deployment:ro
+      - ../.fable/runs:/workspace/FABLE/.fable/runs
+
+  edge1-agent:
+    container_name: fable-e2e-edge1-agent
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile
+    command: [scripts/session_supervisor.py, serve, --socket, /tmp/fable-session.sock]
+    environment:
+      FABLE_YOLO_DEVICE: cuda:0
+      # Real video replays have overlapping vehicles and partial occlusion;
+      # keep the dependency-light IoU tracker as the code default, but use the
+      # already-installed robust tracker for this deployment.
+      FABLE_TRACKER_ALGORITHM: bytetrack
+      # Recorded scenes include legitimate exits behind structures inside the
+      # image, so disappearance anywhere in the monitored view can end a track.
+      FABLE_EXIT_BOUNDARY_MARGIN: "0.5"
+    network_mode: none
+    volumes:
+      - ./config:/workspace/FABLE/deployment/config:ro
+      - ../.fable/runs:/workspace/FABLE/.fable/runs
+      - agent-edge-state:/var/lib/fable
+    depends_on: [mqtt]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - {driver: nvidia, count: 1, capabilities: [gpu]}
+    restart: unless-stopped
+
+volumes:
+  agent-edge-state:

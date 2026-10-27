@@ -51,6 +51,7 @@ class DataflowProviderRuntime:
 
     def start(self, spec: ProviderInstanceSpec) -> None:
         if spec.key in self.workers:
+            self.workers[spec.key].set_demands(spec.demands)
             return
         provider = self._make_provider(spec.key.provider_id)
         worker = ProviderWorker(
@@ -61,6 +62,7 @@ class DataflowProviderRuntime:
             provider_catalog=self.catalog,
         )
         worker.start()
+        worker.set_demands(spec.demands)
         self.workers[spec.key] = worker
         try:
             self._retain_sources(worker)
@@ -91,9 +93,43 @@ class DataflowProviderRuntime:
         """Inject a source value directly (useful for replay/tests)."""
         return self.bus.publish(StreamKey(data_type, (source_id,)), value)
 
+    def pin_sources(self, source_ids: tuple[str, ...]) -> None:
+        """Keep configured sources active independently of local provider placement."""
+        for source_id in source_ids:
+            adapter = self.source_adapters[source_id]
+            self._source_refcounts[source_id] += 1
+            if self._source_refcounts[source_id] == 1:
+                adapter.start(self.bus)
+
+    def unpin_sources(self, source_ids: tuple[str, ...]) -> None:
+        for source_id in source_ids:
+            adapter = self.source_adapters.get(source_id)
+            if adapter is None:
+                continue
+            if self._source_refcounts[source_id] <= 1:
+                self._source_refcounts.pop(source_id, None)
+                adapter.stop()
+            else:
+                self._source_refcounts[source_id] -= 1
+
     def _make_provider(self, provider_id: str) -> object:
         factory = self.provider_factories.get(provider_id)
         return factory() if factory is not None else self.provider_factory(provider_id)
+
+    def prewarm(self, provider_ids: tuple[str, ...]) -> None:
+        """Load expensive providers once and retain them for their first plan."""
+        for provider_id in provider_ids:
+            if provider_id in self.provider_factories:
+                provider = self.provider_factories[provider_id]()
+            else:
+                provider = self.provider_factory(provider_id)
+            self.provider_factories[provider_id] = lambda provider=provider: provider
+            loader = getattr(provider, "_load", None)
+            backend = getattr(provider, "backend", None)
+            if not callable(loader):
+                loader = getattr(backend, "_load", None)
+            if callable(loader):
+                loader()
 
     def _retain_sources(self, worker: ProviderWorker) -> None:
         raw_types = {"video_frame", "audio_window", "multichannel_audio"}
