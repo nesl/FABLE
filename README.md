@@ -210,7 +210,7 @@ event YAML
 Raw media and provider intermediates remain on the selected node. MQTT carries
 compact commands and event results rather than raw sensor streams.
 
-![FABLE architecture](docs/architecture.svg)
+![FABLE control and data plane architecture](docs/architecture.png)
 
 ## License
 
