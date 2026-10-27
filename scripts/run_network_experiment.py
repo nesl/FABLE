@@ -22,9 +22,9 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from netwaggle.experiment import NetworkCondition, load_network_experiment
-from netwaggle.topology import Link, NetWaggleTopology
-from netwaggle.util import load_json
+from replay.experiment import NetworkCondition, load_network_experiment
+
+import yaml
 
 COMPOSE_BASE = (
     "docker", "compose", "--env-file", ".env", "-p", "fable-e2e",
@@ -39,6 +39,14 @@ SESSION_SOCKET = "/tmp/fable-session.sock"
 REPLAY_BARRIER = "/tmp/fable-network-ready"
 CONTROLLER_BARRIER = "/tmp/fable-controller-ready"
 NETWAGGLE_PYTHON = "/usr/bin/python3"
+
+
+def _load_mapping(path: str | Path) -> dict[str, Any]:
+    source = Path(path)
+    value = yaml.safe_load(source.read_text(encoding="utf-8"))
+    if not isinstance(value, dict):
+        raise ValueError(f"configuration must contain a mapping: {source}")
+    return value
 
 
 @dataclass(frozen=True, slots=True)
@@ -670,9 +678,19 @@ def main(argv: list[str] | None = None) -> int:
     compose = (*COMPOSE_BASE, "-f", str(args.compose_override))
 
     experiment = load_network_experiment(args.experiment)
-    topology = NetWaggleTopology.from_dict(load_json(experiment.topology))
-    changes = schedule(experiment.conditions, topology)
-    if args.direct and changes:
+    topology = None
+    if args.direct:
+        changes = ()
+    else:
+        if experiment.topology is None:
+            raise ValueError("NetWaggle plans require a topology")
+        # Import NetWaggle only for plans that actually use it. Direct replay
+        # therefore has no runtime dependency on the netwaggle package.
+        from netwaggle.topology import NetWaggleTopology
+
+        topology = NetWaggleTopology.from_dict(_load_mapping(experiment.topology))
+        changes = schedule(experiment.conditions, topology)
+    if args.direct and experiment.conditions:
         raise ValueError("direct network mode cannot apply NetWaggle conditions")
     resolved = {
         "topology": None if args.direct else str(experiment.topology),
@@ -701,7 +719,7 @@ def main(argv: list[str] | None = None) -> int:
     manifest: dict[str, Any] = {}
     if experiment.replay_manifest is not None:
         os.environ["FABLE_REPLAY_MANIFEST"] = str(experiment.replay_manifest)
-        manifest = load_json(experiment.replay_manifest)
+        manifest = _load_mapping(experiment.replay_manifest)
         recording_root = Path(
             os.environ.get("RECORDING_ROOT")
             or _dotenv_value(ROOT / ".env", "RECORDING_ROOT")
@@ -752,7 +770,7 @@ def main(argv: list[str] | None = None) -> int:
     deployment_path = ROOT / "deployment" / "config" / "deployment.netwaggle.real.yaml"
     inference_sources = tuple(manifest.get("source_policy", {}).get("inference", ()))
     if inference_sources:
-        deployment = load_json(deployment_path)
+        deployment = _load_mapping(deployment_path)
         if args.event_only and "edge1" in deployment.get("nodes", {}):
             deployment["nodes"]["edge1"]["available"] = False
         profile_path = Path(str(deployment.get("provider_profiles", "")))
@@ -874,7 +892,11 @@ def main(argv: list[str] | None = None) -> int:
             route = _run(["docker", "exec", AGENT_CONTAINER, "ip", "route", "get", topology.gateway.ip_without_prefix], capture=True).stdout
             if "dev netwaggle0" not in route:
                 raise RuntimeError(f"agent MQTT route bypasses NetWaggle: {route.strip()}")
-        agent_client_ids = tuple(f"fable-agent-{attachment.name}" for attachment in topology.attachments)
+        agent_client_ids = (
+            ("fable-agent-sensor1", "fable-agent-edge1")
+            if args.direct
+            else tuple(f"fable-agent-{attachment.name}" for attachment in topology.attachments)
+        )
         _wait_for(
             lambda: all(client_id in _run(
                 [*compose, "logs", "--no-color", "mqtt"], check=False, capture=True

@@ -37,4 +37,6 @@ conditions:
 ```
 
 The runner invokes sudo only for the Mininet/OVS process. Direct mode bypasses
-sudo, Mininet, OVS, and the NetWaggle control socket.
+sudo, Mininet, OVS, the NetWaggle control socket, and imports from the
+`netwaggle` package. The shared replay-plan parser lives in `replay/`, so the
+direct execution path is independent of this integration package.

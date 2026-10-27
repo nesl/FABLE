@@ -76,16 +76,14 @@ def _materialize(case_name: str, case: dict[str, Any], plan_name: str,
     event_path.write_text(yaml.safe_dump(case["event"], sort_keys=False), encoding="utf-8")
     replay_path.write_text(yaml.safe_dump(case["replay"], sort_keys=False), encoding="utf-8")
     experiment = {
-        # The legacy low-level runner always accepts a topology. Direct mode
-        # never starts it, so keep that implementation default out of the
-        # user-facing direct plan.
-        "topology": str(plan.get("topology", "netwaggle/topologies/sensor_edge.yaml")),
         "event": str(event_path.relative_to(ROOT)),
         "replay_manifest": str(replay_path.relative_to(ROOT)),
         "timeout_seconds": float(case.get("timeout_seconds", 120)),
         "require_completion": bool(case.get("require_completion", False)),
         "conditions": plan.get("conditions", []),
     }
+    if plan.get("topology"):
+        experiment["topology"] = str(plan["topology"])
     experiment_path.write_text(yaml.safe_dump(experiment, sort_keys=False), encoding="utf-8")
     return experiment_path
 

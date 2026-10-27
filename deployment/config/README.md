@@ -10,13 +10,6 @@ deployment describes one installation, not complex-event semantics.
   owned by one node agent.
 - `deployment.mqtt.example.yaml` and `node_agent.mqtt.example.yaml` select the
   MQTT command/result plane. MQTT carries compact messages, not raw media.
-- `deployment.physical.example.yaml` records the known Pi/Jetson/desktop
-  inventory. It is a template until the refactored NodeAgent is listening on
-  each declared endpoint.
-- `node_agent.{rpi,jetson,desktop}.yaml` are the staged physical-testbed agent
-  identities. They intentionally start with no sensing sources; verified
-  recording/model adapters are added only after control-plane preflight passes.
-
 Copy an example before adding machine-specific addresses or recording paths.
 Do not commit credentials.
 

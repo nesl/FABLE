@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="620" viewBox="0 0 1100 620" role="img" aria-labelledby="title desc">
+  <title id="title">FABLE replay and complex-event detection architecture</title>
+  <desc id="desc">A replay case provides an event definition and synchronized media. A reusable plan selects direct networking or NetWaggle. Sensor and edge providers send compact results through MQTT to the FABLE controller, which updates the dashboards and saved run artifacts.</desc>
+  <defs>
+    <style>
+      .title { font: 700 28px system-ui, sans-serif; fill: #172033; }
+      .heading { font: 700 18px system-ui, sans-serif; fill: #172033; }
+      .body { font: 14px system-ui, sans-serif; fill: #344054; }
+      .small { font: 13px system-ui, sans-serif; fill: #475467; }
+      .box { stroke-width: 2; rx: 14; }
+      .arrow { stroke: #667085; stroke-width: 2.5; fill: none; marker-end: url(#arrow); }
+      .dash { stroke-dasharray: 8 7; }
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#667085"/>
+    </marker>
+  </defs>
+
+  <rect width="1100" height="620" fill="#f8fafc"/>
+  <text x="550" y="45" text-anchor="middle" class="title">FABLE replay architecture</text>
+
+  <rect x="55" y="90" width="260" height="180" class="box" fill="#eef4ff" stroke="#6172f3"/>
+  <text x="185" y="122" text-anchor="middle" class="heading">Replay case</text>
+  <text x="78" y="157" class="body">replay/cases/&lt;case&gt;.yaml</text>
+  <rect x="78" y="178" width="214" height="34" rx="8" fill="#ffffff" stroke="#9b8afb"/>
+  <text x="185" y="200" text-anchor="middle" class="small">Complex-event definition</text>
+  <rect x="78" y="222" width="214" height="34" rx="8" fill="#ffffff" stroke="#9b8afb"/>
+  <text x="185" y="244" text-anchor="middle" class="small">Synchronized video + audio</text>
+
+  <rect x="55" y="320" width="260" height="180" class="box" fill="#ecfdf3" stroke="#17b26a"/>
+  <text x="185" y="352" text-anchor="middle" class="heading">Replay plan</text>
+  <text x="78" y="387" class="body">replay/plans/&lt;plan&gt;.yaml</text>
+  <text x="82" y="422" class="small">• direct</text>
+  <text x="82" y="450" class="small">• network_nominal</text>
+  <text x="82" y="478" class="small">• network_disconnect</text>
+
+  <rect x="410" y="90" width="280" height="410" class="box" fill="#fffaeb" stroke="#f79009"/>
+  <text x="550" y="124" text-anchor="middle" class="heading">Distributed perception</text>
+  <rect x="440" y="155" width="220" height="110" rx="12" fill="#ffffff" stroke="#fdb022"/>
+  <text x="550" y="184" text-anchor="middle" class="heading">Sensor node</text>
+  <text x="550" y="214" text-anchor="middle" class="small">Replay adapters</text>
+  <text x="550" y="238" text-anchor="middle" class="small">Detection · tracking · audio</text>
+  <rect x="440" y="305" width="220" height="110" rx="12" fill="#ffffff" stroke="#fdb022"/>
+  <text x="550" y="334" text-anchor="middle" class="heading">Edge node</text>
+  <text x="550" y="364" text-anchor="middle" class="small">Planner-selected providers</text>
+  <text x="550" y="388" text-anchor="middle" class="small">Local intermediate data</text>
+  <path d="M 550 265 L 550 305" class="arrow"/>
+  <text x="550" y="462" text-anchor="middle" class="small">Direct Docker networking or</text>
+  <text x="550" y="483" text-anchor="middle" class="small">NetWaggle-controlled topology</text>
+
+  <rect x="785" y="90" width="260" height="180" class="box" fill="#f4f3ff" stroke="#7a5af8"/>
+  <text x="915" y="122" text-anchor="middle" class="heading">FABLE controller</text>
+  <text x="915" y="158" text-anchor="middle" class="body">Compile CE</text>
+  <text x="915" y="187" text-anchor="middle" class="body">Track semantic frontier</text>
+  <text x="915" y="216" text-anchor="middle" class="body">Place and replan providers</text>
+  <text x="915" y="245" text-anchor="middle" class="body">Confirm completion</text>
+
+  <rect x="785" y="320" width="260" height="180" class="box" fill="#fff1f3" stroke="#f04438"/>
+  <text x="915" y="352" text-anchor="middle" class="heading">UI and run artifacts</text>
+  <text x="915" y="389" text-anchor="middle" class="body">CE-progress dashboard</text>
+  <text x="915" y="418" text-anchor="middle" class="body">Device dashboard</text>
+  <text x="915" y="447" text-anchor="middle" class="body">Recorded dashboard videos</text>
+  <text x="915" y="476" text-anchor="middle" class="body">Logs and metadata</text>
+
+  <path d="M 315 180 L 410 180" class="arrow"/>
+  <path d="M 315 410 L 410 410" class="arrow"/>
+  <path d="M 690 180 L 785 180" class="arrow"/>
+  <path d="M 785 225 L 690 225" class="arrow dash"/>
+  <path d="M 915 270 L 915 320" class="arrow"/>
+  <text x="738" y="165" text-anchor="middle" class="small">results</text>
+  <text x="738" y="247" text-anchor="middle" class="small">commands</text>
+
+  <rect x="410" y="545" width="635" height="42" rx="10" fill="#ffffff" stroke="#d0d5dd"/>
+  <text x="728" y="571" text-anchor="middle" class="small">MQTT carries compact commands and results; raw media stays on the selected node.</text>
+</svg>

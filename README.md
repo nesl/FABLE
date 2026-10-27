@@ -21,7 +21,8 @@ Requirements:
 - NVIDIA Container Toolkit and a CUDA-capable GPU
 - FFmpeg
 - the NetWaggle/Mininet host setup described in
-  [netwaggle/README.md](netwaggle/README.md)
+  [netwaggle/README.md](netwaggle/README.md), only for `network_nominal` and
+  `network_disconnect`
 
 Install FABLE:
 
@@ -207,8 +208,9 @@ event YAML
 ```
 
 Raw media and provider intermediates remain on the selected node. MQTT carries
-compact commands and event results rather than raw sensor streams. See
-[ARCHITECTURE.md](ARCHITECTURE.md) for the package boundaries.
+compact commands and event results rather than raw sensor streams.
+
+![FABLE architecture](docs/architecture.svg)
 
 ## License
 

@@ -1,4 +1,4 @@
-"""Minimal, replay-relative network experiment configuration."""
+"""Replay experiment configuration shared by direct and networked runs."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -43,7 +43,7 @@ class NetworkCondition:
 
 @dataclass(frozen=True, slots=True)
 class NetworkExperiment:
-    topology: Path
+    topology: Path | None
     conditions: tuple[NetworkCondition, ...]
     event: Path | None = None
     replay_manifest: Path | None = None
@@ -67,8 +67,8 @@ _EXPERIMENT_FIELDS = {
 def load_network_experiment(path: str | Path) -> NetworkExperiment:
     source = Path(path).resolve()
     raw = yaml.safe_load(source.read_text(encoding="utf-8"))
-    if not isinstance(raw, dict) or not {"topology", "conditions"} <= set(raw):
-        raise ValueError("experiment requires topology and conditions")
+    if not isinstance(raw, dict) or "conditions" not in raw:
+        raise ValueError("experiment requires conditions")
     unknown = set(raw) - _EXPERIMENT_FIELDS
     if unknown:
         raise ValueError(f"experiment has unknown fields: {sorted(unknown)}")
@@ -93,7 +93,7 @@ def load_network_experiment(path: str | Path) -> NetworkExperiment:
     if timeout <= 0:
         raise ValueError("timeout_seconds must be positive")
     return NetworkExperiment(
-        resolved_path(raw["topology"]), tuple(conditions),
+        resolved_path(raw.get("topology")), tuple(conditions),
         resolved_path(raw.get("event")), resolved_path(raw.get("replay_manifest")),
         timeout, raw.get("expected_initial_node"),
         raw.get("expected_disconnected_node"), bool(raw.get("require_completion", False)),
